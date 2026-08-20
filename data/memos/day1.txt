@@ -1,0 +1,22 @@
+Okay, just left the SuperAI mixer at Marina Bay Sands. Three people worth remembering.
+
+Wei Lin from GIC, she's a quant infrastructure lead, been there about six years. Really
+sharp on the data pipeline side, she was complaining that their feature store is held
+together with cron jobs. She's actually hiring for a quant infra role right now, mid to
+senior. I said I'd send her the Kestrel repo because she wanted to see how we did the
+streaming ingestion. Should do that tomorrow while it's fresh.
+
+Then there was a guy, Arjun Menon I think, works at Sea Group on their recommendations
+team. Younger, maybe three years in. He's the one who did that talk on embedding drift
+that everyone was posting about. We got into it about whether you even need a vector DB
+at their scale and he made a decent case that you don't. I told him I'd introduce him to
+Marcus since Marcus is dealing with the exact same thing at Grab. Should do that intro
+by end of week.
+
+And Priya, didn't catch her last name, she's a partner at some early stage fund, Antler
+maybe? Or Jungle. She asked what I was working on and I gave her the thirty second
+version of Recall and she seemed genuinely interested, asked if we were raising. I said
+I'd send her the deck next week once we've cleaned it up. She's based in Singapore but
+travels to Jakarta a lot.
+
+Oh and I ran into Daniel from the Stripe thing again, nothing new, just said hi.

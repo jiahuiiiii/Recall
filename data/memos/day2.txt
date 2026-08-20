@@ -1,0 +1,12 @@
+Quick one from the AI Engineer meetup at Funan.
+
+Ran into Wei Lin again, the GIC one. She'd actually looked at the Kestrel repo, had
+questions about how we handle backfills. She said the quant infra role is still open and
+asked if I knew anyone. Told her I'd ask around and send her two or three names by Friday.
+
+Also met someone new, Chen Yu Xin, she's a founding engineer at a seed stage company
+called Tessellate doing something with document extraction for logistics. Ex-Shopee. She
+was interesting on the eval problem, said they threw out their whole LLM-as-judge setup
+because it kept rewarding verbosity. I said I'd send her that eval paper we were reading.
+
+Marcus was there too and I finally did the Arjun intro in person, so that one's done.

@@ -1,0 +1,10 @@
+data/person_graph.json
+data/calendar.json
+data/audio/*
+!data/audio/.gitkeep
+.env
+.venv/
+__pycache__/
+*.pyc
+.uv/
+uv.lock
