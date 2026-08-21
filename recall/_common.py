@@ -3,6 +3,13 @@
 Everything that talks to Bedrock goes through `chat_model()`. Nothing in the
 graph imports a client class directly, so swapping region/model/credentials is
 a one-file change.
+
+Metering is a callback handler, not a wrapper object. A wrapper looks simpler
+until something downstream type-checks the model -- `create_react_agent`
+demands a real Runnable and rejects anything else -- and then the sub-agent
+dies at runtime while every unit test that stubbed the agent still passes.
+A callback rides along on the real model and survives `with_structured_output`,
+`bind_tools`, and the react loop untouched.
 """
 
 from __future__ import annotations
@@ -12,17 +19,11 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any
 
-from dotenv import load_dotenv
+# .env is loaded in recall/__init__.py, which runs before any submodule.
 
-load_dotenv()
-
-# Haiku 4.5 is the default for every step. Sonnet only if Haiku is measurably
-# wrong on a step -- and the reason gets written down at the call site.
-# The "global." prefix is a cross-region inference profile. It is the workshop
-# account's default, but a personal AWS account frequently does not have it and
-# needs a regional profile instead ("apac.", "us.", "eu.") or the bare model id.
-# RECALL_MODEL_ID overrides without touching code; 00_check_bedrock.py prints the
-# exact value this account can actually call.
+# Haiku 4.5 is the project default. RECALL_MODEL_ID overrides it, which is how
+# accounts that cannot subscribe to third-party (Anthropic) models on Bedrock
+# run the pipeline on a first-party model instead -- see README.
 _DEFAULT_HAIKU = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 _DEFAULT_SONNET = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
@@ -36,79 +37,163 @@ DEFAULT_REGION = os.environ.get("AWS_REGION") or os.environ.get(
     "AWS_DEFAULT_REGION", "ap-southeast-1"
 )
 
-# Haiku 4.5 list price, USD per million tokens.
-PRICE_IN_PER_MTOK = 1.00
-PRICE_OUT_PER_MTOK = 5.00
-PRICE_CACHE_WRITE_PER_MTOK = 1.25
-PRICE_CACHE_READ_PER_MTOK = 0.10
+# USD per million tokens: (input, output, cache_write, cache_read).
+# Keyed by substring, longest match wins. Only rates worth trusting go in here:
+# an unlisted model reports its token counts and declines to invent a price,
+# because a confidently wrong cost figure is worse than an honest blank.
+PRICING: dict[str, tuple[float, float, float, float]] = {
+    "claude-haiku-4-5": (1.00, 5.00, 1.25, 0.10),
+    "claude-sonnet-4-5": (3.00, 15.00, 3.75, 0.30),
+    "claude-3-haiku": (0.25, 1.25, 0.30, 0.025),
+    "claude-3-5-sonnet": (3.00, 15.00, 3.75, 0.30),
+    "nova-micro": (0.035, 0.14, 0.0875, 0.00875),
+    "nova-lite": (0.06, 0.24, 0.15, 0.015),
+    "nova-pro": (0.80, 3.20, 1.00, 0.08),
+}
+
+
+def pricing_for(model_id: str) -> tuple[float, float, float, float] | None:
+    """Rates for a model id, or None when we have no trustworthy figure."""
+    match = ""
+    for key in PRICING:
+        if key in model_id and len(key) > len(match):
+            match = key
+    return PRICING[match] if match else None
+
+
+@dataclass
+class _Row:
+    calls: int = 0
+    input: int = 0
+    output: int = 0
+    cache_read: int = 0
+    cache_write: int = 0
 
 
 @dataclass
 class UsageLedger:
-    """Running token/cost tally. Cost is measured per prompt, not discovered
-    at month-end, so every model call lands here and the total is printed at
-    the end of a run."""
+    """Running token/cost tally, keyed by (graph step, model).
 
-    calls: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    cache_read_tokens: int = 0
-    cache_write_tokens: int = 0
-    by_label: dict[str, dict[str, int]] = field(default_factory=dict)
+    Cost is measured per prompt, not discovered at month-end, so every model
+    call lands here and the total prints at the end of a run.
+    """
+
+    rows: dict[tuple[str, str], _Row] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
-    def record(self, label: str, usage: dict[str, Any] | None) -> None:
+    def record(self, label: str, usage: dict[str, Any] | None, model: str = "") -> None:
         if not usage:
             return
         details = usage.get("input_token_details") or {}
         cache_read = int(details.get("cache_read") or 0)
         cache_write = int(details.get("cache_creation") or 0)
-        # langchain reports cached tokens inside input_tokens; split them out so
-        # the cheap reads are not priced as fresh input.
+        # langchain folds cached tokens into input_tokens; split them out so the
+        # cheap reads are not priced as fresh input (they are ~10x cheaper).
         raw_in = int(usage.get("input_tokens") or 0)
         fresh_in = max(raw_in - cache_read - cache_write, 0)
         out = int(usage.get("output_tokens") or 0)
 
         with self._lock:
-            self.calls += 1
-            self.input_tokens += fresh_in
-            self.output_tokens += out
-            self.cache_read_tokens += cache_read
-            self.cache_write_tokens += cache_write
-            slot = self.by_label.setdefault(
-                label, {"calls": 0, "in": 0, "out": 0, "cache_read": 0, "cache_write": 0}
-            )
-            slot["calls"] += 1
-            slot["in"] += fresh_in
-            slot["out"] += out
-            slot["cache_read"] += cache_read
-            slot["cache_write"] += cache_write
+            row = self.rows.setdefault((label, model), _Row())
+            row.calls += 1
+            row.input += fresh_in
+            row.output += out
+            row.cache_read += cache_read
+            row.cache_write += cache_write
+
+    # -- aggregate views, kept flat for convenience ------------------------
+    @property
+    def calls(self) -> int:
+        return sum(r.calls for r in self.rows.values())
+
+    @property
+    def input_tokens(self) -> int:
+        return sum(r.input for r in self.rows.values())
+
+    @property
+    def output_tokens(self) -> int:
+        return sum(r.output for r in self.rows.values())
+
+    @property
+    def cache_read_tokens(self) -> int:
+        return sum(r.cache_read for r in self.rows.values())
+
+    @property
+    def cache_write_tokens(self) -> int:
+        return sum(r.cache_write for r in self.rows.values())
 
     @property
     def cost_usd(self) -> float:
-        return (
-            self.input_tokens * PRICE_IN_PER_MTOK
-            + self.output_tokens * PRICE_OUT_PER_MTOK
-            + self.cache_read_tokens * PRICE_CACHE_READ_PER_MTOK
-            + self.cache_write_tokens * PRICE_CACHE_WRITE_PER_MTOK
-        ) / 1_000_000
+        """Cost of the priced calls only. See `unpriced_models`."""
+        total = 0.0
+        for (_, model), row in self.rows.items():
+            rates = pricing_for(model)
+            if rates is None:
+                continue
+            p_in, p_out, p_cw, p_cr = rates
+            total += (
+                row.input * p_in
+                + row.output * p_out
+                + row.cache_write * p_cw
+                + row.cache_read * p_cr
+            ) / 1_000_000
+        return total
+
+    @property
+    def unpriced_models(self) -> set[str]:
+        return {m for (_, m) in self.rows if pricing_for(m) is None}
 
     def report(self) -> str:
         lines = [
             f"model calls: {self.calls}   "
             f"in: {self.input_tokens}  out: {self.output_tokens}  "
-            f"cache_read: {self.cache_read_tokens}  cache_write: {self.cache_write_tokens}",
-            f"est. cost: ${self.cost_usd:.4f}",
+            f"cache_read: {self.cache_read_tokens}  cache_write: {self.cache_write_tokens}"
         ]
-        for label, s in sorted(self.by_label.items(), key=lambda kv: -kv[1]["out"]):
+        unpriced = self.unpriced_models
+        if unpriced:
             lines.append(
-                f"  {label:<22} {s['calls']}x  in={s['in']:<6} out={s['out']:<6} "
-                f"cache_r={s['cache_read']}"
+                f"est. cost: ${self.cost_usd:.4f} (excludes unpriced: {', '.join(sorted(unpriced))})"
+            )
+        else:
+            lines.append(f"est. cost: ${self.cost_usd:.4f}")
+
+        for (label, model), row in sorted(self.rows.items(), key=lambda kv: -kv[1].output):
+            short = model.split(".")[-1][:34] if model else "unknown"
+            lines.append(
+                f"  {label:<20} {row.calls}x  in={row.input:<6} out={row.output:<6} "
+                f"cache_r={row.cache_read:<6} {short}"
             )
         return "\n".join(lines)
 
 
 LEDGER = UsageLedger()
+
+
+class UsageCallback:
+    """Records token usage off every model reply.
+
+    Implemented against langchain's callback interface but constructed lazily so
+    importing this module never requires langchain -- the tests exercise the
+    ledger on its own.
+    """
+
+    def __new__(cls, label: str, model: str):  # noqa: D102
+        from langchain_core.callbacks import BaseCallbackHandler
+
+        class _Handler(BaseCallbackHandler):
+            def __init__(self) -> None:
+                self.label = label
+                self.model = model
+
+            def on_llm_end(self, response: Any, **_: Any) -> None:
+                for generation in getattr(response, "generations", []) or []:
+                    for gen in generation:
+                        message = getattr(gen, "message", None)
+                        usage = getattr(message, "usage_metadata", None)
+                        if usage:
+                            LEDGER.record(self.label, usage, self.model)
+
+        return _Handler()
 
 
 def chat_model(
@@ -124,90 +209,44 @@ def chat_model(
 
     `label` names the graph step and shows up in the cost report, so a runaway
     node is obvious from the totals instead of needing a bisect.
+
+    The return value is a real ChatBedrockConverse. Anything that accepts a
+    LangChain model -- `create_react_agent`, `with_structured_output`,
+    `bind_tools` -- accepts this unchanged.
     """
     from langchain_aws import ChatBedrockConverse
 
-    llm = ChatBedrockConverse(
+    return ChatBedrockConverse(
         model=model,
         region_name=region or DEFAULT_REGION,
         temperature=temperature,
         max_tokens=max_tokens,
+        callbacks=[UsageCallback(label, model)],
         **kwargs,
     )
-    return _MeteredModel(llm, label)
-
-
-class _MeteredModel:
-    """Thin passthrough that records `usage_metadata` on every reply.
-
-    Wrapping rather than subclassing keeps `with_structured_output` and `bind_tools`
-    working unchanged -- they return new runnables, which we re-wrap.
-    """
-
-    def __init__(self, inner: Any, label: str) -> None:
-        self._inner = inner
-        self._label = label
-
-    def __getattr__(self, name: str) -> Any:
-        attr = getattr(self._inner, name)
-        if name in {"bind_tools", "bind", "with_retry"}:
-
-            def _wrapped(*a: Any, **kw: Any) -> Any:
-                return _MeteredModel(attr(*a, **kw), self._label)
-
-            return _wrapped
-        return attr
-
-    def with_structured_output(self, schema: Any, **kwargs: Any) -> "_StructuredMeteredModel":
-        """Structured output, still metered.
-
-        A plain `with_structured_output(...).invoke()` returns a bare Pydantic
-        object with no usage attached, which would make most of the graph
-        invisible to the cost ledger -- and most of the graph is structured
-        calls. Forcing include_raw keeps the token counts, and unwrapping here
-        means node code still gets the typed object it expects.
-        """
-        kwargs.pop("include_raw", None)
-        return _StructuredMeteredModel(
-            self._inner.with_structured_output(schema, include_raw=True, **kwargs),
-            self._label,
-            schema,
-        )
-
-    def invoke(self, *args: Any, **kwargs: Any) -> Any:
-        result = self._inner.invoke(*args, **kwargs)
-        LEDGER.record(self._label, getattr(result, "usage_metadata", None))
-        return result
-
-
-class _StructuredMeteredModel:
-    """Unwraps include_raw output: meters the raw reply, returns the parsed object."""
-
-    def __init__(self, inner: Any, label: str, schema: Any) -> None:
-        self._inner = inner
-        self._label = label
-        self._schema = schema
-
-    def invoke(self, *args: Any, **kwargs: Any) -> Any:
-        result = self._inner.invoke(*args, **kwargs)
-        LEDGER.record(self._label, getattr(result.get("raw"), "usage_metadata", None))
-
-        if result.get("parsing_error"):
-            raise ValueError(
-                f"{self._label}: model output did not match {self._schema.__name__}: "
-                f"{result['parsing_error']}"
-            )
-        return result["parsed"]
 
 
 CACHE_POINT = {"cachePoint": {"type": "default"}}
 
 
-def cached_system(text: str) -> list[dict[str, Any]]:
-    """System prompt content blocks ending in a Bedrock cache point.
+def supports_cache_point(model_id: str) -> bool:
+    """Whether this model accepts Bedrock prompt-cache points.
+
+    Cache points are an Anthropic-model feature on Bedrock; sending one to a
+    model that does not support it is a hard ValidationException, not a silent
+    no-op, so the system-prompt builder has to ask first.
+    """
+    return "anthropic" in model_id or "claude" in model_id
+
+
+def cached_system(text: str) -> Any:
+    """System prompt content, cache-pointed when the active model supports it.
 
     The system prompt is resent on every step of the loop; once the sub-agent
     instructions are in it is well over 1k tokens, which is the threshold where
-    caching pays for itself immediately.
+    caching pays for itself immediately. On a model without cache points we
+    return plain text rather than failing the call.
     """
+    if not supports_cache_point(HAIKU):
+        return text
     return [{"type": "text", "text": text}, CACHE_POINT]

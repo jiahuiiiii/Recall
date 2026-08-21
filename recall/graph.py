@@ -87,12 +87,17 @@ def run(
         return graph.invoke(initial)
 
     final: RecallState = {}
+    seen = 0
     for chunk in graph.stream(initial, stream_mode="values"):
         final = chunk
         messages = chunk.get("messages") or []
-        if messages:
-            content = messages[-1].content
+        # stream_mode="values" replays the whole state every superstep, so a node
+        # that returns no message leaves the previous one at the tail and it gets
+        # printed again. Print only what is genuinely new.
+        for message in messages[seen:]:
+            content = message.content
             if isinstance(content, str) and not content.startswith("="):
                 print(f"  . {content}")
+        seen = len(messages)
     print("\n" + (final.get("summary") or "(no summary)"))
     return final

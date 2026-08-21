@@ -16,7 +16,7 @@ import os
 import uuid
 from datetime import date
 
-from recall.state import PersonRecord
+from recall.state import PersonRecord, as_list
 
 NAMESPACE = "recall/person-graph"
 
@@ -70,7 +70,7 @@ class AgentCoreMemoryStore:
         for field in ("aliases", "met_at", "notes"):
             seen: set[str] = set()
             out: list[str] = []
-            for item in list(existing.get(field, [])) + list(record.get(field, []) or []):
+            for item in as_list(existing.get(field)) + as_list(record.get(field)):
                 key = item.strip().lower()
                 if item.strip() and key not in seen:
                     seen.add(key)
@@ -84,6 +84,28 @@ class AgentCoreMemoryStore:
             messages=[(json.dumps(merged), "ASSISTANT")],
         )
         return merged
+
+    def replace(self, record: PersonRecord) -> PersonRecord:
+        """Write the record as-is. Memory is append-only, so the newest event for
+        an id wins on retrieval and a rewrite is just another event."""
+        import json as _json
+
+        self._client.create_event(
+            memory_id=self.memory_id,
+            actor_id=self.actor_id,
+            session_id=self.session_id,
+            messages=[(_json.dumps(record), "ASSISTANT")],
+        )
+        return record
+
+    def delete(self, record_id: str) -> bool:
+        """Tombstone the record. AgentCore Memory is append-only, so a delete is
+        another event that later reads filter out."""
+        record = self.get(record_id)
+        if record is None:
+            return False
+        self.replace({**record, "deleted": True})
+        return True
 
     def all(self) -> list[PersonRecord]:
         """Not supported -- AgentCore Memory is a retrieval surface, not a table.
@@ -104,4 +126,6 @@ def _decode(hit: object) -> PersonRecord | None:
         rec = json.loads(text)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
-    return rec if isinstance(rec, dict) and "id" in rec else None
+    if not isinstance(rec, dict) or "id" not in rec or rec.get("deleted"):
+        return None
+    return rec

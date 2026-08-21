@@ -148,7 +148,7 @@ def _brief(state: RecallState) -> str:
             f"Company/role: {person.get('company') or 'unknown'} / {person.get('role') or 'unknown'}\n"
             f"Met at: {person.get('met_at') or 'unknown'}\n"
             f"Relationship: {'met before, already a contact' if name in known else 'first meeting'}\n"
-            f"What we talked about: {person.get('notes') or ''}\n"
+            f"What we talked about: {'; '.join(person.get('notes') or [])}\n"
             f"Public background found: {enrichment if usable else 'none found'}\n"
             f"Channel: {person_commitments[0].get('channel', 'email')}\n"
             f"I promised to:\n{promised}"

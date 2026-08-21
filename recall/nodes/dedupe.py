@@ -131,7 +131,7 @@ def _fmt_person(person: dict) -> str:
         f"  role: {person.get('role')}\n"
         f"  aliases: {', '.join(person.get('aliases') or []) or 'none'}\n"
         f"  met at: {person.get('met_at')}\n"
-        f"  notes: {(person.get('notes') or '')[:400]}"
+        f"  notes: {' | '.join(person.get('notes') or [])[:400]}"
     )
 
 

@@ -1,49 +1,23 @@
-"""The cost ledger is only useful if it sees every call.
-
-Structured output is the easy one to get wrong: the parsed object carries no
-usage, so an unwrapped implementation reports ~zero cost for a graph that is
-almost entirely structured calls.
-"""
+"""The cost ledger is only useful if it sees every call and prices it honestly."""
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
-from pydantic import BaseModel
 
-from recall._common import UsageLedger, _MeteredModel
-
-
-class Thing(BaseModel):
-    value: str
+from recall._common import UsageCallback, UsageLedger, pricing_for
 
 
-class _Reply:
-    def __init__(self, usage: dict) -> None:
-        self.usage_metadata = usage
-        self.content = "hi"
+class _Msg:
+    def __init__(self, usage): self.usage_metadata = usage
 
 
-class _FakeInner:
-    def __init__(self, usage: dict, parsed: Any = None, error: Any = None) -> None:
-        self._usage = usage
-        self._parsed = parsed
-        self._error = error
-        self.structured_kwargs: dict = {}
+class _Gen:
+    def __init__(self, usage): self.message = _Msg(usage)
 
-    def invoke(self, *_: Any, **__: Any) -> Any:
-        return _Reply(self._usage)
 
-    def with_structured_output(self, schema: Any, **kwargs: Any) -> "_FakeInner":
-        self.structured_kwargs = kwargs
-        inner = _FakeInner(self._usage, self._parsed, self._error)
-        inner.invoke = lambda *a, **k: {  # type: ignore[method-assign]
-            "raw": _Reply(self._usage),
-            "parsed": self._parsed,
-            "parsing_error": self._error,
-        }
-        return inner
+class _Result:
+    """Shaped like a langchain LLMResult."""
+    def __init__(self, usage): self.generations = [[_Gen(usage)]]
 
 
 @pytest.fixture(autouse=True)
@@ -53,52 +27,54 @@ def fresh_ledger(monkeypatch):
     return ledger
 
 
-def test_plain_invoke_is_metered(fresh_ledger):
-    model = _MeteredModel(_FakeInner({"input_tokens": 100, "output_tokens": 20}), "step")
-    model.invoke([])
+def test_callback_records_usage_off_a_reply(fresh_ledger):
+    handler = UsageCallback("extract_people", "global.anthropic.claude-haiku-4-5-20251001-v1:0")
+    handler.on_llm_end(_Result({"input_tokens": 500, "output_tokens": 40}))
+
     assert fresh_ledger.calls == 1
-    assert fresh_ledger.input_tokens == 100
-    assert fresh_ledger.output_tokens == 20
-
-
-def test_structured_output_is_metered_and_returns_the_parsed_object(fresh_ledger):
-    inner = _FakeInner({"input_tokens": 500, "output_tokens": 40}, parsed=Thing(value="ok"))
-    structured = _MeteredModel(inner, "extract").with_structured_output(Thing)
-
-    result = structured.invoke([])
-
-    # Node code gets the typed object, not the include_raw envelope.
-    assert isinstance(result, Thing)
-    assert result.value == "ok"
-    # ...and the tokens were still counted.
-    assert fresh_ledger.calls == 1
-    assert fresh_ledger.by_label["extract"]["in"] == 500
+    assert fresh_ledger.input_tokens == 500
+    assert fresh_ledger.output_tokens == 40
 
 
 def test_cached_tokens_are_not_priced_as_fresh_input(fresh_ledger):
     """Cache reads are 10x cheaper than fresh input. Counting them as input
     would overstate the run cost by roughly an order of magnitude."""
-    model = _MeteredModel(
-        _FakeInner(
-            {
-                "input_tokens": 1200,  # langchain folds cached tokens into this
-                "output_tokens": 10,
-                "input_token_details": {"cache_read": 1000},
-            }
-        ),
+    fresh_ledger.record(
         "step",
+        {
+            "input_tokens": 1200,  # langchain folds cached tokens into this
+            "output_tokens": 10,
+            "input_token_details": {"cache_read": 1000},
+        },
+        "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     )
-    model.invoke([])
 
     assert fresh_ledger.input_tokens == 200
     assert fresh_ledger.cache_read_tokens == 1000
-    # 200 fresh @ $1/M + 1000 cached @ $0.10/M + 10 out @ $5/M
     assert fresh_ledger.cost_usd == pytest.approx((200 * 1 + 1000 * 0.10 + 10 * 5) / 1e6)
 
 
-def test_parsing_failure_names_the_step_and_the_schema(fresh_ledger):
-    inner = _FakeInner({"input_tokens": 10, "output_tokens": 1}, parsed=None, error="bad json")
-    structured = _MeteredModel(inner, "dedupe").with_structured_output(Thing)
+def test_pricing_prefers_the_longest_matching_key():
+    """'claude-3-5-sonnet' and 'claude-3-haiku' both contain shorter fragments;
+    a shortest-match lookup would price Sonnet at Haiku rates."""
+    assert pricing_for("apac.anthropic.claude-3-5-sonnet-20241022-v2:0") == (3.0, 15.0, 3.75, 0.30)
+    assert pricing_for("anthropic.claude-3-haiku-20240307-v1:0") == (0.25, 1.25, 0.30, 0.025)
+    assert pricing_for("apac.amazon.nova-pro-v1:0") == (0.80, 3.20, 1.00, 0.08)
 
-    with pytest.raises(ValueError, match="dedupe: model output did not match Thing"):
-        structured.invoke([])
+
+def test_unknown_model_reports_tokens_but_refuses_to_invent_a_cost(fresh_ledger):
+    """A confidently wrong cost figure is worse than an honest blank."""
+    fresh_ledger.record("enricher", {"input_tokens": 10_000, "output_tokens": 500}, "some.new.model")
+
+    assert fresh_ledger.input_tokens == 10_000
+    assert fresh_ledger.cost_usd == 0.0
+    assert fresh_ledger.unpriced_models == {"some.new.model"}
+    assert "excludes unpriced" in fresh_ledger.report()
+
+
+def test_mixed_models_price_independently(fresh_ledger):
+    """A run that falls back mid-way must not price every call at one rate."""
+    fresh_ledger.record("a", {"input_tokens": 1_000_000, "output_tokens": 0}, "apac.amazon.nova-pro-v1:0")
+    fresh_ledger.record("b", {"input_tokens": 1_000_000, "output_tokens": 0}, "global.anthropic.claude-haiku-4-5-20251001-v1:0")
+
+    assert fresh_ledger.cost_usd == pytest.approx(0.80 + 1.00)

@@ -62,7 +62,7 @@ def test_new_people_route_through_enrich_and_persist(sandbox, monkeypatch):
             CommitmentExtraction: DAY1_COMMITMENTS,
             DraftBundle: DAY1_DRAFTS,
         },
-        enrichments={"Wei Lin": "- Leads quant infra at GIC.\n- Spoke at QuantCon 2025."},
+        enrichments={"Wei Lin": "- Leads quant infra at GIC.\n- Spoke at QuantCon 2025.\nCONFIRMED BY: employer GIC"},
     )
 
     from recall.graph import run
@@ -294,7 +294,7 @@ def test_one_memo_fans_out_to_both_branches(sandbox, monkeypatch):
             CommitmentExtraction: DAY1_COMMITMENTS,
             DraftBundle: DAY1_DRAFTS,
         },
-        enrichments={"Arjun Menon": "- Recommendations engineer at Sea Group."},
+        enrichments={"Arjun Menon": "- Recommendations engineer at Sea Group.\nCONFIRMED BY: employer Sea Group"},
     )
     state = run(transcript="wei lin again, plus arjun", verbose=False)
 

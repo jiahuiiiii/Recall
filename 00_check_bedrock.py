@@ -65,7 +65,7 @@ def _credential_fix(style: str) -> str:
 
 
 def _list_claude_ids(region: str) -> list[str]:
-    """Every Claude id this account can actually invoke, profiles included.
+    """Claude ids this account can SEE. Not the same as ids it can call.
 
     Inference profiles and foundation models are separate APIs and either one
     can be the thing that works, so both get listed.
@@ -94,6 +94,84 @@ def _list_claude_ids(region: str) -> list[str]:
     return sorted(set(ids))
 
 
+# Error classes that matter, in the order they should be believed.
+GATE_USE_CASE = "use_case_form"
+GATE_UNAVAILABLE = "not_available"
+GATE_LEGACY = "legacy"
+GATE_THROTTLED = "throttled"
+GATE_DENIED = "access_denied"
+GATE_OTHER = "other"
+
+
+def _classify(message: str) -> str:
+    if "use case details have not been submitted" in message:
+        return GATE_USE_CASE
+    if "marked by provider as Legacy" in message:
+        return GATE_LEGACY
+    if "is not available for this account" in message:
+        return GATE_UNAVAILABLE
+    if "Throttl" in message or "Too many requests" in message:
+        return GATE_THROTTLED
+    if "AccessDenied" in message or "not authorized" in message:
+        return GATE_DENIED
+    return GATE_OTHER
+
+
+def _probe(region: str, model_id: str, attempts: int = 2) -> tuple[bool, str, str]:
+    """Call the model for real, twice, and require both to succeed.
+
+    Listing is not proof of callability: an id can be ACTIVE and visible and
+    still fail on a use-case-form gate. Worse, Bedrock's answer is not always
+    stable -- the same id can pass one probe and fail the next while an
+    account-level gate is unresolved. A single sample therefore recommends ids
+    that then die mid-demo, so callable means "passed every attempt".
+
+    Returns (callable, gate_class, message).
+    """
+    import boto3
+    from botocore.exceptions import ClientError
+
+    client = boto3.client("bedrock-runtime", region_name=region)
+    last_msg = ""
+    for _ in range(attempts):
+        try:
+            client.converse(
+                modelId=model_id,
+                messages=[{"role": "user", "content": [{"text": "hi"}]}],
+                inferenceConfig={"maxTokens": 1},
+            )
+        except ClientError as exc:
+            last_msg = exc.response["Error"]["Message"]
+            return False, _classify(last_msg), last_msg
+        except Exception as exc:  # noqa: BLE001
+            last_msg = f"{type(exc).__name__}: {exc}"
+            return False, GATE_OTHER, last_msg
+    return True, "", "callable"
+
+
+# Cheapest-capable first. Haiku 4.5 is the project default; the rest are
+# fallbacks for accounts where it is gated, in descending order of suitability
+# for structured extraction and tool use.
+_PREFERENCE = [
+    "haiku-4-5",
+    "sonnet-4-5",
+    "claude-3-5-sonnet-20241022",
+    "sonnet-4",
+    "claude-3-5-sonnet",
+]
+
+
+def _recommend(callable_ids: list[str]) -> str | None:
+    for want in _PREFERENCE:
+        matches = [i for i in callable_ids if want in i]
+        if matches:
+            # Prefer a regional profile over a bare model id -- bare ids have
+            # tighter per-region throughput.
+            profiles = [i for i in matches if "." in i.split("anthropic")[0]]
+            return (profiles or matches)[0]
+    return callable_ids[0] if callable_ids else None
+
+
 def main() -> int:
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
@@ -112,16 +190,63 @@ def main() -> int:
 
         ids = _list_claude_ids(DEFAULT_REGION)
         if not ids:
-            print(f"Credentials are fine, but no Claude models are callable in {DEFAULT_REGION}.")
+            print(f"Credentials are fine, but no Claude models are visible in {DEFAULT_REGION}.")
             print("Enable them: Bedrock console -> Model access -> Modify model access.")
-            print(f"If Haiku 4.5 is not offered there, try AWS_REGION=us-east-1.")
+            print("If Haiku 4.5 is not offered there, try AWS_REGION=us-east-1.")
             return 1
-        print(f"Claude ids callable in {DEFAULT_REGION}:")
-        for i in ids:
-            print(f"  {i}")
-        haiku = [i for i in ids if "haiku-4-5" in i] or [i for i in ids if "haiku" in i]
-        if haiku:
-            print(f"\nPut this in .env:\n  RECALL_MODEL_ID={haiku[0]}")
+
+        # Probe rather than trust the listing. Each probe is a 1-token call --
+        # the whole sweep costs a fraction of a cent and is the only thing that
+        # actually answers "which id can I use".
+        print(f"Probing {len(ids)} Claude ids in {DEFAULT_REGION}, 2 calls each...\n")
+        callable_ids: list[str] = []
+        blocked: list[tuple[str, str, str]] = []
+        for mid in ids:
+            ok, gate, detail = _probe(DEFAULT_REGION, mid)
+            if ok:
+                callable_ids.append(mid)
+                print(f"  [ok]      {mid}")
+            else:
+                blocked.append((mid, gate, detail))
+                print(f"  [blocked] {mid}  ({gate})")
+
+        if blocked and "--verbose" in sys.argv:
+            print("\nWhy the blocked ones are blocked:")
+            for mid, gate, detail in blocked:
+                print(f"  {mid}\n    [{gate}] {detail[:150]}")
+
+        # One account-level gate can block nearly everything. Reporting that once
+        # is far more useful than a per-model list that all says the same thing.
+        gates = [g for _, g, _ in blocked]
+        if gates.count(GATE_USE_CASE) >= max(2, len(ids) // 3):
+            print(
+                f"\n{gates.count(GATE_USE_CASE)} of {len(ids)} ids are blocked by ONE "
+                "account-level gate:\n"
+                "  the Anthropic use case details form has not been submitted.\n\n"
+                "  Fix: Bedrock console -> Model access -> Modify model access.\n"
+                "       Fill in the Anthropic use case details (company, website,\n"
+                "       industry, what you are building), submit, then enable\n"
+                "       Claude Haiku 4.5. Approval is usually quick.\n\n"
+                "  This is the whole problem. Do not work around it by picking a\n"
+                "  different model -- while the form is outstanding, Bedrock's answer\n"
+                "  is inconsistent and an id that probes fine can fail mid-run."
+            )
+            return 1
+
+        if not callable_ids:
+            print("\nNothing is callable. See the reasons with --verbose.")
+            return 1
+
+        print(f"\n{len(callable_ids)} callable.")
+        best = _recommend(callable_ids)
+        if best:
+            print(f"\nPut this in .env:\n  RECALL_MODEL_ID={best}")
+        if not any("haiku-4-5" in i for i in callable_ids):
+            print(
+                "\nNote: Haiku 4.5 is not callable here. It is the project default and\n"
+                "the cheapest option, so it is worth unblocking in the Bedrock console.\n"
+                "The id above works meanwhile, at a higher token price."
+            )
         return 0
 
     style = _credential_style()
@@ -189,23 +314,31 @@ def _explain_model_failure(err: str) -> None:
             f"  Fix: Bedrock console -> Model access -> Enable Claude Haiku 4.5\n"
             f"       in region {DEFAULT_REGION}, then wait for status 'Access granted'."
         )
+    elif "use case details have not been submitted" in err:
+        print(
+            "  This account has not submitted the Anthropic use case form, which\n"
+            "  gates some Claude models on personal accounts. It is per-model, so\n"
+            "  other Claude models may work while this one does not.\n"
+            "  Fix: Bedrock console -> Model access -> fill in the Anthropic use\n"
+            "       case details, then enable this model. Approval is usually quick."
+        )
+    elif "marked by provider as Legacy" in err:
+        print(
+            "  This model is retired and closed to accounts that were not already\n"
+            "  using it. Pick a current model instead."
+        )
     elif "ValidationException" in err or "not found" in err or "invalid" in err.lower():
         print(
-            f"  The model id is not callable in {DEFAULT_REGION}. This is the usual\n"
-            f"  personal-account failure: the 'global.' cross-region profile is a\n"
-            f"  workshop-account default and may not exist for you."
+            f"  The model id is not callable in {DEFAULT_REGION}. Either the id is\n"
+            f"  wrong for this account, or access to it is gated."
         )
     else:
         print("  Inference failed for a reason other than access or model id.")
 
     ids = _list_claude_ids(DEFAULT_REGION)
     if ids:
-        print(f"\n  Claude ids this account CAN call in {DEFAULT_REGION}:")
-        for i in ids:
-            print(f"    {i}")
-        haiku = [i for i in ids if "haiku-4-5" in i] or [i for i in ids if "haiku" in i]
-        if haiku:
-            print(f"\n  Put this in .env:\n    RECALL_MODEL_ID={haiku[0]}")
+        print("\n  Run this to find an id that actually works:")
+        print("    uv run 00_check_bedrock.py --list-models")
     else:
         print(
             f"\n  No Claude models are enabled in {DEFAULT_REGION}.\n"

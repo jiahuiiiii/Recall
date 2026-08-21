@@ -25,6 +25,25 @@ from pydantic import BaseModel, Field
 # --------------------------------------------------------------------------
 
 
+def as_list(value: object) -> list[str]:
+    """Coerce a notes/aliases/met_at field to a list of strings.
+
+    Guards one specific, silent corruption: `list("a string")` returns
+    ['a', ' ', 's', 't', ...]. Every list field here is fed by model output, and
+    a model that returns a bare string where the schema says list[str] turns one
+    note into ninety single-character notes -- which then persist, get deduped,
+    and get consolidated, all without raising. Normalising once at the boundary
+    is cheaper than auditing every `list(...)` call downstream forever.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, (list, tuple, set)):
+        return [str(v).strip() for v in value if v is not None and str(v).strip()]
+    return [str(value)]
+
+
 class Person(BaseModel):
     """One human mentioned in the memo."""
 
@@ -39,16 +58,27 @@ class Person(BaseModel):
         default=None,
         description="Event, place, or context where they were met, e.g. 'SuperAI 2026 afterparty'.",
     )
-    notes: str = Field(
+    notes: list[str] = Field(
+        default_factory=list,
         description=(
-            "Everything else said about this person, in the speaker's own words, "
-            "condensed but not interpreted. Include personal details, interests, "
-            "and anything that would help recognise them later."
-        )
+            "One separate entry per distinct thing the speaker said about this "
+            "person. ONE FACT PER ENTRY -- never join several facts into one "
+            "string with semicolons or commas. Use the speaker's own words, "
+            "lightly tidied, not a paraphrase. Include personal details, "
+            "opinions, plans, and anything that would help recognise them later."
+        ),
     )
     aliases: list[str] = Field(
         default_factory=list,
         description="Other names or nicknames used for this person in the memo.",
+    )
+    substantive: bool = Field(
+        description=(
+            "True only if the memo says something about this person BEYOND having "
+            "seen, greeted, or name-dropped them. Ask: does the memo state a fact, "
+            "an opinion, a plan, or a promise involving them? If the only content is "
+            "that they were present or were said hello to, this is false."
+        )
     )
 
 
@@ -75,6 +105,23 @@ class MatchDecision(BaseModel):
     )
     reasoning: str = Field(
         description="One sentence. What settled it -- shared employer, same event, same nickname."
+    )
+
+
+class ConsolidatedRecord(BaseModel):
+    """A person's accumulated notes and meeting places, deduplicated."""
+
+    notes: list[str] = Field(
+        description=(
+            "The distinct things recorded about this person, one fact per entry, "
+            "in the speaker's own words. Redundant restatements merged into one."
+        )
+    )
+    met_at: list[str] = Field(
+        description=(
+            "Distinct places or events where this person was met. Different "
+            "descriptions of the SAME occasion collapse to the fullest one."
+        )
     )
 
 

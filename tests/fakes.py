@@ -79,8 +79,13 @@ WEI_LIN = Person(
     company="GIC",
     role="quant infrastructure lead",
     met_at="SuperAI mixer, Marina Bay Sands",
-    notes="Six years at GIC. Feature store held together with cron jobs. Hiring a mid-to-senior quant infra role.",
+    notes=[
+        "Six years at GIC",
+        "Feature store held together with cron jobs",
+        "Hiring a mid-to-senior quant infra role",
+    ],
     aliases=[],
+    substantive=True,
 )
 
 ARJUN = Person(
@@ -88,8 +93,23 @@ ARJUN = Person(
     company="Sea Group",
     role="recommendations engineer",
     met_at="SuperAI mixer, Marina Bay Sands",
-    notes="Gave the embedding drift talk. Argues you do not need a vector DB at their scale.",
+    notes=[
+        "Gave the embedding drift talk",
+        "Argues you do not need a vector DB at their scale",
+    ],
     aliases=[],
+    substantive=True,
+)
+
+# Seen and greeted, nothing said about him. Must never reach the person graph.
+PASSING_MENTION = Person(
+    name="Daniel",
+    company="Stripe",
+    role=None,
+    met_at="SuperAI mixer, Marina Bay Sands",
+    notes=["Ran into him again, nothing new, just said hi"],
+    aliases=[],
+    substantive=False,
 )
 
 DAY1_PEOPLE = PeopleExtraction(people=[WEI_LIN, ARJUN])

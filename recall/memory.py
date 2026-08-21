@@ -18,7 +18,7 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, Protocol
 
-from recall.state import PersonRecord
+from recall.state import PersonRecord, as_list
 
 _STOPWORDS = {
     "the", "a", "an", "and", "at", "of", "in", "on", "for", "to", "with",
@@ -46,7 +46,22 @@ class PersonStore(Protocol):
 
     def get(self, record_id: str) -> PersonRecord | None: ...
 
-    def upsert(self, record: PersonRecord) -> PersonRecord: ...
+    def upsert(self, record: PersonRecord) -> PersonRecord:
+        """Merge a record in. List fields ACCUMULATE -- meeting someone twice
+        deepens their record rather than replacing last time's notes."""
+
+    def replace(self, record: PersonRecord) -> PersonRecord:
+        """Overwrite a record wholesale, list fields included.
+
+        Needed by consolidation, which rewrites `notes` and `met_at` to a shorter
+        deduplicated set. Routing that through `upsert` would append the tidied
+        version to the untidy one and double the record instead of fixing it."""
+
+    def delete(self, record_id: str) -> bool:
+        """Remove a person. Returns False if they were not there.
+
+        The agent will occasionally record someone it should not have, and a
+        contact book you cannot correct is one you stop trusting."""
 
     def all(self) -> list[PersonRecord]: ...
 
@@ -125,11 +140,27 @@ class LocalPersonStore:
         # should deepen the record, not replace last time's notes with this time's.
         for field in ("aliases", "met_at", "notes"):
             merged[field] = _dedupe_keep_order(
-                list(existing.get(field, [])) + list(record.get(field, []) or [])
+                as_list(existing.get(field)) + as_list(record.get(field))
             )
         self._records[rid] = merged
         self._flush()
         return merged
+
+    def replace(self, record: PersonRecord) -> PersonRecord:
+        rid = record.get("id")
+        if not rid or rid not in self._records:
+            raise KeyError(f"cannot replace unknown record {rid!r}")
+        merged: PersonRecord = {**record, "id": rid, "last_seen": date.today().isoformat()}
+        self._records[rid] = merged
+        self._flush()
+        return merged
+
+    def delete(self, record_id: str) -> bool:
+        if record_id not in self._records:
+            return False
+        del self._records[record_id]
+        self._flush()
+        return True
 
     def all(self) -> list[PersonRecord]:
         return list(self._records.values())

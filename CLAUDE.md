@@ -1,145 +1,431 @@
 # CLAUDE.md
 
-## What we're building
+Project instructions for Claude Code. Read this at the start of every session.
 
-**Recall** — a relationship-capture agent. You talk into your phone after an event
-("met Wei Lin from GIC, she's hiring for a quant infra role, said I'd send her the
-Kestrel repo"), and the agent turns that into structured, deduped, enriched contact
-notes, drafts your follow-ups, and puts commitments on your calendar.
+---
 
-The point is that this is **agentic**, not a transcription-plus-database toy. The
-demo has to _visibly_ exercise orchestration, tool use, memory, and conditional
-routing — that's what the track is scored on (tool access + orchestration + autonomy,
-not model capability). If a change makes the agent loop thinner, push back.
+## What this is
 
-This is a SimplifyNext Agentic AI hackathon project. Stack is fixed by the track:
-Bedrock + LangGraph + DeepAgents/Claude Agent SDK + AgentCore + MCP.
+**Recall** — a voice-first relationship-memory agent for event networking. You record a
+messy ~90-second memo after an event. The system extracts the people mentioned, resolves
+them against people it already knows **while holding uncertainty explicitly**, and asks
+**one** well-chosen clarifying question when a mention is genuinely ambiguous.
 
-## Pipeline (this is the whole thing)
+SimplifyNext Agentic AI hackathon. Submission **7 Sep 2026**.
+
+**Scope decision (21 Aug):** this project is the uncertainty/question direction, built on
+the working pipeline that already exists. It is *not* the full research spec — bi-temporal
+graphs, contradiction sweeps and calibration curves are cut (see Future work). It is also
+no longer the enrich-and-follow-up pipeline; that tail is frozen, not extended.
+
+## The one defensible claim
+
+**Question selection by expected information gain.** When a mention is ambiguous we do
+not ask an LLM "what should I ask?". We compute, over candidate hypotheses:
 
 ```
-voice memo
+EIG(q) = H(H) − E_a[ H(H | a) ]
+```
+
+and pick the argmax. Existing agent-memory systems (Zep/Graphiti, Mem0, A-MEM) do
+contradiction detection; none select their clarifying questions by information gain.
+That gap is the contribution.
+
+**The headline result is a benchmark table, not a UI.** EIG vs random vs
+uncertainty-sampling on questions-per-resolution. Build toward that.
+
+If a change would weaken this, stop and flag it rather than proceeding.
+
+## Non-goals — do not implement
+
+- **No facial recognition, no photos.** PDPA exposure on biometric data about
+  non-consenting third parties. Not negotiable.
+- **No attendee recommendation / "people worth meeting" scoring.**
+- **No auto-sending.** We draft; the human sends. Always.
+- **No new calendar/email/LinkedIn work.** Plumbing, not differentiation. The calendar
+  writer already exists — freeze it, don't extend it.
+- **No new web-enrichment work.** Out of scope, and measured to be silent for most real
+  contacts anyway.
+- **No POMDP solver, no AGM belief revision, no ASR fine-tuning.** Cite; don't build.
+
+If asked to add a feature, default to no. Five minutes of demo cannot show breadth.
+
+---
+
+## Current status (21 Aug 2026)
+
+**Working end to end.** Voice memo → transcript → people → dedupe against stored graph →
+merge or enrich → commitments → drafts → calendar → summary. 52 tests, all offline.
+~2,700 lines. Runs from CLI or the web UI.
+
+| Piece | State |
+|---|---|
+| LangGraph supervisor, conditional edge, fan-in | **Done**, tested |
+| Transcription (Groq `whisper-large-v3`) | **Done**, ~1.2s for a 20s memo |
+| Extraction → typed `Person` with atomic `notes` | **Done**, tested |
+| Dedupe against the person graph | **Done** — but single-threshold, see below |
+| Person store (`PersonStore`, local JSON) | **Done**, with delete + patch |
+| Merge + LLM consolidation with safety net | **Done**, tested |
+| Enricher / drafter sub-agents | Done, **frozen** |
+| Calendar writer (local ledger, idempotent) | Done, **frozen** |
+| Web UI — record, type, edit, live graph, person graph | **Done**, responsive |
+| Cost metering per node | **Done** |
+| **Three-zone entity resolution** | **Not built** — `MATCH_THRESHOLD = 0.7`, single cut |
+| **EIG question selection** | **Not built** |
+| **Eval harness / benchmark** | **Not built** ← blocks everything |
+| AgentCore Memory backend | Written blind, **known broken**, never run |
+| AgentCore deploy (`01`–`04`) | Written, never run |
+| MCP calendar | Written, never run, needs OAuth |
+
+**Known drift:** the pipeline grew a commitments → drafts → calendar tail and a web
+enricher that are outside the scoped project. They work and they demo fine as a closing
+beat. Do not invest further in them.
+
+---
+
+## Work remaining, in order
+
+### 1. Eval harness — do this first
+
+It gates everything: EIG cannot be tuned or compared without it, and it is the stated
+deliverable.
+
+- **20–50 hand-written memo transcripts** with ground-truth person clusters and planted
+  ambiguities. Hand-write them so you control the labels. Messy, Singlish, code-switched,
+  partial names — realistic input, not clean prose.
+- **Entity resolution:** pairwise P/R/F1 plus **B³ (B-cubed) cluster F1**.
+- **Question efficiency:** questions per ambiguity resolved; % resolved with ≤1 question.
+- **The headline comparison:** EIG vs random vs uncertainty-sampling.
+
+A rigorously measured negative result (EIG ties uncertainty-sampling) is still a win — it
+proves EIG was actually implemented. Report honestly; do not tune until the numbers look
+good.
+
+**Harness is built** (`eval/`): B³ + pairwise + substantive metrics (pure, 8 unit tests),
+a runner over YAML fixtures, and `check_fixtures.py` for validation. **Fixtures are the
+bottleneck and must be hand-written by the user** — a fixture generated by the model under
+test proves nothing. Status: 6 memos, 1 ambiguous, against targets of 20 and 8.
+
+Memos within a scenario file are ordered and run against a fresh graph; files are
+independent. Prefer 3–5 long scenarios over many short ones — a bigger graph is a harder
+resolution problem.
+
+### 1.5 Candidate retrieval — do this BEFORE the band
+
+**Found by the eval harness on its first real fixture, 22 Aug.** A memo referring to
+someone as "the german girl" does not retrieve the stored `Viktoria`, because her record
+holds the token `germany` and the query holds `german`. Exact token overlap misses by one
+character. `"the exchange student"` finds her fine — retrieval is brittle, not broken.
+
+Why this outranks the band and EIG: when `store.search()` returns nothing, `dedupe_node`
+short-circuits to "new person" **without calling the model at all**. No candidates means
+no hypotheses, no hypotheses means nothing enters the ambiguous band, and an empty band
+means EIG has no question to select. **Retrieval recall gates the entire contribution.**
+
+Recall matters far more than precision here — the LLM adjudicator is the precision filter,
+so retrieval should be generous. In ascending cost: prefix/stem matching, character
+n-grams (also absorbs Whisper misspellings, which are the documented worst case), or
+embeddings. Measure with the harness before and after; `arc_acacia` currently fails this
+reproducibly (B³ F1 0.941, pairwise 0.667).
+
+### 2. Three-zone entity resolution
+
+Replace the single `MATCH_THRESHOLD` with a Fellegi–Sunter-style band:
+
+```
+score > T_match          → auto-resolve
+T_nonmatch … T_match     → AMBIGUOUS — this is where we ask
+score < T_nonmatch       → new person
+```
+
+Thresholds are tunable and must be reported in the eval. **The ambiguous band existing at
+all is the design** — do not collapse it back to one threshold to simplify.
+
+### 3. EIG question selection
+
+- Enumerate hypotheses for the most ambiguous mention (candidate people + "new person"),
+  capped at 5.
+- Generate a small candidate question set (attribute probes, disambiguating features).
+- Compute EIG exactly for each; pick argmax. Greedy one-step lookahead only.
+- **Exactly one question per memo.** Asking has a cost; the interrupt budget is 1.
+- Ask immediately after the memo is processed, never as a later notification.
+- Implement the pause with LangGraph `interrupt()` — the graph checkpoints and resumes on
+  `Command(resume=...)`. **The graph needs a checkpointer for this**; `build_graph()`
+  already accepts one and currently gets `None`.
+
+**Keep the EIG computation in a pure module with no LLM calls inside it.** The LLM
+proposes candidate questions and estimates answer distributions; the *selection* is
+arithmetic we unit-test.
+
+Reuse over rebuild: **UoT — github.com/zhiyuanhubj/UoT** is the question-selection
+reference implementation. Read it before writing the entropy code. Our original work is
+the integration and the evaluation, not the algorithm.
+
+### 4. Demo surface for the question
+
+The money shot is showing the EIG scores of the questions it *didn't* ask. The web UI
+already streams per-node events — surface the hypothesis set, the candidate questions, and
+their EIG values, then the chosen one.
+
+---
+
+## Timeline
+
+Gate 1 was 22 Aug in the original plan and the eval harness does not exist, so the
+schedule below is the revised, honest one.
+
+| Date | Gate |
+|---|---|
+| **22–24 Aug** | **Gate 1 (revised)** — eval harness exists: fixtures, ground-truth clusters, B³ + P/R/F1 scoring, baseline numbers for the current dedupe. |
+| **25–26 Aug** | Candidate retrieval recall (step 1.5). Re-measure `arc_acacia`. |
+| **26–29 Aug** | Three-zone resolution + EIG module, pure and unit-tested. |
+| **30 Aug – 2 Sep** | **Gate 2** — `interrupt()` wired, one question asked per memo end to end, EIG vs random vs uncertainty-sampling numbers in hand. |
+| **3–4 Sep** | Demo surface for the question. Seed demo data. Rehearse. |
+| **5 Sep** | **Feature freeze.** Rehearse only. |
+| **7 Sep** | **Submission.** |
+| 9–11 Sep | Semi-finals. |
+| 18 Sep | Grand finale @ NUS. |
+
+**If Gate 2 slips**, ship EIG on typed text only and drop the `interrupt()` UX — the
+contribution is the selection arithmetic and the benchmark, not the pause.
+
+---
+
+## Demo arc (build backwards from this)
+
+1. Record a live messy memo mentioning three people, one ambiguous.
+2. Show extraction, confidence values visible.
+3. **The agent picks and asks its one question — display the EIG of the questions it
+   didn't ask.** This is the money shot.
+4. Answer it; show the resolution land in the person graph.
+5. Fuzzy recall: three vague words, right person.
+6. Close on the benchmark table.
+
+If a feature doesn't appear here or in the eval, it doesn't get built.
+
+---
+
+## Architecture
+
+```
+voice memo (or typed text)
   → transcribe (Groq Whisper — audio is NOT a Bedrock capability, keep it a tool)
-  → extract_people        (structured output: who, where met, raw notes)
-  → dedupe                (RAG over stored notes) ──► conditional edge
-        │ new person                                   │ known person
-        ▼                                              ▼
-     enrich (sub-agent, web tool)                  merge into existing record
-        └──────────────┬───────────────────────────────┘
-                       ▼
-     extract_commitments + draft_followups (sub-agent)
-                       ▼
-     calendar_write (MCP)  →  persist to memory  →  return summary
+  → extract_people        (structured output + substantive filter)
+  → resolve               (three zones) ──────────┐
+        │ new          │ known                    │ AMBIGUOUS
+        ▼              ▼                          ▼
+     persist        merge into record        EIG question → interrupt()
+        └──────────────┴──────────────┬───────────┘
+                                      ▼
+                        [frozen tail: commitments → drafts → calendar]
+                                      ▼
+                                   summary
 ```
 
-The **dedupe → new/known** conditional edge and the **enrich** + **drafter**
-sub-agents are the load-bearing agentic parts. Do not collapse them into one prompt.
+- **Supervisor + sub-agents.** The main graph orchestrates; sub-agents keep noisy work
+  out of the main context.
+- **State is the single source of truth.** One `TypedDict` in `recall/state.py`. Nodes
+  return **partial updates only**. An unmatched key is dropped silently — if a node's
+  output "vanishes", suspect a typo in `state.py` first.
+- **Memory is the demo.** Cross-session recognition is what proves the agent remembers.
+  It works identically for a uni friend and a fund partner.
+- **The person graph is user-correctable.** `PersonStore` has `delete()`; the UI removes
+  individual notes. Edits go through `replace()`, never `upsert()` — upsert accumulates
+  list fields, so a shortened list written through it re-adds what the user just deleted.
+- **Guards belong in code, not prompts.** Where a model must be careful, make the
+  pipeline not require carefulness.
 
-## Architecture rules
+## The three guards (do not remove without a replacement)
 
-- **Supervisor + sub-agents.** The main graph orchestrates. `enricher` (web/browser
-  tool, "return concise facts only") and `drafter` (writes in the user's voice) run
-  as isolated sub-agents so raw web results and trial-and-error don't pollute the
-  main context. This is the Deep Agent supervisor pattern — keep it.
-- **State is the single source of truth.** One `TypedDict`. Heavy payloads
-  (full transcript, raw enrichment results) live in state; prompts carry references,
-  not the blobs. Fields roughly: `messages`, `transcript`, `people`,
-  `new_people` / `known_matches`, `enrichments`, `commitments`, `drafts`,
-  `calendar_events`.
-- **Nodes return partial updates only** — just the keys that changed. An unmatched
-  key is dropped silently, so field names must match the schema exactly.
-- **Memory is the demo.** AgentCore Memory (long-term) holds the person graph across
-  sessions; that's what makes dedupe possible and what proves the agent "remembers."
-  For local dev before deploy, a simple local vector store is fine — keep the
-  interface swappable.
+Each exists because a model *told* to be careful was observed not being careful, and each
+failure was invisible in the output.
 
-## Stack conventions (from the hackathon repo — follow these)
+1. **Passing-mention filter** (`extract`). The model sets an explicit `substantive`
+   boolean; **code** filters. Asking a model to silently omit people made the decision
+   invisible and unstable — the same memo produced different name lists run to run.
+2. **Enricher corroboration gate** (`enrich._verify`). Must end with a `CONFIRMED BY:`
+   line naming a detail from the memo; code checks it overlaps the recorded
+   company/role/event. Ungated, it produced a fluent, specific, entirely wrong biography
+   for a "Daniel at Stripe".
+3. **Consolidation safety net** (`merge._safe_consolidation`). Merge uses a model to
+   deduplicate accumulated notes; the result is discarded if it summarised instead of
+   deduplicated, emptied the notes, or invented entries. Only runs past 3 notes or 2
+   places.
 
-- **Package manager is `uv`, never bare pip.** `uv sync`, `uv run <script>`.
-- **Models via `chat_model()` from `_common`** — don't hardcode client classes.
-- **Bedrock model default: Claude Haiku 4.5** —
-  `global.anthropic.claude-haiku-4-5-20251001-v1:0`. Haiku is the default for
-  everything. Only reach for Sonnet if Haiku is _measurably_ wrong on a step, and
-  say why in a comment. Opus is out for a hackathon budget.
-- **Structured output via `with_structured_output(PydanticModel)`**, not
-  "reply in JSON" prompting. The model wraps JSON in a code fence eventually and
-  `json.loads` dies. Typed object in, typed object out.
-- **`temperature=0` for all extraction/dedupe/routing.** Sampling is for the drafter
-  only, and even there keep it low.
-- **Tool docstrings are the prompt.** The model picks tools off the docstring, not
-  the code. A vague docstring is the #1 cause of the wrong tool firing. Write them
-  like prompts.
-- **Tool errors return as `ToolMessage`, never raise.** Missing tool or bad args →
-  write the error into the result and append it. The model reads what broke and
-  self-corrects on the next step. The step cap is the safety net, not exceptions.
+## Stack conventions
+
+- **`uv`, never bare pip.** `uv sync`, `uv run <script>`.
+- **Models via `chat_model()` from `_common`** — never a hardcoded client.
+  `RECALL_MODEL_ID` overrides without touching code.
+- **Model:** currently `global.amazon.nova-2-lite-v1:0`. Anthropic is blocked on this
+  account (below). Nova Pro is ~13x the price and measurably no better here.
+- **Structured output via `with_structured_output(PydanticModel)`**, never "reply in JSON".
+- **`temperature=0` for extraction/resolution/routing.** Sampling is for the drafter only.
+- **Tool docstrings are the prompt.**
+- **Tool errors return as content, never raise.** The step cap is the safety net.
+- **Metering is a callback, not a wrapper.** A wrapper breaks anything that type-checks
+  the model — `create_react_agent` rejects non-Runnables — while stubbed tests still pass.
+- Python, type hints, `ruff` clean.
+- Prompts that grow beyond a screen move to `prompts/` as files.
+- Commit small and often; visible iteration history is worth something.
 
 ## Commands
 
 ```bash
-uv sync --extra aws
-uv run 00_check_bedrock.py     # must print OK before every Bedrock lab/run
+uv sync --extra audio --extra web --extra aws
+uv run pytest tests/ -q          # 52 tests, offline, no credentials, no spend
 
-# AgentCore lifecycle (section 6 pattern)
-uv run 01_run_local.py         # localhost:8080, FREE — always test here first
-uv run 02_deploy.py            # configure + launch, BILLABLE from here
-uv run 04_call_agent.py        # hit the live endpoint
-uv run 03_teardown.py          # tears down runtime — run this when done
+uv run 00_check_bedrock.py       # must print OK before any Bedrock run
+uv run 00_check_bedrock.py --list-models [--verbose]   # probes, doesn't just list
+
+uv run web/server.py             # http://localhost:8000 — the demo UI
+uv run run_demo.py [file] [--reset]
+
+uv run 01_run_local.py           # localhost:8080, FREE — test here first
+uv run 02_deploy.py              # BILLABLE from here
+uv run 03_teardown.py            # run this when done
 ```
 
-## Bedrock / AWS gotchas (these eat hours)
+## This account's AWS situation (read before debugging model errors)
 
-- `body` on `invoke_model` is a **JSON string**, not a dict. The response `body` is a
-  **stream you can read once** — read it into a var immediately.
-- **`finish_reason == "length"` means the reply is cut**, not that the model failed.
-  Truncated JSON looks like a model bug but it's the token ceiling. Check it.
-- **Region is set twice** (SSO region vs. CLI default client region). Bedrock follows
-  the CLI default — `ap-southeast-1`. A blank one is why it works for one person and
-  404s for another.
-- **SSO login expires every 8–12h.** Day 2 starts with `aws sso login --profile workshop`.
-- **Model access is per-model, per-region, off by default.** Haiku 4.5 must be
-  enabled in the Bedrock console for `ap-southeast-1`. Valid creds ≠ working call.
-- **AgentCore teardown is incomplete** — `destroy` leaves S3 / ECR / CloudWatch behind.
-  Don't assume billing stopped.
+- Personal account, IAM user + access keys. No SSO. Region `ap-southeast-1`.
+- **Anthropic and OpenAI models are blocked** — third-party marketplace subscriptions
+  gated behind an unsubmitted *Anthropic use case details* form. Symptom is
+  `ValidationException: invalid model identifier`, which reads like a typo. Amazon Nova
+  is first-party and works.
+- **While that gate is outstanding, Bedrock's answers are inconsistent** — the same model
+  id can pass one call and fail the next. `--list-models` probes each id twice.
+- **Listing is not proof of callability.**
+- **`AmazonBedrockFullAccess` does NOT cover AgentCore.** `bedrock-agentcore` is a
+  separate service with its own permissions.
+- `body` on `invoke_model` is a JSON string; the response `body` is a stream you read once.
+- **`finish_reason == "length"` means the reply was cut**, not that the model failed.
+
+## Hard-won findings
+
+- **`temperature=0` is not determinism.** Bedrock returns different extractions for the
+  same input across runs. Don't build a demo that depends on identical output twice, and
+  don't debug a "flaky" node before ruling this out. **This matters for the eval** —
+  report variance, not a single run.
+- **`notes` is `list[str]`, one atomic fact per entry** — never one jammed string.
+  Compound notes lose qualifiers ("computer science, same major as me" →
+  "studies computer science").
+- **Normalise list fields with `as_list()` at every boundary.** `list("a string")`
+  silently explodes into per-character entries that then persist and consolidate without
+  raising.
+- **Prompt caching is Anthropic-only.** A cache point sent to Nova is a hard
+  `ValidationException`.
+- **Load `.env` in `recall/__init__.py`**, not a submodule.
+- **Enrichment is silent by default and that is correct.** Most people you meet have no
+  findable public presence.
+- **Whisper on Singlish / code-switched speech:** degrades badly, and names sit exactly
+  at code-switch boundaries — the worst case. Reported mixed error rates for baseline
+  `whisper-large-v3` on **SEAME: ~54–61%**. Never treat a transcribed name as ground
+  truth; every name is a candidate with a confidence, which is what the architecture
+  already does.
+- **Never trust a hotword-biased spelling.** Biasing transcription toward a known contact
+  list can make the model *insert a name that was never spoken*. If hotwords are ever
+  added, the output is still a candidate, never ground truth.
 
 ## Cost discipline
 
-- Haiku is $1/$5 per M tokens (in/out); an agent loop calls the model 5–15× per task
-  and resends the whole history each step, so **log `usage` per call** and keep it
-  visible. Cost is measured per prompt, not discovered at month-end.
-- The system prompt is resent every step — **prompt-cache it** (it's >1k tokens once
-  the sub-agent instructions are in). Up to ~90% off cache reads.
-- Reach for few-shot / heavier prompting **only after** the zero-shot version is shown
-  to fail — every example is paid on every step.
+- **Log `usage` per call.** `LEDGER.report()` prints tokens and cost per node.
+- **`PRICING` in `_common.py` only carries rates worth trusting.** An unlisted model
+  reports tokens and declines to invent a cost — Nova 2 Lite is unpriced, hence `$0.0000`.
+- **The enricher dominates spend** — 80–90% of tokens, the only multi-step tool loop.
+- **AgentCore bills for the runtime existing**, not per call, and `destroy` leaves
+  S3 / ECR / CloudWatch behind.
+- Reach for few-shot only after zero-shot is shown to fail.
 
-## Integrations
+---
 
-- **Transcription:** Groq `whisper-large-v3` (free tier, fast). Bedrock/Claude can't
-  take audio — keep transcription a discrete tool at the front of the graph.
-- **Calendar:** Google Calendar MCP for writing commitment follow-ups. Guard against
-  duplicate events on re-runs (idempotency key off the commitment text).
-- **Enrichment:** web/browser tool inside the `enricher` sub-agent only.
+## Future work (cut from scope — cite, don't build)
 
-## Priorities (rank order — use this to break ties)
+- **Bi-temporal belief graph.** Copy Graphiti's schema (arXiv:2501.13956). Currently a
+  flat `PersonRecord`. The intended model:
 
-1. **Demo-ability in the window.** Every feature must be showable live by 7 Sep.
-   If it can't be demoed, it doesn't exist. Cut ruthlessly toward a clean 3-min run.
-2. **Real pain, real data.** The person graph and commitments must feel real in the
-   demo, not lorem-ipsum.
-3. **Novelty** — the enrich + auto-follow-up loop is the differentiator vs. "notes app."
-4. **Infra polish** — clean state design, cost logging, graceful tool failures.
+  ```
+  person(id, canonical_name, created_at)
+  mention(id, memo_id, raw_text, transcript_span, extracted_at)
+  mention_link(mention_id, person_id, match_probability, status)
+      status ∈ {resolved, ambiguous, new}
+  attribute_edge(id, person_id, key, value,
+                 confidence,       -- calibrated [0,1]
+                 valid_from,       -- when the fact held in the world
+                 valid_to,         -- NULL = still believed
+                 recorded_at,      -- when we learned it
+                 source_memo_id,
+                 evidence_span)    -- required; no ungrounded attributes
+  ```
 
-## Dates
+  Rules: **invalidate, never delete** — set `valid_to`, keep the row; history is the
+  point. A person is a *cluster of mentions*, not a row that gets overwritten. Every
+  attribute needs an `evidence_span` — if the model can't point at the transcript, it's
+  a hallucination, drop it.
+- **Contradiction sweep.** Background job (Letta sleep-time pattern); sequential conflict
+  (robotics → fintech, months apart) = life change, auto-update; overlapping conflict =
+  one is wrong, queue for a question.
+- **Calibration measurement.** ECE, Brier, reliability diagram. **Deliberately cut as a
+  headline claim:** ~20–50 hand-written memos yields too few predictions per bin to
+  assert calibration honestly, and a judge who knows statistics will ask about the n.
+  Keep the confidence values; let EIG carry the novelty.
+- **MERaLiON-2** as primary ASR with Whisper as fallback.
+- **OpenTelemetry** spans per decision, with confidence and EIG as attributes.
+- **SQLite/Postgres store** in place of JSON.
+- **AgentCore Memory** — see below.
 
-- Solution submission: **7 Sep 2026**
-- Semi-finals: **9–11 Sep 2026**
-- Grand finale: **18 Sep 2026 @ NUS**
+### AgentCore Memory — must fix before deploying
+
+`recall/memory_agentcore.py` exists but is **architecturally wrong** and has never run.
+Deploying with `RECALL_MEMORY=agentcore` as-is would silently break resolution — every
+known person would look new.
+
+How the service actually works (verified against the installed SDK):
+
+- **Events = short-term.** `create_event(memory_id, actor_id, session_id, messages)`
+  stores raw `(text, role)` turns, retained `event_expiry_days` (default 90).
+- **Extracted records = long-term.** Attach **strategies** (`semantic`, `summary`,
+  `user_preference`, `episodic`, custom); AgentCore runs *its own LLM* over your events
+  **asynchronously** into path-like namespaces (`/actor/Jane/`). `retrieve_memories()`
+  searches *those*.
+
+What the current implementation gets wrong: it writes a JSON blob via `create_event` and
+reads it back with `retrieve_memories` expecting the same JSON; attaches no strategy, so
+nothing is extracted; ignores that extraction is async when resolution needs
+read-after-write within one run; and uses a namespace that doesn't match the path shape.
+
+**Recommended fix — durable storage, not extraction engine.** Keep our `PersonRecord`
+schema and our resolution logic; store records as events and read them back with
+`list_events` (synchronous, raw). Optionally *also* attach a semantic strategy for bonus
+fuzzy recall, with local lexical search as fallback.
+
+Setup order: attach `bedrock-agentcore` IAM permissions → `create_memory_and_wait`
+(minutes to ACTIVE) → set `AGENTCORE_MEMORY_ID` + `RECALL_MEMORY=agentcore` → rewrite the
+backend → test against a throwaway memory resource.
+
+---
+
+## Pitch framing (keep out of the code, keep in mind)
+
+People who care about the people they meet and lose them anyway, because the details
+evaporate in the ten minutes after meeting someone. **Never** frame as extracting value
+from contacts later. The brief asks for solutions that leave people genuinely better off.
 
 ## Do / Don't for Claude Code
 
-- **Do** default to Haiku, `uv run`, typed structured output, and `ToolMessage` error
-  handling.
-- **Do** run `01_run_local.py` before anything that spends AWS money.
+- **Do** use `uv run`, typed structured output, and content-not-exception tool errors.
+- **Do** run the offline tests before anything that spends AWS money.
+- **Do** verify claims against the installed SDK or a real call rather than memory — a
+  single probe is not proof, and this project has been bitten by that twice.
+- **Don't** run exploratory or test memos against the user's live person graph. Twice
+  now, test transcripts were written into it and later looked like the agent
+  hallucinating facts the user never said — the expensive kind of bug, because it
+  discredits the model instead of the process. Any throwaway run sets both:
+  ```bash
+  RECALL_STORE_PATH=<scratch>/graph.json RECALL_CALENDAR_PATH=<scratch>/cal.json uv run ...
+  ```
 - **Don't** add a framework, technique, or sub-agent unless the simpler version has
   demonstrably failed — justify the cost in a comment.
 - **Don't** flatten the graph. The conditional routing and sub-agents _are_ the score.
+- **Don't** extend the frozen tail (enrichment, drafts, calendar).
 - **Don't** leave AgentCore running after a test session.

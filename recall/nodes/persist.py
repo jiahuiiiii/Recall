@@ -10,7 +10,7 @@ from __future__ import annotations
 from langchain_core.messages import AIMessage
 
 from recall.memory import get_store
-from recall.state import RecallState
+from recall.state import as_list, RecallState
 
 
 def persist_node(state: RecallState) -> dict:
@@ -33,9 +33,9 @@ def persist_node(state: RecallState) -> dict:
                 "name": person["name"],
                 "company": person.get("company"),
                 "role": person.get("role"),
-                "aliases": person.get("aliases") or [],
-                "met_at": [person["met_at"]] if person.get("met_at") else [],
-                "notes": [person["notes"]] if person.get("notes") else [],
+                "aliases": as_list(person.get("aliases")),
+                "met_at": as_list(person.get("met_at")),
+                "notes": as_list(person.get("notes")),
                 "enrichment": enrichment if usable else None,
             }
         )
