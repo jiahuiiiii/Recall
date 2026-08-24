@@ -1,3 +1,4 @@
+from recall.nodes.ask import ask_node
 from recall.nodes.calendar import calendar_node
 from recall.nodes.dedupe import dedupe_node, route_after_dedupe
 from recall.nodes.enrich import enrich_node
@@ -9,6 +10,7 @@ from recall.nodes.summarize import summarize_node
 from recall.nodes.transcribe import transcribe_node
 
 __all__ = [
+    "ask_node",
     "transcribe_node",
     "extract_people_node",
     "dedupe_node",

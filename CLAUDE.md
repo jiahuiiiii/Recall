@@ -52,142 +52,172 @@ If asked to add a feature, default to no. Five minutes of demo cannot show bread
 
 ---
 
-## Current status (21 Aug 2026)
+## Current status (24 Aug 2026)
 
-**Working end to end.** Voice memo → transcript → people → dedupe against stored graph →
-merge or enrich → commitments → drafts → calendar → summary. 52 tests, all offline.
-~2,700 lines. Runs from CLI or the web UI.
+**The full pipeline works and the headline benchmark exists.** 173 tests, all offline.
+Runs from CLI or the web UI.
+
+```
+transcribe -> extract -> dedupe(3-zone band) -> ask(EIG, pauses) -> (enrich | merge) -> ...
+```
+
+The pause is real: on an interactive run `dedupe` holds ambiguous mentions, `ask`
+suspends the graph on `interrupt()`, and **the human's answer decides which branch the
+person takes**.
 
 | Piece | State |
 |---|---|
 | LangGraph supervisor, conditional edge, fan-in | **Done**, tested |
 | Transcription (Groq `whisper-large-v3`) | **Done**, ~1.2s for a 20s memo |
-| Extraction → typed `Person` with atomic `notes` | **Done**, tested |
-| Dedupe against the person graph | **Done** — but single-threshold, see below |
-| Person store (`PersonStore`, local JSON) | **Done**, with delete + patch |
-| Merge + LLM consolidation with safety net | **Done**, tested |
-| Enricher / drafter sub-agents | Done, **frozen** |
-| Calendar writer (local ledger, idempotent) | Done, **frozen** |
-| Web UI — record, type, edit, live graph, person graph | **Done**, responsive |
-| Cost metering per node | **Done** |
-| **Three-zone entity resolution** | **Not built** — `MATCH_THRESHOLD = 0.7`, single cut |
-| **EIG question selection** | **Not built** |
-| **Eval harness / benchmark** | **Not built** ← blocks everything |
+| Extraction → typed `Person`, atomic `notes`, substantive filter | **Done** |
+| Candidate retrieval — stem/substring/misspelling tolerant | **Done**, 11 tests |
+| **Three-zone band** (`recall/resolve.py`) — pure, + near-tie margin | **Done**, 19 tests |
+| **EIG selection** (`recall/eig.py`) — pure, per-question reliability | **Done**, 23 tests |
+| **Question derivation** (`recall/questions.py`) — mechanical | **Done**, 32 tests |
+| **`ask_node`** — one question per memo, rejected set carried in state | **Done** |
+| Eval harness — fixtures, B³/pairwise, validator, audio→fixture | **Done** (`eval/`) |
+| Simulated answerer (`eval/strategies.py`) | **Done**, 7 tests — was untested, and was wrong |
+| **EIG vs random vs uncertainty benchmark** | **Done** — see below |
+| Person store, merge + consolidation, delete/patch | **Done** |
+| Web UI — record, type, edit, live graph, person graph, delete | **Done**, responsive |
+| Enricher / drafter / calendar tail | Done, **frozen** (outside scope) |
+| **Multi-valued questions** (`questions.attribute_questions`) | **Done**, in the 32 above |
+| **Demo surface** — question card in the web UI, `ask` in the diagram | **Done**, 3 server tests |
+| **Answering the question** — `interrupt()`, `/api/answer`, clickable options | **Done**, 18 tests |
+| **Applying the answer** (`recall/answer.py`) — Bayes, pure | **Done**, 12 tests |
 | AgentCore Memory backend | Written blind, **known broken**, never run |
 | AgentCore deploy (`01`–`04`) | Written, never run |
-| MCP calendar | Written, never run, needs OAuth |
 
-**Known drift:** the pipeline grew a commitments → drafts → calendar tail and a web
-enricher that are outside the scoped project. They work and they demo fine as a closing
-beat. Do not invest further in them.
+### Resolution baseline (`arc_acacia`, 24 memos)
+
+`B³ P=1.000 R=0.856 F1=0.922` · `pairwise P=1.000 R=0.667 F1=0.800`
+
+**Precision has been 1.000 throughout.** Nothing is ever wrongly merged; every loss is a
+missed recognition, which is the right direction to fail in. Thresholds in force:
+`T_MATCH=3.0`, `T_NONMATCH=1.0`, `MIN_MARGIN=1.0`. Quote them with any result.
+
+### Fixtures
+
+22–28 memos across `arc_acacia` (the real one), `same_first_name` (the only precision
+test — two people sharing a name that must not merge) and `genuinely_ambiguous`.
+~9 recurring people, 4–5 scorable ambiguous mentions per run.
 
 ---
 
 ## Work remaining, in order
 
-### 1. Eval harness — do this first
+### ~~A. Multi-valued questions~~ — **DONE 24 Aug**
 
-It gates everything: EIG cannot be tuned or compared without it, and it is the stated
-deliverable.
-
-- **20–50 hand-written memo transcripts** with ground-truth person clusters and planted
-  ambiguities. Hand-write them so you control the labels. Messy, Singlish, code-switched,
-  partial names — realistic input, not clean prose.
-- **Entity resolution:** pairwise P/R/F1 plus **B³ (B-cubed) cluster F1**.
-- **Question efficiency:** questions per ambiguity resolved; % resolved with ≤1 question.
-- **The headline comparison:** EIG vs random vs uncertainty-sampling.
-
-A rigorously measured negative result (EIG ties uncertainty-sampling) is still a win — it
-proves EIG was actually implemented. Report honestly; do not tune until the numbers look
-good.
-
-**Harness is built** (`eval/`): B³ + pairwise + substantive metrics (pure, 8 unit tests),
-a runner over YAML fixtures, and `check_fixtures.py` for validation. **Fixtures are the
-bottleneck and must be hand-written by the user** — a fixture generated by the model under
-test proves nothing. Status: 6 memos, 1 ambiguous, against targets of 20 and 8.
-
-Memos within a scenario file are ordered and run against a fresh graph; files are
-independent. Prefer 3–5 long scenarios over many short ones — a bigger graph is a harder
-resolution problem.
-
-### 1.5 Candidate retrieval — do this BEFORE the band
-
-**Found by the eval harness on its first real fixture, 22 Aug.** A memo referring to
-someone as "the german girl" does not retrieve the stored `Viktoria`, because her record
-holds the token `germany` and the query holds `german`. Exact token overlap misses by one
-character. `"the exchange student"` finds her fine — retrieval is brittle, not broken.
-
-Why this outranks the band and EIG: when `store.search()` returns nothing, `dedupe_node`
-short-circuits to "new person" **without calling the model at all**. No candidates means
-no hypotheses, no hypotheses means nothing enters the ambiguous band, and an empty band
-means EIG has no question to select. **Retrieval recall gates the entire contribution.**
-
-Recall matters far more than precision here — the LLM adjudicator is the precision filter,
-so retrieval should be generous. In ascending cost: prefix/stem matching, character
-n-grams (also absorbs Whisper misspellings, which are the documented worst case), or
-embeddings. Measure with the harness before and after; `arc_acacia` currently fails this
-reproducibly (B³ F1 0.941, pairwise 0.667).
-
-### 2. Three-zone entity resolution
-
-Replace the single `MATCH_THRESHOLD` with a Fellegi–Sunter-style band:
+`attribute_questions()` in `recall/questions.py`. Facts across hypotheses are paired by
+**word-level prefix/suffix alignment**, not token overlap: two facts are the same
+attribute when they are the same statement with a different middle. Measured:
 
 ```
-score > T_match          → auto-resolve
-T_nonmatch … T_match     → AMBIGUOUS — this is where we ask
-score < T_nonmatch       → new person
+"Do they live on the 4th floor?"          binary     0.301 bits
+"Which floor do they live at?"            3-valued   0.475 bits
+"Do they study computer science at NUS?"  binary     0.671 bits
+"What do they study at NUS?"              3-valued   0.803 bits
 ```
 
-Thresholds are tunable and must be reported in the eval. **The ambiguous band existing at
-all is the design** — do not collapse it back to one threshold to simplify.
+**The "roughly twice" estimate above was wrong** and is corrected here. EIG is capped by
+`H(prior)`, which is 1.27 bits for three hypotheses, so no question can double 0.67. The
+real lift is **1.2–1.6x**, which is still the single biggest arithmetic gain available.
+Quote 1.2–1.6x, not 2x.
 
-### 3. EIG question selection
+Alignment is strict on purpose. A token-overlap rule pairs "from malaysian chinese
+independent school" with "studies computer science at NUS" on the strength of
+school/science, and an **unanswerable question is worse than no question** — it still
+scores in bits and still gets asked.
 
-- Enumerate hypotheses for the most ambiguous mention (candidate people + "new person"),
-  capped at 5.
-- Generate a small candidate question set (attribute probes, disambiguating features).
-- Compute EIG exactly for each; pick argmax. Greedy one-step lookahead only.
-- **Exactly one question per memo.** Asking has a cost; the interrupt budget is 1.
-- Ask immediately after the memo is processed, never as a later notification.
-- Implement the pause with LangGraph `interrupt()` — the graph checkpoints and resumes on
-  `Command(resume=...)`. **The graph needs a checkpointer for this**; `build_graph()`
-  already accepts one and currently gets `None`.
+Every attribute probe carries `"something else"` in its answer space. A closed answer
+space can only choose between people already in the graph, which is how a stranger gets
+merged into an acquaintance.
 
-**Keep the EIG computation in a pure module with no LLM calls inside it.** The LLM
-proposes candidate questions and estimates answer distributions; the *selection* is
-arithmetic we unit-test.
+### ~~B. Demo surface~~ — **DONE 24 Aug**
 
-Reuse over rebuild: **UoT — github.com/zhiyuanhubj/UoT** is the question-selection
-reference implementation. Read it before writing the entropy code. Our original work is
-the integration and the evaluation, not the algorithm.
+Question card in `web/index.html` (`questionCard()`), first in the results column: the
+mention, candidate priors as bars, the chosen question big, bits bought as a share of
+bits outstanding, the answer options, and **the questions it did not ask with their
+measured value**. `ask` now appears in the pipeline diagram — it was missing, and the
+diagram claimed `dedupe` branched straight to `enrich`/`merge`.
 
-### 4. Demo surface for the question
+`unaskedCard()` covers the case where the band flagged an ambiguity but every derived
+question scored zero. Silence there looks like the ambiguity was never noticed.
 
-The money shot is showing the EIG scores of the questions it *didn't* ask. The web UI
-already streams per-node events — surface the hypothesis set, the candidate questions, and
-their EIG values, then the chosen one.
+### ~~C. Answering the question~~ — **DONE 24 Aug**
 
----
+The graph genuinely suspends. `ask_node` calls `interrupt()`, the run is stored in a
+checkpointer, and `POST /api/answer` resumes it with `Command(resume=answer)`.
+
+**The change that made the question load-bearing was not the pause.** It was stopping
+`dedupe_node` from settling the ambiguity before the question was even chosen. On an
+interactive run ambiguous mentions are now **held** — in `ambiguous`, in neither
+`new_people` nor `known_matches` — and `ask_node` places them from the answer. Before
+this, an LLM adjudicator had already decided and the question could only ever agree with
+it. Non-interactive runs (CLI, eval, tests) keep the adjudicator, so nothing regressed.
+
+Switched by `configurable.interactive`, not by the presence of a checkpointer —
+`recall/state.py::is_interactive`. The flag is explicit so the CLI and eval never
+discover the difference by raising inside `interrupt()`.
+
+`recall/answer.py` applies the answer: **the same Bayes update, with the same
+per-question noise, that EIG scored the question with.** If the answer were applied by
+text-matching instead, the bits the question promised would not be the bits it delivered
+and the headline claim would measure something the system does not do.
+
+Gotchas worth remembering:
+
+- **`interrupt()` re-executes the node from the top on resume.** Everything above the
+  call must be pure. Nothing may be written to the store before it — verified against the
+  installed SDK, not assumed.
+- **State lives in the checkpointer, not the compiled graph.** The server recompiles per
+  request and resumes fine; only the saver is a singleton.
+- **`InMemorySaver` does not survive a server restart.** Restart mid-demo and the pending
+  question is gone. Fine for a local demo, worth knowing before it happens on stage.
+
+### D. For the user, not Claude
+
+- **More fixtures — by 30 Aug**, especially loose references that fit 3+ known people. A
+  description only becomes an EIG case if it is under-determined *given the graph* —
+  several recent additions resolved cleanly instead, which is a good outcome but not a
+  scorable one. Fixtures added after 30 Aug mean re-running the benchmark after freeze.
+- **The writeup — 1–4 Sep.** There is a real result to report, but **wait for the 28 Aug
+  benchmark re-run** before quoting any questions-per-resolution number.
+- **The demo script — 1–4 Sep**, written and timed, then rehearsed 5–6 Sep.
 
 ## Timeline
 
-Gate 1 was 22 Aug in the original plan and the eval harness does not exist, so the
-schedule below is the revised, honest one.
+**FEATURE FREEZE IS 31 AUG.** Pulled forward from 5 Sep so the writeup, fixtures and
+rehearsal get a clear week instead of two rushed days. Nothing new goes in after 31 Aug —
+not a small thing, not a quick fix. September is for words and practice.
+
+**All of A, B and C are done as of 24 Aug.** No feature work is outstanding. What remains
+before the 31 Aug freeze is the benchmark re-run and fixtures — both measurement, not
+building. That is a comfortable position; protect it by not starting anything new.
 
 | Date | Gate |
 |---|---|
-| **22–24 Aug** | **Gate 1 (revised)** — eval harness exists: fixtures, ground-truth clusters, B³ + P/R/F1 scoring, baseline numbers for the current dedupe. |
-| **25–26 Aug** | Candidate retrieval recall (step 1.5). Re-measure `arc_acacia`. |
-| **26–29 Aug** | Three-zone resolution + EIG module, pure and unit-tested. |
-| **30 Aug – 2 Sep** | **Gate 2** — `interrupt()` wired, one question asked per memo end to end, EIG vs random vs uncertainty-sampling numbers in hand. |
-| **3–4 Sep** | Demo surface for the question. Seed demo data. Rehearse. |
-| **5 Sep** | **Feature freeze.** Rehearse only. |
+| ~~22–24 Aug~~ | ~~**Gate 1**~~ — **PASSED 22 Aug.** Eval harness, B³ + pairwise, baseline numbers. |
+| ~~25–29 Aug~~ | ~~Retrieval, band, EIG~~ — **PASSED 23 Aug.** All pure and unit-tested. |
+| ~~30 Aug – 2 Sep~~ | ~~**Gate 2**~~ — **benchmark PASSED 23 Aug.** EIG vs random vs uncertainty measured. |
+| ~~24–27 Aug~~ | ~~Multi-valued questions (A), demo surface (B)~~ — **both DONE 24 Aug.** |
+| ~~25–27 Aug~~ | ~~**C — `interrupt()` + the answer flow**~~ — **DONE 24 Aug**, three days early. |
+| **28 Aug** | **Gate 3 — re-run the benchmark.** Its numbers were invalidated 24 Aug by the answerer fix and the multi-valued probes; the README table is marked SUPERSEDED until this runs. Billable. |
+| **29–30 Aug** | More fixtures (loose references that fit 3+ known people). Second arc if it exists. Re-run the benchmark if fixtures moved. |
+| **31 Aug** | **FEATURE FREEZE.** Final numbers recorded. Demo data seeded (`uv run seed_demo.py --write`). |
+| **1–4 Sep** | **Writeup.** Demo script, written and timed. |
+| **5–6 Sep** | Rehearse only. Nothing touches the code. |
 | **7 Sep** | **Submission.** |
 | 9–11 Sep | Semi-finals. |
 | 18 Sep | Grand finale @ NUS. |
 
-**If Gate 2 slips**, ship EIG on typed text only and drop the `interrupt()` UX — the
-contribution is the selection arithmetic and the benchmark, not the pause.
+**If C slips past 27 Aug, cut it** and ship EIG on typed text — the contribution is the
+selection arithmetic and the benchmark, not the pause. Do not let it eat 28–31 Aug; the
+benchmark re-run is not optional and the fixtures are worth more than the pause is.
+
+**The one hard dependency:** the benchmark must be re-run before the writeup quotes any
+questions-per-resolution number. Writing prose around numbers that are still marked
+SUPERSEDED is how a stale table survives into a submission.
 
 ---
 
@@ -235,6 +265,78 @@ voice memo (or typed text)
 - **Guards belong in code, not prompts.** Where a model must be careful, make the
   pipeline not require carefulness.
 
+## Known limitations
+
+### Role-only references are not extracted
+
+"I bumped into the male OGL... said hi... he said hi back" extracts **nobody** — not even
+a non-substantive entry, which the prompt explicitly asks for. Two things overlap here:
+the memo genuinely is presence-and-greeting (so `substantive: false` is the correct
+label), and the model omits rather than flags. Prompt-compliance gap; the passing-mention
+guard depends on the model listing people it then marks false.
+
+### Plural references
+
+`Person` extraction emits one record per person, so a plural phrase naming nobody —
+"the two malaysian chinese independent school girls" — yields **one** entity, not two.
+Real users talk this way constantly, so this is a genuine product gap, not a fixture
+artifact. It needs plural-mention expansion, which is a separate feature from EIG.
+
+**Out of scope; do not build it.** In fixtures, keep plural references rare and expect
+them to fail — each one costs a recognition test that can never pass.
+
+### The "someone new" prior is a placeholder, not a considered number
+
+`dedupe_node` hands the new-person hypothesis `score: 0.0` while real candidates score
+~3.5. Softmax at temperature 1.0 turns that into a **1.5% prior** — so a person the user
+has genuinely never mentioned before starts out nearly ruled out.
+
+The effect is visible: answer "something else" to a clarifying question and the right
+answer wins, but only at **36% confidence**, because one answer has to drag 1.5% up past
+two candidates sitting at 49%. It resolves correctly and honestly reports that it is not
+sure, which is the right direction to fail in, but the number is soft.
+
+**Deliberately not retuned**, because changing it moves the B³/pairwise baseline and the
+strategy benchmark at the same time, and both are already due a re-run. If it is touched,
+re-run both and quote the new thresholds. A principled value would come from how often an
+ambiguous mention actually turns out to be someone new across the fixtures — which is
+measurable, and is the honest way to set it.
+
+Related fix already in: attribute probes give `outcomes[""] = "something else"`, because
+holding no record of someone genuinely does predict that they will name a value we do not
+have. Before that, answering "none of these" could still resolve to Kit Yee — a stranger
+merged into a real contact record, the exact failure the band exists to prevent.
+
+### The benchmark rests on one setting
+
+After the 23 Aug cleanup the fixtures are `arc_acacia` (18 memos), plus `same_first_name`
+(the only precision test — two people sharing a name that must not merge) and
+`genuinely_ambiguous`. All the real data comes from one hall, where people share schools,
+floors and courses. That makes it a hard graph, but thresholds tuned to it may not
+generalise. Either add a short second arc or state the caveat in the writeup.
+
+## Writing eval fixtures — labelling rules learned the hard way
+
+Getting these wrong silently corrupts the benchmark rather than erroring.
+
+- **`cluster` is the human; `as` is what you called them this time.** A loose reference
+  ("the german girl") keeps the original person's cluster id. Giving it a new cluster
+  makes the ground truth assert they are different people, so the system is marked wrong
+  for being right.
+- **`as` must be a phrase from the transcript.** The harness maps system output back onto
+  gold mentions by name overlap. An invented label matches nothing and scores as a miss.
+  A trailing `(1)`/`(2)` is allowed purely to keep two keys distinct and is stripped
+  before matching.
+- **Three things look like "I don't know who this is" and only one is ambiguous:**
+  - *new person, described not named* → own cluster, `ambiguous: false`
+  - *known person, described not named* → their cluster, `ambiguous: false` (tests retrieval)
+  - *genuinely cannot tell between 2+ known people* → `UNRESOLVED` + `ambiguous: true`
+    — **only this is EIG's job**
+- **`substantive: false` + `ambiguous: true` is incoherent.** Non-substantive mentions are
+  filtered before resolution runs, so `ambiguous` is never acted on.
+- **`substantive: false` hides a mention from the resolver entirely.** Marking a real
+  contact false throws away a recognition test.
+
 ## The three guards (do not remove without a replacement)
 
 Each exists because a model *told* to be careful was observed not being careful, and each
@@ -273,7 +375,7 @@ failure was invisible in the output.
 
 ```bash
 uv sync --extra audio --extra web --extra aws
-uv run pytest tests/ -q          # 52 tests, offline, no credentials, no spend
+uv run pytest tests/ -q          # 173 tests, offline, no credentials, no spend
 
 uv run 00_check_bedrock.py       # must print OK before any Bedrock run
 uv run 00_check_bedrock.py --list-models [--verbose]   # probes, doesn't just list
@@ -307,6 +409,32 @@ uv run 03_teardown.py            # run this when done
   same input across runs. Don't build a demo that depends on identical output twice, and
   don't debug a "flaky" node before ruling this out. **This matters for the eval** —
   report variance, not a single run.
+- **Re-run the WHOLE pipeline per repeat, not just the scoring.** The first version of
+  `run_questions.py` collected the ambiguous cases once and replayed the strategies over
+  them many times. A high repeat count looked rigorous while hiding the dominant noise
+  source: the case set itself moves (4–6 mentions on identical fixtures). It reported a
+  lucky single sample as a result.
+- **The simulated answerer was confirming facts the gold person did not hold.**
+  Found 24 Aug. `truthful_answer` matched the *phrased question* against the record at
+  an overlap of 0.55. "Do they live at the 18th floor?" scored **0.583** against "lives
+  on the 4th floor" — the verb and the noun `floor` are shared, only the value differs —
+  so the simulated user on the 4th floor said **yes** to the 18th. Every strategy was
+  updating on a lie, and because it hurt all three roughly equally the table still looked
+  reasonable. Now matches `Question.source` (the recorded fact, not the question) at
+  `SAME_FACT`, the same threshold `derive()` uses to decide two facts are the same fact.
+  **The answerer must be consistent with the derivation by construction**, not by a
+  separately-tuned number.
+- **Any benchmark number produced before 24 Aug predates that fix.** Re-run before
+  quoting. The resolution numbers (B³/pairwise) are unaffected — they do not use the
+  answerer.
+- **`_verdict()` in `run_questions.py` was never called.** `main()` ended on
+  `results = per_run` and the function below it was dead. The sweep printed a table and
+  silently skipped the "is this spread bigger than the gap?" check that exists precisely
+  to stop a lucky run being reported as a win.
+- **Transient `ModelErrorException` kills long runs.** "The system encountered an
+  unexpected error during processing" arrives with no warning and took down a
+  multi-minute sweep. `chat_model()` now passes a botocore adaptive retry config, which
+  also handles throttling.
 - **`notes` is `list[str]`, one atomic fact per entry** — never one jammed string.
   Compound notes lose qualifiers ("computer science, same major as me" →
   "studies computer science").

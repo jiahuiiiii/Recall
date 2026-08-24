@@ -9,3 +9,4 @@ __pycache__/
 .uv/
 uv.lock
 *.yaml
+.recall-demo-graph.json

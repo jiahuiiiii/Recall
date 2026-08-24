@@ -46,7 +46,7 @@ def main() -> int:
     linked_clusters = skeleton_memos = 0
     skeletons: list[str] = []
 
-    print(f"{'scenario':<24} {'memos':>6} {'ments':>6} {'people':>7} {'linked':>7} {'ambig':>6} {'passing':>8}")
+    print(f"{'scenario':<24} {'memos':>6} {'ments':>6} {'people':>7} {'recurs':>7} {'ambig':>6} {'passing':>8}")
     print("-" * 72)
 
     for s in scenarios:
@@ -95,6 +95,12 @@ def main() -> int:
                     )
                 if not x.substantive:
                     passing += 1
+                    if x.ambiguous:
+                        warnings.append(
+                            f"{s.id}/{m.id}: '{x.as_written}' is both non-substantive and "
+                            f"ambiguous. Non-substantive mentions are filtered before "
+                            f"resolution runs, so `ambiguous` is never acted on. Pick one."
+                        )
                 if x.substantive and not x.ambiguous and x.cluster != "UNRESOLVED":
                     cluster_memos.setdefault(x.cluster, set()).add(m.id)
 
@@ -110,7 +116,8 @@ def main() -> int:
             )
         if multi == 0 and len(s.memos) > 1:
             warnings.append(
-                f"{s.id}: no person appears in more than one memo, so nothing tests recognition."
+                f"{s.id}: nobody appears in more than one memo, so this file tests nothing "
+                f"about recognition. Bring an existing person back in a later memo."
             )
         if len(s.memos) < 3:
             warnings.append(f"{s.id}: {len(s.memos)} memos. Longer scenarios are harder and more realistic.")
@@ -131,7 +138,8 @@ def main() -> int:
     print(f"  memos            {total_memos:>3} / {TARGET_MEMOS}   {_bar(total_memos, TARGET_MEMOS)}")
     print(f"  ambiguous        {total_ambig:>3} / {TARGET_AMBIGUOUS}   {_bar(total_ambig, TARGET_AMBIGUOUS)}"
           "   <- the denominator for the EIG headline")
-    print(f"  linked people    {linked_clusters:>3}       (people appearing in 2+ memos — the memory claim)")
+    print(f"  recurring people {linked_clusters:>3} / 12  {_bar(linked_clusters, 12)}"
+          "   <- people in 2+ memos; each one is a recognition test")
     print(f"  passing mentions {total_passing:>3}       (should NOT be recorded)")
 
     if skeletons:

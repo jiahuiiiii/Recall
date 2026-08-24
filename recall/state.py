@@ -181,13 +181,37 @@ class PersonRecord(TypedDict, total=False):
     last_seen: str
 
 
-class KnownMatch(TypedDict):
+class KnownMatch(TypedDict, total=False):
     """An extracted person resolved onto an existing stored record."""
 
     person: dict
     record_id: str
     confidence: float
     reasoning: str
+    score: float          # raw Fellegi-Sunter-style score, before squashing
+    zone: str             # which band it landed in
+
+
+class Hypothesis(TypedDict):
+    """One candidate identity for an ambiguous mention."""
+
+    record_id: str        # "" means the "new person" hypothesis
+    name: str
+    score: float
+    explain: str
+
+
+class AmbiguousMention(TypedDict):
+    """A mention the band could not settle. This is what a question is FOR.
+
+    Carried in state even when the interim adjudicator resolves it, so the
+    benchmark can count how many arose and EIG can later select over the same
+    hypothesis set.
+    """
+
+    person: dict
+    hypotheses: list[Hypothesis]
+    resolved_to: str | None    # set by whatever settles it, None while open
 
 
 class CalendarEvent(TypedDict, total=False):
@@ -197,6 +221,22 @@ class CalendarEvent(TypedDict, total=False):
     idempotency_key: str
     status: Literal["created", "duplicate", "skipped", "error"]
     detail: str
+
+
+def is_interactive(config) -> bool:
+    """True when this run can stop and wait for a person.
+
+    A pause needs somewhere to keep the half-finished run, so it needs a
+    checkpointer -- and the CLI, the tests and the eval harness all compile the
+    graph without one. Rather than have those paths discover that by raising
+    inside `interrupt()`, the caller declares up front whether a human is
+    reachable, and the nodes take a different route when nobody is.
+
+    Set by whoever builds the run:  config={"configurable": {"interactive": True}}
+    """
+    if not config:
+        return False
+    return bool((config.get("configurable") or {}).get("interactive"))
 
 
 class RecallState(TypedDict, total=False):
@@ -214,6 +254,7 @@ class RecallState(TypedDict, total=False):
     people: list[dict]
     new_people: list[dict]
     known_matches: list[KnownMatch]
+    ambiguous: list[AmbiguousMention]
 
     enrichments: dict[str, str]
 
@@ -224,6 +265,14 @@ class RecallState(TypedDict, total=False):
     # merge (parallel branch) and persist (after the join) both write ids here,
     # so it accumulates instead of last-write-wins -- otherwise persist silently
     # erases the ids merge just wrote.
+    # At most one per memo. None when nothing was worth asking about.
+    question: dict | None
+
+    # What the human's answer settled, when there was one. Absent on a run that
+    # never paused -- which is every non-interactive run, so nothing downstream
+    # may treat its presence as guaranteed.
+    resolution: dict | None
+
     persisted_ids: Annotated[list[str], operator.add]
     summary: str
 

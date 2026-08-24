@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from recall.state import Person
 from tests.fakes import (
     ARJUN,
     DAY1_COMMITMENTS,
@@ -146,8 +147,13 @@ def test_second_memo_recognises_a_known_person(sandbox, monkeypatch):
     assert len(wei["notes"]) >= 1
 
 
-def test_low_confidence_match_is_treated_as_new(sandbox, monkeypatch):
-    """A hesitant match must split, not merge. A wrong merge destroys a record."""
+def test_a_declined_ambiguous_match_is_treated_as_new(sandbox, monkeypatch):
+    """A hesitant match must split, not merge — a wrong merge destroys a record.
+
+    Under the three-zone band this is no longer a confidence cutoff: the score
+    puts the mention in the AMBIGUOUS zone, the adjudicator is consulted, and
+    declining leaves it a new person.
+    """
     from recall.state import (
         CommitmentExtraction,
         DraftBundle,
@@ -155,10 +161,16 @@ def test_low_confidence_match_is_treated_as_new(sandbox, monkeypatch):
         PeopleExtraction,
     )
 
+    # TWO people at GIC, so a later reference to "the GIC woman" fits both.
+    # With only one stored it would be a confident match, not a question.
+    second = Person(
+        name="Mei Hua", company="GIC", role="risk analyst", met_at="SuperAI mixer",
+        notes=["Also at GIC", "Works on risk models"], aliases=[], substantive=True,
+    )
     _wire(
         monkeypatch,
         {
-            PeopleExtraction: PeopleExtraction(people=[WEI_LIN]),
+            PeopleExtraction: PeopleExtraction(people=[WEI_LIN, second]),
             CommitmentExtraction: CommitmentExtraction(commitments=[]),
             DraftBundle: DraftBundle(drafts=[]),
         },
@@ -167,12 +179,19 @@ def test_low_confidence_match_is_treated_as_new(sandbox, monkeypatch):
 
     run(transcript="first", verbose=False)
 
+    # Names nobody and fits both stored records equally -> a near-tie, which is
+    # ambiguous however high the raw score is.
+    vague = Person(
+        name="the GIC woman", company="GIC", role=None,
+        met_at=None, notes=["was at the mixer"], aliases=[], substantive=True,
+    )
     _wire(
         monkeypatch,
         {
-            PeopleExtraction: PeopleExtraction(people=[WEI_LIN]),
+            PeopleExtraction: PeopleExtraction(people=[vague]),
             MatchDecision: MatchDecision(
-                is_match=True, candidate_id="p_nonexistent", confidence=0.4, reasoning="unsure"
+                is_match=False, candidate_id=None, confidence=0.4,
+                reasoning="cannot tell from this alone",
             ),
             CommitmentExtraction: CommitmentExtraction(commitments=[]),
             DraftBundle: DraftBundle(drafts=[]),
@@ -180,6 +199,9 @@ def test_low_confidence_match_is_treated_as_new(sandbox, monkeypatch):
     )
     state = run(transcript="second", verbose=False)
 
+    assert state["ambiguous"], "two equally good candidates belong in the band"
+    assert len(state["ambiguous"][0]["hypotheses"]) >= 2, "both candidates plus 'someone new'"
+    assert state["ambiguous"][0]["resolved_to"] is None
     assert len(state["new_people"]) == 1
     assert state["known_matches"] == []
 

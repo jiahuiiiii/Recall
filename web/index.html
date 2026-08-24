@@ -137,6 +137,44 @@ path.edge.dead{opacity:.15;stroke-dasharray:3 3}
 .mailbody{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--sunk);
           border-radius:7px;padding:13px 15px;font-size:14.5px}
 .blank{color:var(--muted);font-style:italic}
+
+/* ---------- the question, and what it beat ----------
+   The claim this project makes is that the question was CHOSEN, by arithmetic.
+   A panel showing only the question it asked would demonstrate nothing a prompt
+   could not fake, so the rejected questions and their measured value get equal
+   visual weight to the chosen one. */
+.card.ask{border-left-color:var(--gold);background:
+   linear-gradient(180deg,var(--gold-dim) 0%,var(--panel) 120px)}
+.askq{font-family:var(--display);font-weight:500;font-size:23px;line-height:1.3;
+      letter-spacing:-.02em;margin:12px 0 0}
+.bits{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--gold);
+      white-space:nowrap}
+.opts{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.opt{font-family:var(--mono);font-size:11.5px;background:var(--panel2);color:var(--ink2);
+     border:1px solid var(--line2);border-radius:999px;padding:5px 11px}
+button.opt{cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+button.opt:hover:not(:disabled){background:var(--gold);border-color:var(--gold);
+     color:var(--gold-ink)}
+button.opt:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.opt:disabled{cursor:default;opacity:.45}
+button.opt.picked{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);
+     opacity:1;font-weight:500}
+.opt.else{color:var(--muted);border-style:dashed}
+.hyps{margin:15px 0 0;display:grid;gap:6px}
+.hyp{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;gap:10px;
+     align-items:center;font-size:13px}
+.hyp .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hyp .bar{height:7px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.hyp .bar i{display:block;height:100%;background:var(--clay);border-radius:99px}
+.hyp .pc{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.rej{margin-top:16px;border-top:1px solid var(--line);padding-top:13px}
+.rejrow{display:flex;align-items:baseline;gap:10px;justify-content:space-between;
+        font-size:13.5px;color:var(--ink2);padding:4px 0}
+.rejrow .bits{color:var(--muted)}
+.rejrow.zero{opacity:.62}
+.shape{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;
+       letter-spacing:.1em;color:var(--muted);border:1px solid var(--line2);
+       border-radius:4px;padding:1px 5px}
 .bad{background:var(--clay-dim);border:1px solid var(--clay);color:var(--clay);
      padding:11px 14px;border-radius:8px;font-size:14px;margin-bottom:11px}
 .total{font-family:var(--mono);font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);
@@ -307,18 +345,22 @@ const $ = id => document.getElementById(id);
 const NODES = {
   transcribe:  {x:  10, y: 40, label:"transcribe",  sub:"groq whisper"},
   extract:     {x: 138, y: 40, label:"extract",     sub:"structured"},
-  dedupe:      {x: 266, y: 40, label:"dedupe",      sub:"RAG · memory"},
-  enrich:      {x: 400, y: 10, label:"enrich",      sub:"sub-agent · web"},
-  merge:       {x: 400, y: 70, label:"merge",       sub:"into record"},
-  commitments: {x: 534, y: 40, label:"commitments", sub:"structured"},
-  drafts:      {x: 662, y: 40, label:"drafts",      sub:"sub-agent"},
-  calendar:    {x: 790, y: 40, label:"calendar",    sub:"idempotent"},
-  persist:     {x: 918, y: 40, label:"persist",     sub:"memory"},
+  dedupe:      {x: 266, y: 40, label:"dedupe",      sub:"3-zone band"},
+  ask:         {x: 394, y: 40, label:"ask",         sub:"argmax EIG"},
+  enrich:      {x: 528, y: 10, label:"enrich",      sub:"sub-agent · web"},
+  merge:       {x: 528, y: 70, label:"merge",       sub:"into record"},
+  commitments: {x: 662, y: 40, label:"commitments", sub:"structured"},
+  drafts:      {x: 790, y: 40, label:"drafts",      sub:"sub-agent"},
+  calendar:    {x: 918, y: 40, label:"calendar",    sub:"idempotent"},
+  persist:     {x:1046, y: 40, label:"persist",     sub:"memory"},
 };
 const W = 110, H = 34;
+/* Mirrors recall/graph.py. `ask -> commitments` is real but not drawn: it
+   would cross both branch boxes, and the branch is the thing this picture
+   exists to show. */
 const EDGES = [
-  ["transcribe","extract"], ["extract","dedupe"],
-  ["dedupe","enrich"], ["dedupe","merge"],
+  ["transcribe","extract"], ["extract","dedupe"], ["dedupe","ask"],
+  ["ask","enrich"], ["ask","merge"],
   ["enrich","commitments"], ["merge","commitments"],
   ["commitments","drafts"], ["drafts","calendar"], ["calendar","persist"],
 ];
@@ -340,8 +382,8 @@ function drawDiagram(){
       <text class="nsub"  x="${n.x+9}" y="${n.y+26}">${n.sub}</text>
     </g>`).join("");
 
-  $("diagram").innerHTML = `<svg viewBox="0 0 1040 118" role="img"
-      aria-label="Recall pipeline: transcribe, extract, dedupe, then a conditional branch to enrich or merge, then commitments, drafts, calendar, persist.">
+  $("diagram").innerHTML = `<svg viewBox="0 0 1168 118" role="img"
+      aria-label="Recall pipeline: transcribe, extract, dedupe, ask, then a conditional branch to enrich or merge, then commitments, drafts, calendar, persist.">
     <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M0,0 L8,4 L0,8 z" fill="var(--line)"/></marker></defs>
     ${edges}${boxes}</svg>`;
@@ -586,10 +628,18 @@ $("run").onclick = async () => {
   setNode("transcribe","done"); log("Transcript supplied.");
   $("live").textContent = "";
 
+  await drive("/api/run", {transcript});
+  $("run").disabled = false;
+};
+
+/* Both legs of a run stream identical NDJSON: /api/run until the graph either
+   finishes or stops to ask, then /api/answer for the rest. One reader handles
+   both, so a resumed run lights the pipeline strip exactly like a fresh one. */
+async function drive(url, body){
   try {
-    const res = await fetch("/api/run", {
+    const res = await fetch(url, {
       method:"POST", headers:{"content-type":"application/json"},
-      body: JSON.stringify({transcript})
+      body: JSON.stringify(body)
     });
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -601,9 +651,29 @@ $("run").onclick = async () => {
       const lines = buf.split("\n"); buf = lines.pop();
       for (const l of lines) { if (l.trim()) handle(JSON.parse(l)); }
     }
-  } catch (e) { $("results").innerHTML = `<div class="bad">${e.message}</div>`; $("rsec").classList.remove("hidden"); }
-  $("run").disabled = false;
-};
+  } catch (e) {
+    $("results").innerHTML = `<div class="bad">${esc(e.message)}</div>`;
+    $("rsec").classList.remove("hidden");
+  }
+}
+
+/* The id of the run currently paused on a question. Null whenever nothing is
+   waiting, which is what stops a second click answering an already-answered
+   question and resuming a run that has moved on. */
+let pendingThread = null;
+
+async function answer(value){
+  if (!pendingThread) return;
+  const thread = pendingThread;
+  pendingThread = null;
+
+  document.querySelectorAll("#results .opt").forEach(b => {
+    b.disabled = true;
+    if (b.dataset.value === value) b.classList.add("picked");
+  });
+  log(`Answered: ${value}`);
+  await drive("/api/answer", {thread_id: thread, answer: value});
+}
 
 let ranNodes = new Set();
 function handle(ev){
@@ -624,8 +694,20 @@ function handle(ev){
     lastHits = new Set((ev.state.known_matches||[]).map(m => m.person.name));
     render(ev.state, ev.usage);
     loadPeople();
+  } else if (ev.type === "question") {
+    // The graph is PAUSED, not finished. The pipeline strip deliberately keeps
+    // its unrun nodes undimmed -- dimming them is the "done" signal, and this
+    // run is very much still going.
+    pendingThread = ev.thread_id;
+    $("results").innerHTML = questionCard(ev.question, true);
+    $("rsec").classList.remove("hidden");
+    $("rsec").scrollIntoView({behavior:"smooth", block:"nearest"});
+    if (ev.usage) showLive(ev.usage);
+    document.querySelectorAll("#results .opt").forEach(b => {
+      b.onclick = () => answer(b.dataset.value);
+    });
   } else if (ev.type === "error") {
-    $("results").innerHTML = `<div class="bad">${ev.message}</div>`;
+    $("results").innerHTML = `<div class="bad">${esc(ev.message)}</div>`;
     $("rsec").classList.remove("hidden");
   }
 }
@@ -637,10 +719,102 @@ function showLive(u){
 
 function esc(s){ return String(s??"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
+/* The chosen question, the candidates it is choosing between, and the questions
+   it turned down with the bits each was worth.
+
+   Rejected questions are not decoration. "Same school as you?" sounds like a
+   sensible thing to ask and is worth 0.000 bits here, because both candidates
+   answer it identically; showing that number next to the one it did ask is the
+   only thing that separates a computed choice from a plausible-sounding one. */
+function questionCard(q, live){
+  if (!q) return "";
+
+  const hyps = (q.hypotheses || []).map(h => {
+    const pct = Math.round((h.prior || 0) * 100);
+    const label = h.record_id ? h.name : "someone new";
+    return `<div class="hyp"><span class="nm">${esc(label)}</span>
+      <span class="bar"><i style="width:${pct}%"></i></span>
+      <span class="pc">${pct}%</span></div>`;
+  }).join("");
+
+  // Buttons only while the graph is actually waiting. After the run has moved
+  // on they render as plain pills -- a control that looks live and does nothing
+  // is worse than no control.
+  const opts = (q.answers || []).map(a => {
+    const cls = "opt" + (a === "something else" ? " else" : "");
+    return live
+      ? `<button class="${cls}" data-value="${esc(a)}">${esc(a)}</button>`
+      : `<span class="${cls}">${esc(a)}</span>`;
+  }).join("");
+
+  const rejected = (q.rejected || []).map(r => `
+    <div class="rejrow${r.eig < 0.0005 ? " zero" : ""}">
+      <span>${esc(r.question)} <span class="shape">${esc(r.kind)}</span></span>
+      <span class="bits">${r.eig.toFixed(3)} bits</span>
+    </div>`).join("");
+
+  // Bits bought against bits outstanding. 0.80 is a different claim against a
+  // 1.27-bit prior than against 3.0, and the ratio is what a judge will ask for.
+  const prior = q.prior_entropy;
+  const context = prior
+    ? `${q.eig.toFixed(3)} of ${prior.toFixed(3)} bits · ${Math.round(100*q.eig/prior)}% of the uncertainty`
+    : `${q.eig.toFixed(3)} bits`;
+
+  return `<div class="card ask">
+    <span class="chip g">One question · chosen by EIG</span>
+    <div class="sub" style="margin-top:8px">Cannot tell who
+      <b>${esc(q.mention)}</b> is. ${(q.hypotheses||[]).length} candidates:</div>
+    ${hyps}
+    <p class="askq">${esc(q.question)}</p>
+    <div class="sub" style="margin-top:7px"><span class="bits">${esc(context)}</span></div>
+    <div class="opts">${opts}</div>
+    ${live ? '<p class="note" style="margin-top:10px">Waiting — the run is paused here.</p>' : ""}
+    ${rejected ? `<div class="rej">
+      <p class="lab" style="margin-bottom:8px">Questions it did not ask</p>
+      ${rejected}</div>` : ""}
+  </div>`;
+}
+
+/* What the answer settled. Shown separately from the question so the two are
+   visibly cause and effect, and so the confidence is stated rather than implied:
+   one answer does not always settle a three-way tie, and asserting "this is
+   Crispy" at 46% belief is the exact failure the three-zone band exists to
+   prevent. */
+function resolutionCard(r){
+  if (!r) return "";
+  const pct = Math.round((r.confidence || 0) * 100);
+  const sure = r.confident;
+  return `<div class="card ${sure ? "known" : ""}">
+    <span class="chip ${sure ? "c" : "g"}">${sure ? "Resolved by your answer" : "Still unsure"}</span>
+    <div class="sub" style="margin-top:8px">You said
+      <b>${esc(r.answer)}</b> about <b>${esc(r.mention)}</b>.</div>
+    <h3>${sure ? "" : "Probably "}${esc(r.name)}</h3>
+    <div class="sub">${pct}% confident · ${(r.bits_remaining ?? 0).toFixed(2)} bits still open</div>
+    ${sure ? "" : '<div class="sub" style="margin-top:7px">Recorded anyway — refusing to decide helps nobody — but worth checking in the person graph.</div>'}
+  </div>`;
+}
+
+/* An ambiguity the band raised that produced no question — the records are too
+   thin or too alike to separate. Saying so is better than showing nothing:
+   silence looks like the ambiguity was never noticed. */
+function unaskedCard(s){
+  const open = (s.ambiguous || []).filter(a => a && a.person);
+  if (!open.length || s.question) return "";
+  return `<div class="card"><span class="chip c">Ambiguous · nothing worth asking</span>
+    <div class="sub" style="margin-top:8px">${open.map(a =>
+      esc(a.person.name || "a mention")).join(", ")} — every derived question
+      scored zero, so the stored attributes cannot separate the candidates.</div></div>`;
+}
+
 function render(s, usage){
   const out = [];
   if (s.errors && s.errors.length)
     out.push(`<div class="bad">${s.errors.map(esc).join("<br>")}</div>`);
+
+  // First, above the people. It is the contribution.
+  out.push(questionCard(s.question, false));
+  out.push(resolutionCard(s.resolution));
+  out.push(unaskedCard(s));
 
   for (const p of s.new_people || []) {
     const bits = [p.role, p.company].filter(Boolean).join(" at ");
@@ -683,8 +857,9 @@ function render(s, usage){
       `</ul></div>`);
   }
 
-  if (!out.length) out.push('<div class="blank">Nothing found in this memo.</div>');
-  $("results").innerHTML = out.join("");
+  const cards = out.filter(Boolean);
+  if (!cards.length) cards.push('<div class="blank">Nothing found in this memo.</div>');
+  $("results").innerHTML = cards.join("");
   if (usage) {
     const cost = usage.unpriced && usage.unpriced.length
       ? `$${usage.cost} (excludes unpriced: ${usage.unpriced.join(", ")})` : `$${usage.cost}`;

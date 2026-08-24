@@ -75,7 +75,44 @@ class Scenario:
 def load_scenarios(path: Path | None = None) -> list[Scenario]:
     out: list[Scenario] = []
     for f in sorted((path or FIXTURES).glob("*.yaml")):
-        raw = yaml.safe_load(f.read_text())
+        raw = yaml.safe_load(f.read_text()) or {}
+
+        # A half-written entry -- a bare "-" with nothing under it -- parses as a
+        # null list item and then blows up deep inside the loader with an
+        # unhelpful TypeError. Say which file and which entry instead.
+        for i, entry in enumerate(raw.get("memos") or []):
+            if entry is None:
+                raise ValueError(
+                    f"{f.name}: memo entry #{i + 1} is empty — a stray '-' with nothing "
+                    f"under it. Delete the line or finish the memo."
+                )
+            if not entry.get("id"):
+                raise ValueError(f"{f.name}: memo entry #{i + 1} has no `id:`")
+            if entry.get("transcript") is None:
+                raise ValueError(f"{f.name}/{entry['id']}: no `transcript:`")
+            for j, m in enumerate(entry.get("mentions") or []):
+                if m is None:
+                    raise ValueError(
+                        f"{f.name}/{entry['id']}: mention #{j + 1} is empty"
+                    )
+                missing = [k for k in ("cluster", "as") if not m.get(k)]
+                if missing:
+                    raise ValueError(
+                        f"{f.name}/{entry['id']}: mention #{j + 1} is missing {missing}"
+                    )
+                # A typo'd boolean -- `falso`, `ture`, `False ` -- parses as a
+                # STRING, and every non-empty string is truthy. `ambiguous: falso`
+                # silently means true, and `substantive: ture` silently keeps a
+                # mention that should have been filtered. Both corrupt the
+                # benchmark rather than failing.
+                for flag in ("substantive", "ambiguous"):
+                    if flag in m and not isinstance(m[flag], bool):
+                        raise ValueError(
+                            f"{f.name}/{entry['id']}: mention #{j + 1} has "
+                            f"{flag}: {m[flag]!r} — must be true or false, "
+                            f"not a string. Check the spelling."
+                        )
+
         memos = [
             Memo(
                 id=str(m["id"]).strip(),
@@ -91,7 +128,7 @@ def load_scenarios(path: Path | None = None) -> list[Scenario]:
                         substantive=bool(x.get("substantive", True)),
                         ambiguous=bool(x.get("ambiguous", False)),
                     )
-                    for x in m.get("mentions", [])
+                    for x in (m.get("mentions") or [])
                 ],
             )
             for m in raw["memos"]
@@ -169,6 +206,20 @@ def _labels(person: dict) -> frozenset[str]:
     return frozenset(x for x in out if x)
 
 
+_DISAMBIGUATOR = __import__("re").compile(r"\s*\(\d+\)\s*$")
+
+
+def _strip_disambiguator(label: str) -> str:
+    """Drop a trailing "(1)"/"(2)".
+
+    A plural reference — "the two MCIS girls" — is one phrase covering two
+    people, but mention keys must be unique within a memo. The numeric suffix
+    exists only to separate the keys; the speaker never said it, so it must not
+    take part in matching.
+    """
+    return _DISAMBIGUATOR.sub("", label).strip()
+
+
 def _matched(as_written: str, labels: frozenset[str]) -> bool:
     """Did the system extract someone recognisable as this gold mention?
 
@@ -176,7 +227,7 @@ def _matched(as_written: str, labels: frozenset[str]) -> bool:
     ("the GIC one"), while the system emits its best guess at a canonical name.
     Exact string equality would score correct behaviour as failure.
     """
-    a = as_written.lower().strip()
+    a = _strip_disambiguator(as_written).lower()
     return any(a in k or k in a or _overlap(a, k) for k in labels)
 
 

@@ -13,9 +13,11 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from recall._common import cached_system, chat_model
 from recall.memory import get_store
-from recall.state import MatchDecision, RecallState
+from recall.resolve import Zone, confidence_from, decide
+from recall.state import MatchDecision, RecallState, is_interactive
 
-MATCH_THRESHOLD = 0.7
+CANDIDATE_LIMIT = 5
+MAX_HYPOTHESES = 5      # cap from the spec: enumerate at most 5 for a question
 
 SYSTEM = """You decide whether a person just mentioned in a voice memo is someone \
 already in the user's contact history, or a new person.
@@ -39,73 +41,149 @@ Bias toward `is_match: false` when nothing but a common name lines up. A wrong m
 silently destroys a real contact record; a wrong split is visible and easy to fix."""
 
 
-def dedupe_node(state: RecallState) -> dict:
-    """Split `people` into `new_people` and `known_matches`."""
+def dedupe_node(state: RecallState, config=None) -> dict:
+    """Split `people` into `new_people`, `known_matches` and `ambiguous`.
+
+    The zone is decided by pure arithmetic in `recall.resolve` — no model call.
+    That is deliberate: which band a mention falls in is the project's central
+    decision, so it has to be reproducible and unit-testable rather than a
+    model's mood on the day.
+
+    The AMBIGUOUS band is where a clarifying question belongs, and **who settles
+    it depends on whether a human is reachable**:
+
+    - **Interactive** (`configurable.interactive`, i.e. the web UI): the mention
+      is HELD. It goes into `ambiguous` and into neither `new_people` nor
+      `known_matches`, so nothing downstream acts on it. `ask_node` places it,
+      using the human's answer for the one it asks about. Without this the
+      question is decorative — the adjudicator would have already decided, and
+      the answer could only ever agree or be overruled after the fact.
+    - **Non-interactive** (CLI, eval, tests): the LLM adjudicator settles it
+      immediately, exactly as before. Nobody is there to ask.
+
+    `_adjudicate` runs either way. In the interactive case its verdict is the
+    fallback for the ambiguous mentions the one-question budget did not cover —
+    an unasked mention still has to go somewhere, and a model's guess beats
+    filing a known person as a stranger.
+    """
+    interactive = is_interactive(config)
     people = state.get("people") or []
     if not people:
-        return {"new_people": [], "known_matches": []}
+        return {"new_people": [], "known_matches": [], "ambiguous": []}
 
     store = get_store()
-    # temperature=0: routing decision. This chooses which branch of the graph
-    # runs, so it has to be reproducible.
-    llm = chat_model(label="dedupe", temperature=0.0).with_structured_output(MatchDecision)
-
     new_people: list[dict] = []
     known_matches: list[dict] = []
+    ambiguous: list[dict] = []
 
     for person in people:
-        query = " ".join(
-            filter(
-                None,
-                [
-                    person.get("name", ""),
-                    person.get("company") or "",
-                    person.get("role") or "",
-                    " ".join(person.get("aliases") or []),
-                ],
-            )
-        )
-        candidates = store.search(query, limit=5)
-
+        candidates = store.search(_query(person), limit=CANDIDATE_LIMIT)
         if not candidates:
-            # Nothing in memory even lexically close -- no model call needed.
-            # Skipping the LLM here is most of the dedupe cost on a fresh graph.
             new_people.append(person)
             continue
 
-        decision: MatchDecision = llm.invoke(
-            [
-                SystemMessage(content=cached_system(SYSTEM)),
-                HumanMessage(content=_prompt(person, candidates)),
-            ]
-        )
+        band, ranked = decide(person, candidates)
 
-        matched_id = decision.candidate_id if decision.is_match else None
-        valid = matched_id is not None and store.get(matched_id) is not None
-        if valid and decision.confidence >= MATCH_THRESHOLD:
-            known_matches.append(
-                {
-                    "person": person,
-                    "record_id": matched_id,
-                    "confidence": decision.confidence,
-                    "reasoning": decision.reasoning,
-                }
-            )
+        if band is Zone.RESOLVED:
+            top = ranked[0]
+            known_matches.append(_match(person, top.record_id, top.score,
+                                        band, top.agreement.explain()))
+            continue
+
+        if band is Zone.NEW:
+            new_people.append(person)
+            continue
+
+        # AMBIGUOUS. Hypotheses are the live candidates plus "this is someone
+        # new", which is always a possibility and must be in the set a question
+        # discriminates over.
+        entry = {
+            "person": person,
+            "hypotheses": [
+                {"record_id": c.record_id, "name": c.name,
+                 "score": round(c.score, 3), "explain": c.agreement.explain()}
+                for c in ranked[:MAX_HYPOTHESES - 1]
+            ] + [{"record_id": "", "name": "someone new", "score": 0.0, "explain": "no prior record"}],
+            "resolved_to": None,
+        }
+
+        record_id = _adjudicate(person, ranked, store)
+        entry["resolved_to"] = record_id
+        # Carry the score the adjudicator's pick had, so `ask_node` can place
+        # this mention later without re-running the band.
+        if record_id:
+            top = next((c for c in ranked if c.record_id == record_id), ranked[0])
+            entry["fallback"] = _match(person, record_id, top.score, band,
+                                       top.agreement.explain())
+        ambiguous.append(entry)
+
+        if interactive:
+            # Held. `ask_node` decides where this goes.
+            continue
+
+        if record_id:
+            known_matches.append(entry["fallback"])
         else:
             new_people.append(person)
 
+    note = (
+        f"Resolve: {len(new_people)} new, {len(known_matches)} known, "
+        f"{len(ambiguous)} ambiguous"
+        + (" (held for the question)" if interactive and ambiguous else "")
+    )
+    if known_matches:
+        note += f" ({', '.join(m['person']['name'] for m in known_matches)})"
     return {
         "new_people": new_people,
         "known_matches": known_matches,
-        "messages": [
-            AIMessage(
-                content=(
-                    f"Dedupe: {len(new_people)} new, {len(known_matches)} already known "
-                    f"({', '.join(m['person']['name'] for m in known_matches) or 'none'})."
-                )
-            )
-        ],
+        "ambiguous": ambiguous,
+        "messages": [AIMessage(content=note + ".")],
     }
+
+
+def _query(person: dict) -> str:
+    return " ".join(
+        filter(None, [
+            person.get("name", ""),
+            person.get("company") or "",
+            person.get("role") or "",
+            " ".join(person.get("aliases") or []),
+            " ".join(person.get("notes") or [])[:200],
+        ])
+    )
+
+
+def _match(person: dict, record_id: str, score: float, band: Zone, why: str) -> dict:
+    return {
+        "person": person,
+        "record_id": record_id,
+        "confidence": confidence_from(score),
+        "reasoning": why,
+        "score": round(score, 3),
+        "zone": band.value,
+    }
+
+
+def _adjudicate(person: dict, ranked, store) -> str | None:
+    """Interim tie-break for the ambiguous band, replaced by the EIG question.
+
+    Returns a record id, or None for "new person". A failure here must not kill
+    the run — an unresolved ambiguous mention is simply treated as new, which is
+    the recoverable direction.
+    """
+    llm = chat_model(label="dedupe", temperature=0.0).with_structured_output(MatchDecision)
+    records = [store.get(c.record_id) for c in ranked]
+    records = [r for r in records if r]
+    try:
+        decision: MatchDecision = llm.invoke([
+            SystemMessage(content=cached_system(SYSTEM)),
+            HumanMessage(content=_prompt(person, records)),
+        ])
+    except Exception:  # noqa: BLE001
+        return None
+    if decision.is_match and decision.candidate_id and store.get(decision.candidate_id):
+        return decision.candidate_id
+    return None
 
 
 def _prompt(person: dict, candidates: list[dict]) -> str:

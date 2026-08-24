@@ -5,10 +5,21 @@ GIC, she's hiring for a quant infra role, said I'd send her the Kestrel repo"* �
 turns that into a structured, deduped contact record, drafts your follow-ups, and puts
 the commitments on your calendar.
 
-The thing it does that a notes app cannot: **it remembers people across sessions.**
-Record a second memo weeks later and it recognises who you've met before, merges the new
-context into their existing record, and connects a promise you made last time to you
-discharging it this time.
+The thing it does that a notes app cannot: **it remembers people across sessions, and it
+knows when it isn't sure.** Record a second memo weeks later and it recognises who you've
+met before. When a reference is genuinely ambiguous it asks **one** question — chosen by
+expected information gain, not by asking a model what to ask.
+
+```
+mention: "the malaysian chinese girl"
+  hypotheses:  Kit Yee 0.49 | Crispy 0.47 | someone new 0.06
+
+  ASKS  0.500 bits : Do they live on the 4th floor?
+  skip  0.038 bits : Does this sound right — also from malaysian chinese independent school?
+```
+
+That second question sounds perfectly reasonable and is worth almost nothing — both
+candidates went to that school. The arithmetic knows; a prompt doesn't.
 
 ## Pipeline
 
@@ -16,7 +27,8 @@ discharging it this time.
 voice memo
   → transcribe (Groq Whisper)
   → extract_people        (structured output + substantive filter)
-  → dedupe                (RAG over the person graph) ──► conditional edge
+  → resolve               (three-zone band, pure arithmetic)
+  → ask                   (one question, chosen by expected information gain)
         │ new person                                       │ known person
         ▼                                                  ▼
      enrich (sub-agent, web tools)                     merge into record
@@ -168,7 +180,7 @@ Use Chrome. Microphone access needs `localhost` or HTTPS, so don't demo off a LA
 ### CLI
 
 ```bash
-uv run pytest tests/ -q         # 52 tests, offline, no credentials, no spend
+uv run pytest tests/ -q         # 122 tests, offline, no credentials, no spend
 uv run 00_check_bedrock.py      # must print OK before any Bedrock run
 
 uv run run_demo.py              # built-in demo memo
@@ -228,6 +240,121 @@ uv run 03_teardown.py      # run this when done
 | [tests/test_metering.py](tests/test_metering.py) | Token accounting and pricing |
 | [web/server.py](web/server.py) | FastAPI transport — transcribe + streamed graph run |
 | [web/index.html](web/index.html) | The whole UI, one file, no framework |
+
+## Resolving identity
+
+Resolution is a three-zone Fellegi–Sunter-style band, not a single cutoff:
+
+```
+score >= T_MATCH        -> RESOLVED    auto-link
+T_NONMATCH .. T_MATCH   -> AMBIGUOUS   ask about it
+score <  T_NONMATCH     -> NEW
+```
+
+Plus a **margin rule**: a high score whose runner-up is nearly as good is still
+ambiguous. "the malaysian chinese girl" fits Kit Yee and Crispy within 0.03 of each
+other — resolving on that is a coin flip dressed as a decision.
+
+Scoring lives in [recall/resolve.py](recall/resolve.py) and is **pure** — no model call
+decides which band a mention falls in, so it is reproducible and unit-tested. The model
+extracts attributes; the arithmetic decides.
+
+Current thresholds: `T_MATCH=3.0`, `T_NONMATCH=1.0`, `MIN_MARGIN=1.0`. Hand-set, not
+fitted from labelled pairs — quote them with any result.
+
+## Asking the question
+
+| Module | Job |
+|---|---|
+| [recall/questions.py](recall/questions.py) | Derives yes/no probes **mechanically** from stored attributes. Guaranteed answerable, free, testable |
+| [recall/eig.py](recall/eig.py) | `EIG(q) = H(H) − Σ P(a)·H(H\|a)`, argmax. Pure. Per-question noise so unreliable attributes are discounted |
+| [recall/questions.py](recall/questions.py) | Candidate questions, derived mechanically. Yes/no probe per fact, plus a **multi-valued probe per attribute the records disagree about** — paired by word-level prefix/suffix alignment, never token overlap |
+| [recall/answer.py](recall/answer.py) | What the human's answer *means*. The same Bayes update, with the same per-question noise, that EIG scored the question with — so the bits promised are the bits delivered |
+| [recall/nodes/ask.py](recall/nodes/ask.py) | One question per memo, plus the rejected alternatives and their measured value |
+
+Questions that carry zero information are **kept** in the candidate set, not filtered.
+Showing what the agent declined to ask, with numbers, is what demonstrates the choice was
+computed rather than tasteful.
+
+## Benchmark
+
+```bash
+uv run eval/check_fixtures.py          # validate fixtures — free, no model calls
+uv run eval/run_eval.py [--repeats N] [--scenario ID]
+uv run eval/from_audio.py memo.m4a --scenario arc_acacia   # record instead of typing
+```
+
+Entity resolution is scored as a clustering problem: **B³** (per-mention, the headline)
+and **pairwise** P/R/F1, plus a binary score for the substantive filter. Fixtures are
+hand-written YAML scenarios in [eval/fixtures/](eval/fixtures/) — ordered memos run
+against a fresh graph, so recognising someone in a later memo is the test.
+
+Every scenario is repeated and the spread reported: Bedrock is not deterministic at
+`temperature=0`, so a single run is an anecdote. **The whole pipeline is re-run each
+repeat, not just the scoring** — extraction varies, so the set of ambiguous mentions
+itself moves between runs (4–5 on identical fixtures). Replaying strategies over a case
+set collected once looks rigorous and hides the dominant source of noise.
+
+Current baseline (`arc_acacia`, 18 memos): **B³ P=1.000 R=0.856 F1=0.922**, pairwise
+F1 0.800. Precision has held at 1.000 throughout — nothing is ever wrongly merged, and
+every loss is a missed recognition. That is the right direction to fail in: a wrong merge
+silently destroys a real record, a missed one is visible and fixable.
+
+### Questions per resolution
+
+```bash
+uv run eval/run_questions.py [--repeats N]
+```
+
+> **⚠️ SUPERSEDED — re-run before quoting. Measured 23 Aug, invalidated 24 Aug.**
+> Two changes landed after these numbers were taken, and both move them:
+>
+> 1. **The simulated answerer was wrong.** It matched the phrased question against the
+>    gold record at an overlap of 0.55, so "Do they live at the 18th floor?" scored 0.583
+>    against "lives on the 4th floor" and the person on the 4th floor answered **yes**.
+>    All three strategies were updating on false answers.
+> 2. **Multi-valued attribute probes now exist**, so every strategy draws from a richer
+>    candidate pool and should need fewer questions.
+>
+> The direction of (1) is not predictable from the armchair — it corrupted all three
+> strategies, not just the baselines — so the table below is quoted as history, not as a
+> result. Re-run `uv run eval/run_questions.py --repeats 5` and replace it.
+
+```
+strategy       questions/resolution                       <=1 question
+eig            1.460 ±0.050  (n=5, min 1.400  max 1.500)       31%
+uncertainty    2.103 ±0.267  (n=5, min 1.800  max 2.333)       23%
+random         1.690 ±0.250  (n=5, min 1.500  max 2.000)       23%
+```
+
+5 full pipeline runs, 4–5 scorable mentions each. EIG's range did not overlap
+uncertainty sampling's, and it was also the most *stable* — ±0.05 against ±0.25.
+
+**Why EIG beats uncertainty sampling.** Attributes differ in how dependable an answer
+is, and EIG divides that out. Uncertainty sampling asks whatever is least predictable —
+and an unreliable attribute is unpredictable *because* its answer means little, so it
+spends the one question there.
+
+```
+noise 0.05   studies computer science at NUS     a degree rarely changes
+noise 0.18   lives at the 18th floor             rooms change each semester
+noise 0.35   a quiet person but friendly         one impression, one day
+```
+
+Without that asymmetry the two strategies are near-identical by construction: with
+uniform noise, `EIG = H(A) − H(A|H)` and `H(A|H)` is near-constant across questions, so
+argmax EIG collapses to argmax `H(A)`, which *is* uncertainty sampling. An earlier
+version of this benchmark reported a tie for exactly that reason.
+
+**Report honestly.** The reliability values are hand-set from what actually changes about
+a person, not fitted — quote them with any result. n is small. The claim these numbers
+support is "EIG beats a strategy that ignores reliability", not a general superiority.
+
+
+**Known limitations.** "the two X girls" extracts as one entity, not two — `Person` emits
+one record per person, and plural-mention expansion is out of scope. Role-only references
+with no content ("bumped into the male OGL, said hi") extract nobody. And the real data
+comes from a single setting, so thresholds tuned to it may not generalise.
 
 ## The three guards
 

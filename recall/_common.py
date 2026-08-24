@@ -214,6 +214,7 @@ def chat_model(
     LangChain model -- `create_react_agent`, `with_structured_output`,
     `bind_tools` -- accepts this unchanged.
     """
+    from botocore.config import Config
     from langchain_aws import ChatBedrockConverse
 
     return ChatBedrockConverse(
@@ -222,6 +223,15 @@ def chat_model(
         temperature=temperature,
         max_tokens=max_tokens,
         callbacks=[UsageCallback(label, model)],
+        # Retry transient Bedrock failures at the API layer.
+        # `ModelErrorException: The system encountered an unexpected error`
+        # arrives with no warning and killed a multi-minute eval sweep on its
+        # first occurrence. Adaptive mode also backs off on throttling, which is
+        # the other thing that interrupts a long run.
+        config=kwargs.pop("config", None) or Config(
+            retries={"max_attempts": 5, "mode": "adaptive"},
+            read_timeout=90,
+        ),
         **kwargs,
     )
 

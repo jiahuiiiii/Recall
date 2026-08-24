@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import json
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
-
 from langchain_core.messages import AIMessage
+from langgraph.types import Command, Interrupt
+
 from web.server import MIME_TO_SUFFIX, app
 
 client = TestClient(app)
@@ -65,7 +68,7 @@ def test_blank_transcript_returns_an_error_event():
 class _FakeGraph:
     """Yields the shape LangGraph's stream_mode='updates' produces."""
 
-    def stream(self, initial, stream_mode=None):
+    def stream(self, payload, config=None, stream_mode=None):
         yield {"extract": {"messages": [AIMessage(content="Extracted 1 people: Kang Ling.")],
                            "new_people": []}}
         yield {"dedupe": {"messages": [AIMessage(content="Dedupe: 0 new, 1 already known.")],
@@ -75,7 +78,7 @@ class _FakeGraph:
 
 
 def test_run_streams_one_event_per_node_then_a_done_payload(monkeypatch):
-    monkeypatch.setattr("web.server.build_graph", lambda: _FakeGraph())
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _FakeGraph())
     r = client.post("/api/run", json={"transcript": "met Kang Ling"})
     events = _events(r.text)
 
@@ -88,10 +91,138 @@ def test_run_streams_one_event_per_node_then_a_done_payload(monkeypatch):
     assert "cost" in done["usage"]
 
 
+class _AskingGraph:
+    """A run where the band could not settle a mention, so `ask` fires."""
+
+    QUESTION = {
+        "mention": "Kang",
+        "question": "What do they study at NUS?",
+        "eig": 0.8034,
+        "answers": ["computer science", "geospatial intelligence", "something else"],
+        "kind": "multi",
+        "prior_entropy": 1.2674,
+        "hypotheses": [{"record_id": "p_1", "name": "Kang Ling", "prior": 0.47},
+                       {"record_id": "", "name": "someone new", "prior": 0.06}],
+        "rejected": [{"question": "Were they met at camp?", "eig": 0.671, "kind": "binary"},
+                     {"question": "Does this sound right — from MCIS?", "eig": 0.0,
+                      "kind": "binary"}],
+        "outcomes": {"p_1": "computer science"},
+    }
+
+    def stream(self, payload, config=None, stream_mode=None):
+        yield {"dedupe": {"ambiguous": [{"person": {"name": "Kang"}, "hypotheses": []}]}}
+        yield {"ask": {"question": self.QUESTION,
+                       "messages": [AIMessage(content="Question (0.803 bits)")]}}
+
+
+def test_the_chosen_question_reaches_the_browser_whole(monkeypatch):
+    """The demo rests on showing the bits of the questions it did NOT ask. If
+    the server drops `rejected` on the way out, the UI can only display a
+    question -- which is exactly what a prompt could have produced, and proves
+    nothing about how it was chosen."""
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _AskingGraph())
+    r = client.post("/api/run", json={"transcript": "met a Kang"})
+    done = _events(r.text)[-1]
+
+    q = done["state"]["question"]
+    assert q["question"] == "What do they study at NUS?"
+    assert q["eig"] == 0.8034
+    assert q["prior_entropy"] == 1.2674
+    assert [x["eig"] for x in q["rejected"]] == [0.671, 0.0]
+    assert q["answers"][-1] == "something else"
+
+
+def test_the_ask_node_is_labelled_in_the_pipeline_strip(monkeypatch):
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _AskingGraph())
+    r = client.post("/api/run", json={"transcript": "met a Kang"})
+    labels = {e["node"]: e["label"] for e in _events(r.text) if e["type"] == "node"}
+    assert labels["ask"] == "Choose question (EIG)"
+
+
+def test_a_run_with_nothing_to_ask_reports_no_question(monkeypatch):
+    """`question: None` and a missing key must not look different to the UI."""
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _FakeGraph())
+    r = client.post("/api/run", json={"transcript": "met Kang Ling"})
+    assert _events(r.text)[-1]["state"]["question"] is None
+
+
+class _PausingGraph:
+    """A graph that stops on a question and finishes once answered.
+
+    Mirrors what LangGraph actually emits: `__interrupt__` arrives as its own
+    chunk in the updates stream, carrying an `Interrupt` whose `.value` is the
+    payload the node passed to `interrupt()`.
+    """
+
+    def __init__(self):
+        self.resumed = None
+
+    def stream(self, payload, config=None, stream_mode=None):
+        if isinstance(payload, Command):
+            self.resumed = payload.resume
+            yield {"ask": {"resolution": {"name": "Tiu Chuei Enn", "confidence": 0.96,
+                                          "confident": True, "answer": payload.resume},
+                           "messages": [AIMessage(content="resolved")]}}
+            return
+        yield {"dedupe": {"ambiguous": [{"person": {"name": "the malaysian girl"}}]}}
+        yield {"__interrupt__": (Interrupt(value=_AskingGraph.QUESTION,
+                                           id="i1"),)}
+
+    def get_state(self, config):
+        return SimpleNamespace(values={"transcript": "met the malaysian girl",
+                                       "resolution": {"name": "Tiu Chuei Enn"}})
+
+
+def test_a_pause_ends_the_stream_with_a_question_not_a_done(monkeypatch):
+    """The run is alive in the checkpointer at this point. Emitting `done` would
+    tell the browser it finished, and the pending question would be abandoned."""
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _PausingGraph())
+    events = _events(client.post("/api/run", json={"transcript": "met the malaysian girl"}).text)
+
+    assert events[-1]["type"] == "question"
+    assert not any(e["type"] == "done" for e in events)
+    assert events[-1]["question"]["question"] == "What do they study at NUS?"
+    assert events[-1]["thread_id"]
+
+
+def test_the_thread_id_survives_to_the_answer(monkeypatch):
+    """The whole point of the id: it is how the second request finds the run the
+    first request left paused."""
+    graph = _PausingGraph()
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: graph)
+
+    paused = _events(client.post("/api/run", json={"transcript": "met her"}).text)[-1]
+    done = _events(client.post("/api/answer",
+                               json={"thread_id": paused["thread_id"],
+                                     "answer": "computer science"}).text)[-1]
+
+    assert graph.resumed == "computer science"
+    assert done["type"] == "done"
+    assert done["state"]["resolution"]["name"] == "Tiu Chuei Enn"
+
+
+def test_answering_without_a_run_is_an_error_not_a_crash(monkeypatch):
+    r = client.post("/api/answer", json={"thread_id": "  ", "answer": "cs"})
+    assert _events(r.text)[0]["type"] == "error"
+
+
+def test_a_resumed_leg_still_reports_the_transcript(monkeypatch):
+    """The resumed stream replays only the nodes from `ask` onward, so the
+    streamed view has no transcript in it. It has to come from the checkpointer,
+    or the UI shows an empty memo after the answer."""
+    graph = _PausingGraph()
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: graph)
+    paused = _events(client.post("/api/run", json={"transcript": "met her"}).text)[-1]
+    done = _events(client.post("/api/answer",
+                               json={"thread_id": paused["thread_id"], "answer": "cs"}).text)[-1]
+
+    assert done["state"]["transcript"] == "met the malaysian girl"
+
+
 def test_only_the_branch_that_ran_appears_in_the_stream(monkeypatch):
     """The UI dims whatever never arrives -- that dimming is how a viewer sees
     the conditional edge chose merge over enrich."""
-    monkeypatch.setattr("web.server.build_graph", lambda: _FakeGraph())
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _FakeGraph())
     r = client.post("/api/run", json={"transcript": "met Kang Ling"})
     nodes = {e["node"] for e in _events(r.text) if e["type"] == "node"}
 
@@ -100,7 +231,7 @@ def test_only_the_branch_that_ran_appears_in_the_stream(monkeypatch):
 
 
 def test_graph_explosion_is_reported_as_an_error_event(monkeypatch):
-    def boom():
+    def boom(**kwargs):
         raise RuntimeError("bedrock exploded")
 
     monkeypatch.setattr("web.server.build_graph", boom)
@@ -143,7 +274,7 @@ def test_usage_is_reported_per_run_not_cumulative(monkeypatch):
     from recall._common import LEDGER
 
     LEDGER.record("earlier_run", {"input_tokens": 9_000, "output_tokens": 900}, "some.model")
-    monkeypatch.setattr("web.server.build_graph", lambda: _FakeGraph())
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _FakeGraph())
 
     usage = _events(client.post("/api/run", json={"transcript": "met Kang Ling"}).text)[-1]["usage"]
     assert usage["calls"] == 0, "the fake graph makes no model calls, so this run cost nothing"
@@ -151,7 +282,7 @@ def test_usage_is_reported_per_run_not_cumulative(monkeypatch):
 
 
 def test_every_node_event_carries_a_usage_snapshot(monkeypatch):
-    monkeypatch.setattr("web.server.build_graph", lambda: _FakeGraph())
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _FakeGraph())
     events = _events(client.post("/api/run", json={"transcript": "met Kang Ling"}).text)
     assert all("usage" in e for e in events if e["type"] == "node")
 

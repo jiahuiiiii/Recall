@@ -19,19 +19,12 @@ from pathlib import Path
 from typing import Iterable, Protocol
 
 from recall.state import PersonRecord, as_list
+from recall.text import match_strength as _match_strength, tokens as _tokens
 
-_STOPWORDS = {
-    "the", "a", "an", "and", "at", "of", "in", "on", "for", "to", "with",
-    "from", "she", "he", "they", "her", "his", "their", "is", "was", "said",
-    "met", "who", "that", "it", "i",
-}
-
-
-def _tokens(text: str) -> set[str]:
-    return {
-        t for t in re.findall(r"[a-z0-9]+", (text or "").lower())
-        if t not in _STOPWORDS and len(t) > 1
-    }
+# A query token must match something at least this well before a record is even
+# considered a candidate. One contained match (0.75) clears it; incidental
+# similarity does not.
+MIN_MATCH_STRENGTH = 0.6
 
 
 class PersonStore(Protocol):
@@ -114,13 +107,17 @@ class LocalPersonStore:
             h = _tokens(haystack)
             if not h:
                 continue
-            overlap = len(q & h)
-            if not overlap:
+            strength = _match_strength(q, h)
+            # One decent token match minimum. Generous is the goal -- the model
+            # adjudicates afterwards -- but returning every record for every
+            # query costs a model call per person and tells the adjudicator
+            # nothing.
+            if strength < MIN_MATCH_STRENGTH:
                 continue
-            # Name-token hits are worth far more than note-body hits: two people
-            # can both be "hiring in Singapore", only one is "Wei Lin".
-            name_hits = len(q & _tokens(rec.get("name", "")))
-            score = overlap / len(q) + name_hits * 2.0
+            # Name hits are worth far more than note-body hits: two people can
+            # both be "on the 18th floor", only one is "Kit Yee".
+            name_strength = _match_strength(q, _tokens(rec.get("name", "")))
+            score = strength / len(q) + name_strength * 2.0
             scored.append((score, rec))
         scored.sort(key=lambda s: -s[0])
         return [rec for _, rec in scored[:limit]]
