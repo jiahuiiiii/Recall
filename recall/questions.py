@@ -22,19 +22,19 @@ answers no. Always derivable, because it needs nothing of a note but its text.
 **Multi-valued attribute probes.** When two records hold facts that are the same
 statement with a different value in the middle — "lives at the 18th floor" vs
 "lives on the 4th floor" — that is one attribute with rival answers, and asking
-for the value directly is worth roughly twice the bits of asking a yes/no about
-one of them:
+for the value directly is worth ~1.2-1.6x the bits of asking a yes/no about one
+of them:
 
     "Do they live on the 4th floor?"    binary     0.301 bits
     "Which floor do they live at?"      3-valued   0.475 bits
     "Do they study computer science?"   binary     0.671 bits
     "What do they study at NUS?"        3-valued   0.803 bits
 
-(Measured on the Kit Yee / Crispy pair with a 0.06 prior on "someone new". The
-ceiling is H(prior), so with three hypotheses no question can be worth more than
-1.27 bits and none of these is close to twice another; the earlier estimate of a
-doubling assumed noiseless answers. The lift is real but it is ~1.2-1.6x, and
-that is the number to quote.)
+(Measured on the Kit Yee / Crispy pair with a 0.06 prior on "someone new". An
+earlier estimate said "roughly double" and was wrong: the ceiling is H(prior),
+so with three hypotheses no question can be worth more than 1.27 bits and none
+of these is close to twice another. The doubling estimate assumed noiseless
+answers. The lift is real, but 1.2-1.6x is the number to quote.)
 
 The reason is capacity: a binary answer cannot carry more than one bit however
 well chosen, and half of what it does carry is spent confirming rather than

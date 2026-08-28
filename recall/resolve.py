@@ -188,15 +188,17 @@ class Candidate:
 
 def rank(person: dict, records: list[dict]) -> list[Candidate]:
     """Every candidate scored, best first."""
-    out = [
-        Candidate(
-            record_id=r.get("id", ""),
-            name=r.get("name", ""),
-            score=score(compare(person, r)),
-            agreement=compare(person, r),
+    out = []
+    for r in records:
+        agreement = compare(person, r)
+        out.append(
+            Candidate(
+                record_id=r.get("id", ""),
+                name=r.get("name", ""),
+                score=score(agreement),
+                agreement=agreement,
+            )
         )
-        for r in records
-    ]
     return sorted(out, key=lambda c: -c.score)
 
 

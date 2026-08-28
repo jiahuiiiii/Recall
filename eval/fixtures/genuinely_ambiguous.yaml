@@ -1,0 +1,24 @@
+id: genuinely_ambiguous
+description: A reference a careful human could not resolve. This is what the EIG question is for.
+
+memos:
+  - id: m1
+    transcript: |
+      Orientation camp, met Kang Ling. Very smart, very nice. We formed a team
+      for the SimplifyNext hackathon. She studies computer science, same major
+      as me.
+    mentions:
+      - {
+          cluster: kang_ling,
+          as: "Kang Ling",
+          substantive: true,
+          ambiguous: false,
+        }
+
+  - id: m2
+    transcript: |
+      Also met a Kang at the CS society thing, or was it Kang Ling? Cannot
+      remember whether it's the same person or a different one. This one talked
+      about doing exchange in Melbourne next sem.
+    mentions:
+      - { cluster: UNRESOLVED, as: "Kang", substantive: true, ambiguous: true }

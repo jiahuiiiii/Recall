@@ -1,0 +1,238 @@
+id: ehoc_c4
+description: People met during Eusoff Hall Orientation Camp C Block Group 4.
+
+memos:
+  - id: m1
+    transcript: |
+      Okay first day of Eusoff Hall orientation camp icebreaking just now.
+      First talk to this girl D'anna, she's an 07 girl doing NUS BEng
+      Infrastructure and Project Management what IPM thing lah. She from
+      Nanyang Junior College one, got round wire-rimmed glasses and high
+      ponytail, super active play tchoukball and badminton also.
+    mentions:
+      - { cluster: d_anna, as: "D'anna", substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Then also met my orientation group leader today. He is a Malaysian guy
+      named Shawn, do A levels so he 07 boy but year two already. Banana guy,
+      quite tall, no glasses always wear black cap one, doing mechanical
+      engineering. Sport is table tennis but he say he like basketball even
+      though damn bad at it haha. Last year joined MSL camp, this year come
+      back as OGL.
+    mentions:
+      - { cluster: shawn, as: "Shawn", substantive: true, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Before war cry practice met the other two OGLs. Caleb is an 04 boy
+      from NJC doing Life Sciences, super tall guy wear black rectangle
+      glasses, run 400m for NUS IVP track and also play tennis. Then another
+      04 OGL guy Cheng Fong from Hwa Chong JC doing Biz Admin, boy with no
+      glasses and dyed ash-brown hair, trying out for NUS IVP badminton and
+      wants to captain our hall badminton team.
+    mentions:
+      - { cluster: caleb, as: "Caleb", substantive: true, ambiguous: false }
+      - {
+          cluster: cheng_fong,
+          as: "Cheng Fong",
+          substantive: true,
+          ambiguous: false,
+        }
+
+  - id: m4
+    transcript: |
+      Just did the name toss circle game. Zhong Ting is an 05 boy freshie
+      from VJC doing Computer Science, guy with round wire glasses and curly
+      hair, play badminton and want join hall frisbee. Then Valerie is 07 girl
+      from CJC doing Nursing, girl with no glasses and short bob hair, play
+      volleyball and want try NUS IVP volleyball squad.
+    mentions:
+      - {
+          cluster: zhong_ting,
+          as: "Zhong Ting",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: valerie, as: "Valerie", substantive: true, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      Lunch at dining hall just now. Talked to Joshua Tan, 05 boy from RI
+      doing Econs, pale guy wear thick square glasses, already an NUS IVP
+      tennis player. Then sat beside this 07 girl Vera from EJC doing Law,
+      girl with round gold glasses and long straight hair, she also play
+      tennis and want join hall water polo and hall tennis.
+    mentions:
+      - {
+          cluster: joshua_tan,
+          as: "Joshua Tan",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: vera, as: "Vera", substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      Afternoon icebreaker games. Brian Tan is an 05 boy from ACJC doing
+      Data Science, tan and buff guy with no glasses, play squash and rugby,
+      want to run for hall comm. Megan is an 07 girl from SAJC doing CNM,
+      girl with clear transparent glasses and brown highlights, she play
+      squash also and want join hall touch rugby and dance.
+    mentions:
+      - {
+          cluster: brian_tan,
+          as: "Brian Tan",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: megan, as: "Megan", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      Station games finish liao. Chong Jie is an 05 boy from TJC doing
+      Real Estate, undercut fade no glasses, people call him CJ, play
+      volleyball and table tennis. Then got Korean 07 girl Uhn You, she go
+      by Esther, doing Pharmacy, bangs no glasses, play table tennis and
+      want join hall cheer. Miahn is an 07 girl from Vietnam doing Chem Eng,
+      wear dark square glasses, play badminton and soccer. Ashlyn Toh, 07 girl
+      from ASRJC doing Architecture, wavy long hair no glasses, do bouldering
+      and track.
+    mentions:
+      - {
+          cluster: chong_jie,
+          as: "Chong Jie",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: chong_jie, as: "CJ", substantive: true, ambiguous: false }
+      - { cluster: esther, as: "Uhn You", substantive: true, ambiguous: false }
+      - { cluster: esther, as: "Esther", substantive: true, ambiguous: false }
+      - { cluster: miahn, as: "Miahn", substantive: true, ambiguous: false }
+      - {
+          cluster: ashlyn_toh,
+          as: "Ashlyn Toh",
+          substantive: true,
+          ambiguous: false,
+        }
+
+  - id: m8
+    transcript: |
+      Day two Sentosa beach games damn hot sia. In the sprint relay, the
+      tennis boy with square glasses run super fast carry our whole team,
+      then the tennis girl with round gold glasses helped distribute 100plus
+      and ice pack to everyone. That badminton boy with round wire glasses
+      lost his cap in the sea just now. Saw Shawn walking past with first aid kit.
+    mentions:
+      - {
+          cluster: joshua_tan,
+          as: "the tennis boy with square glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: vera,
+          as: "the tennis girl with round gold glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: zhong_ting,
+          as: "badminton boy with round wire glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: shawn, as: "Shawn", substantive: false, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      C block night maze just ended. The 04 track OGL guy with black glasses
+      used his phone torch to lead us through the dark stairs. For the puzzle
+      room the CNM girl with clear glasses teamed up with the rugby boy with
+      no glasses to crack the lock code. The Korean girl with bangs kept
+      screaming cause got fake ghost jumping out.
+    mentions:
+      - {
+          cluster: caleb,
+          as: "The 04 track OGL guy with black glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: megan,
+          as: "the CNM girl with clear glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: brian_tan,
+          as: "the rugby boy with no glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: esther,
+          as: "The Korean girl with bangs",
+          substantive: true,
+          ambiguous: false,
+        }
+
+  - id: m10
+    transcript: |
+      Resting outside MPSH right now. The dyed-hair OGL guy who plays badminton
+      told us IVP trials start next Tuesday. Then the Vietnamese girl with
+      dark square glasses asked whether anyone got spare badminton racket
+      for leisure session tomorrow. Also saw the short-haired nursing girl
+      talking to the volleyball boy with the undercut about booking the court.
+    mentions:
+      - {
+          cluster: cheng_fong,
+          as: "The dyed-hair OGL guy who plays badminton",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: miahn,
+          as: "the Vietnamese girl with dark square glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: valerie,
+          as: "the short-haired nursing girl",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: chong_jie,
+          as: "the volleyball boy with the undercut",
+          substantive: true,
+          ambiguous: false,
+        }
+
+  - id: m11
+    transcript: |
+      Supper at Ameens after camp wrap up. The architecture girl with wavy
+      hair showed us her digital drawing for our block flag on procreate.
+      Then the NYJC girl with wire glasses jio me go for hall tchoukball
+      trials together next week. Zhong Ting was sitting at the side finishing
+      his prata.
+    mentions:
+      - {
+          cluster: ashlyn_toh,
+          as: "The architecture girl with wavy hair",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: d_anna,
+          as: "the NYJC girl with wire glasses",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: zhong_ting,
+          as: "Zhong Ting",
+          substantive: false,
+          ambiguous: false,
+        }

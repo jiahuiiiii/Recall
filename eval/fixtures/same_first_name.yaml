@@ -1,0 +1,20 @@
+id: same_first_name
+description: Two different Alexes. The system must NOT merge them on a shared common first name.
+
+memos:
+  - id: m1
+    transcript: |
+      Career fair today. Talked to Alex quite long, he's doing his masters in
+      robotics at NTU, working on some warehouse picking arm thing. Very into
+      ROS2. Said I'd send him the sim environment we set up.
+    mentions:
+      - {cluster: alex_robotics, as: "Alex", substantive: true, ambiguous: false}
+
+  - id: m2
+    transcript: |
+      Different event, the fintech thing at Lau Pa Sat. Met an Alex there also,
+      confusing sia. This one is in payments compliance at a bank, much older,
+      maybe 40s. Nothing to do with the other Alex. He offered to intro me to
+      someone at MAS.
+    mentions:
+      - {cluster: alex_fintech, as: "Alex", substantive: true, ambiguous: false}

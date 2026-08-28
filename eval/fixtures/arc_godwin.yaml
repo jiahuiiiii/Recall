@@ -1,0 +1,182 @@
+id: arc_godwin
+description: >
+  Luminia orientation group and the hall term after it. Twenty people met in a
+  burst over three days, then re-encountered weeks later mostly by description
+  rather than by name. Carries four same-first-name pairs (Hui Wen/Hui Ning,
+  Jie Yu/Jing Yu, and the four Jia-), which is where the precision risk is.
+
+memos:
+  - id: m1
+    transcript: |
+      Okay first night of Luminia already. Our OGL is Su Ling, she's year 2,
+      from Seremban, and she keep saying she's introvert one but honestly she
+      ran the whole group damn well so I don't really believe her lah. Then
+      there's another year 2, Zi Liang, psychology — this one really extrovert,
+      he's the one who kept the mood up the whole night. And Annice, also year
+      2, from Selangor. Very steady, very responsible type, and she was the one
+      taking all the photos.
+    mentions:
+      - { cluster: su_ling,  as: "Su Ling",  substantive: true, ambiguous: false }
+      - { cluster: zi_liang, as: "Zi Liang", substantive: true, ambiguous: false }
+      - { cluster: annice,   as: "Annice",   substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Still day one. Sat with Cheng Ze during the ice breaker, year 1, from
+      Johor. Super easy to talk to, we were just throwing jokes the whole time.
+      Then Jia Qi, also year 1 — this one quite the opposite, quite introvert,
+      don't really talk much, but every now and then he'll drop one joke and
+      it's actually funny. Chill guy. Oh and Cheng Ze's friend Marcus came over
+      for a while but I didn't really talk to him.
+    mentions:
+      - { cluster: cheng_ze, as: "Cheng Ze", substantive: true,  ambiguous: false }
+      - { cluster: jia_qi,   as: "Jia Qi",   substantive: true,  ambiguous: false }
+      - { cluster: marcus,   as: "Marcus",   substantive: false, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Day two. Um, met Hui Wen, year 1, from KL. She's quite quiet actually,
+      didn't say much the whole session, but very patient. Then Jia En — year 1,
+      from Johor, computer engineering. Very extrovert, very easy to talk to.
+      And Jie Yu, also year 1, from Selangor. She didn't really talk to me much
+      but she's got this smile she gives everyone she meets.
+    mentions:
+      - { cluster: hui_wen, as: "Hui Wen", substantive: true, ambiguous: false }
+      - { cluster: jia_en,  as: "Jia En",  substantive: true, ambiguous: false }
+      - { cluster: jie_yu,  as: "Jie Yu",  substantive: true, ambiguous: false }
+
+  - id: m4
+    transcript: |
+      Day two station games. Jason, year 1, life science, from Selangor — this
+      guy damn funny, whole group already started calling him big boss. He loves
+      talking about himself but in a funny way lah. Sean is year 2, from Melaka,
+      super heartwarming, always checking on us, and he's got a ring on his right
+      ear. Apparently he dances and sings also. And Winnie, year 2, curly hair,
+      very talkative, she plays basketball.
+    mentions:
+      - { cluster: jason,  as: "Jason",  substantive: true, ambiguous: false }
+      - { cluster: sean,   as: "Sean",   substantive: true, ambiguous: false }
+      - { cluster: winnie, as: "Winnie", substantive: true, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      Day three. Zhong Xuan, year 1, from Seremban. Very clever guy, and very
+      disciplined also. Jia Yaw, year 1, civil engineering, from Melaka — tall,
+      quite dark, plays basketball, and honestly damn comfortable to be around.
+      Then Jing Yu, year 1, also from Melaka, he stays in Temasek Hall. First
+      impression very quiet but after a while, wah, he talks a lot.
+    mentions:
+      - { cluster: zhong_xuan, as: "Zhong Xuan", substantive: true, ambiguous: false }
+      - { cluster: jia_yaw,    as: "Jia Yaw",    substantive: true, ambiguous: false }
+      - { cluster: jing_yu,    as: "Jing Yu",    substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      Last night of Luminia. Hui Ning, year 1, from Johor — we all call her
+      female boss. She's also year 1 but she's the one who got everybody talking,
+      damn good at making things not awkward. Jia Ying, year 1, from Johor also,
+      super active, extrovert, talks non-stop, and she's got golden hair so you
+      cannot miss her. And Jun Ming, year 3, the emotional one — he can always
+      tell when someone is feeling down and he'll go over and talk to them.
+    mentions:
+      - { cluster: hui_ning, as: "Hui Ning", substantive: true, ambiguous: false }
+      - { cluster: jia_ying, as: "Jia Ying", substantive: true, ambiguous: false }
+      - { cluster: jun_ming, as: "Jun Ming", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      Okay so today I found out Ee Zhe is year 2 mechanical engineering, same
+      major as me. Very kind, sat with me for like an hour answering all my
+      stupid questions about the major. Also bumped into the psychology senior
+      from my OG at the canteen, chatted a bit. And I said hi to Wei Han in the
+      lift, that's about it.
+    mentions:
+      - { cluster: ee_zhe,   as: "Ee Zhe",                          substantive: true,  ambiguous: false }
+      - { cluster: zi_liang, as: "the psychology senior from my OG", substantive: true,  ambiguous: false }
+      - { cluster: wei_han,  as: "Wei Han",                          substantive: false, ambiguous: false }
+
+  - id: m8
+    transcript: |
+      Met Tera at dinner. She's year 4, biomedical engineering. Very clever, very
+      active — apparently she was a state badminton player before. She stayed in
+      Raffles Hall before and now she's in Eusoff. Oh and the senior with the ring
+      on his ear was there also, he was the one who introduced us.
+    mentions:
+      - { cluster: tera, as: "Tera",                            substantive: true, ambiguous: false }
+      - { cluster: sean, as: "the senior with the ring on his ear", substantive: true, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      Eusoff Hall station game today. Met Ern Qi, year 1, she's a Singapore PR —
+      did her secondary school here and now uni also, been staying by herself the
+      whole time. Also saw one of the Jia girls from my OG there, I honestly
+      cannot remember which one, they're both year 1 Johor and both damn talkative.
+    mentions:
+      - { cluster: ern_qi,     as: "Ern Qi",                        substantive: true, ambiguous: false }
+      - { cluster: UNRESOLVED, as: "one of the Jia girls from my OG", substantive: true, ambiguous: true }
+
+  - id: m10
+    transcript: |
+      Was talking to the mechanical engineering senior today and found out he's
+      into calisthenics. Damn strong, he can lift his whole body up with just his
+      bare hands. Then in the evening the girl who always got a smile for everyone
+      walked past and said hi. Played basketball after that with the curly hair
+      girl, she's actually quite good. Jing Yu came along also — that guy talks
+      non-stop now, not like the first time I met him.
+    mentions:
+      - { cluster: ee_zhe,  as: "the mechanical engineering senior",        substantive: true, ambiguous: false }
+      - { cluster: jie_yu,  as: "the girl who always got a smile for everyone", substantive: true, ambiguous: false }
+      - { cluster: winnie,  as: "the curly hair girl",                      substantive: true, ambiguous: false }
+      - { cluster: jing_yu, as: "Jing Yu",                                  substantive: true, ambiguous: false }
+
+  - id: m11
+    transcript: |
+      Scrolling IG just now and I saw the year 3 guy from my OG, the one who
+      always know how everyone feels — he went England for exchange, half a year.
+      Posted damn a lot of photos there. And the golden hair girl, turns out she
+      dances, like properly one. She spends a lot of time practising and she joins
+      a lot of events. Saw Annice's photos also, she's really good at this.
+    mentions:
+      - { cluster: jun_ming, as: "the year 3 guy from my OG", substantive: true, ambiguous: false }
+      - { cluster: jia_ying, as: "the golden hair girl",      substantive: true, ambiguous: false }
+      - { cluster: annice,   as: "Annice",                    substantive: true, ambiguous: false }
+
+  - id: m12
+    transcript: |
+      Reading through the Eusoff CCA page and I found out Tera is the head of EII,
+      Eusoff Innovator and Incubator. I'm quite interested to join actually so I
+      asked her a lot of questions and she answered all of them very patiently.
+      Separately — the tall guy who plays basketball from my OG, turns out he goes
+      gym also, and he knows the proper form, spends a lot of time building muscle.
+      The girl we all call female boss messaged me asking whether I want to join, and Ern Qi also said
+      she wants to sign up, so maybe we go together.
+    mentions:
+      - { cluster: tera,     as: "Tera",                                    substantive: true, ambiguous: false }
+      - { cluster: jia_yaw,  as: "the tall guy who plays basketball from my OG", substantive: true, ambiguous: false }
+      - { cluster: hui_ning, as: "The girl we all call female boss",        substantive: true, ambiguous: false }
+      - { cluster: ern_qi,   as: "Ern Qi",                                  substantive: true, ambiguous: false }
+
+  - id: m13
+    transcript: |
+      Had a long talk with the guy everybody calls big boss today. He really wants to stay in Eusoff next
+      year so he's going for a lot of interviews, but he said he won't force
+      himself to join a CCA he doesn't like. Fair enough. Also the quiet one from
+      my OG who drops a joke once in a while was there — or wait, maybe it was the
+      other one, the Johor guy who's always joking. I really cannot tell, both of
+      them same vibe. And Su Ling dropped by for a bit.
+    mentions:
+      - { cluster: jason,      as: "the guy everybody calls big boss",            substantive: true, ambiguous: false }
+      - { cluster: UNRESOLVED, as: "the quiet one from my OG who drops a joke once in a while", substantive: true, ambiguous: true }
+      - { cluster: su_ling,    as: "Su Ling",                                     substantive: true, ambiguous: false }
+
+  - id: m14
+    transcript: |
+      Saw the computer engineering girl from my OG at the study room, the Johor
+      one — we complained about our assignment together for like half an hour.
+      Hui Wen was there also, still very quiet, but she helped me with one
+      question damn patiently. And Jong Shuen was at the library the whole day,
+      morning until night. That guy is really disciplined.
+    mentions:
+      - { cluster: jia_en,     as: "the computer engineering girl from my OG", substantive: true, ambiguous: false }
+      - { cluster: hui_wen,    as: "Hui Wen",                                  substantive: true, ambiguous: false }
+      - { cluster: zhong_xuan, as: "Jong Shuen",                               substantive: true, ambiguous: false }

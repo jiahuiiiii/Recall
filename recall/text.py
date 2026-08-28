@@ -64,18 +64,28 @@ def match_strength(query: set[str], stored: set[str]) -> float:
 
 
 def best_match(a: str, b: str) -> float:
-    """Best token-level match between two short strings (names, companies).
+    """How completely two short strings (names, companies) agree, 0..1.
 
     Compares token to token rather than string to string so "Wei Lin" and
     "Lin, Wei" agree, and a middle name does not sink an otherwise exact match.
+
+    Every token of the SHORTER string must find a counterpart, and the result is
+    how well they did on average. Extra tokens on the longer side are silence --
+    a family name the speaker dropped, a suffix -- not disagreement, which is
+    why "Kit" still matches "Kit Yee" at 1.0.
+
+    Scoring the single best pair instead (`max`) meant one shared token carried
+    the whole name: "Hui Ning" matched "Hui Wen" at 1.00 on `hui`, cleared
+    T_MATCH, and merged two different people with no question asked. The
+    disagreeing halves have to count, or a shared syllable is indistinguishable
+    from the same name. Measured on arc_godwin, not hypothetical.
     """
     ta, tb = tokens(a), tokens(b)
     if not ta or not tb:
         return 0.0
-    return max(
-        (token_match(x, y) for x in ta for y in tb),
-        default=0.0,
-    )
+    short, long_ = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    scores = [max((token_match(x, y) for y in long_), default=0.0) for x in short]
+    return sum(scores) / len(scores)
 
 
 def overlap_ratio(a: set[str], b: set[str]) -> float:

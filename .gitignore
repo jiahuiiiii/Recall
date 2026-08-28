@@ -10,3 +10,9 @@ __pycache__/
 uv.lock
 *.yaml
 .recall-demo-graph.json
+*.yaml.bak
+
+# The fixtures ARE the benchmark -- hand-written, and every number in the README
+# comes from them. The blanket *.yaml above was silently keeping them untracked.
+!eval/fixtures/*.yaml
+.env.bak.*

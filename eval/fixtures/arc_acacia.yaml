@@ -1,0 +1,243 @@
+id: arc_acacia
+description: ARC — the friends I met at Acacia College in NUS.
+# This is where the benchmark numbers come from. Target 6-12 memos, chronological.
+# The graph starts EMPTY and grows as you go, so later memos are harder.
+#
+# Work the hard cases in naturally, don't isolate them:
+#   - someone from an early memo reappearing, referred to loosely
+#   - two people with the same first name, met weeks apart
+#   - a mention you genuinely cannot resolve  -> ambiguous: true,  cluster: UNRESOLVED
+#   - people you only greet                   -> substantive: false
+#   - someone who changes job or course between memos
+#
+# Write the transcript as Whisper would output it: no punctuation cleanup,
+# filler words, self-corrections, Singlish, code-switching. Names at code-switch
+# boundaries are the realistic worst case and the one worth capturing.
+#
+# Check as you go:  uv run eval/check_fixtures.py
+
+memos:
+  - id: m1
+    transcript: |
+      I meet Viktoria at dining hall one day when I was having breakfast alone. She suddenly sat in front of me and started talking to me. Apparently she was from germany, and exchange here. She lives in the Tembusu College. We only managed to have a short conversation becuase she have to leave. As I mentioned I'm interested in exchange to germany, she proposed that we can exchange our contact.
+    mentions:
+      - {
+          cluster: viktoria,
+          as: "Viktoria",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m2
+    transcript: |
+      I met Kit Yee at the Acacia orientation camp. She is in the same group as me. We both from group 2. She's also from malaysian chinese independent school. She a quiet person but she is friendly. She also lives at the 18th floor. She studies geospatial intelligence at NUS.
+    mentions:
+      - { cluster: kit_yee, as: "Kit Yee", substantive: true, ambiguous: false }
+  - id: m3
+    transcript: |
+      Crispy is my high school friend, also from Malaysian Chinese independent school. her full name is tiu chuei enn, but we all call her crispy due to her chinese name. She also lives in Acacia College. She lives on the 4th floor. She also studies computer sciencae at NUS.
+    mentions:
+      - { cluster: crispy, as: "Crispy", substantive: true, ambiguous: false }
+  - id: m4
+    transcript: |
+      I have breakfast with the german girl and her friend. I was quite nervous at first. But they are nice people. I had a great lunch. Her friend kinda hot btw.
+    mentions:
+      # Same human as m1. `cluster` is the person; `as` is how she was referred
+      # to this time. Keeping the cluster id is what makes this a recognition test.
+      - {
+          cluster: viktoria,
+          as: "the german girl",
+          substantive: true,
+          ambiguous: false,
+        }
+      # Unnamed: opinions attached, but "her friend" cannot be deduped or
+      # contacted, so she is not a contact record.
+      - {
+          cluster: viktoria_friend,
+          as: "her friend",
+          substantive: false,
+          ambiguous: false,
+        }
+  - id: m5
+    transcript: |
+      Marvi, an indian girl live at the same region as me, got locked out of her room. I helped her to reach for help.
+    mentions:
+      - { cluster: marvi, as: "Marvi", substantive: true, ambiguous: false }
+  - id: m6
+    transcript: |
+      Clarrie is my OGL during orientation. She's friendly, studies business at NUS. But I don't know her too well. But she was part of the student union and she doens't plan to continue this year bcuz she is the vice secretary and it doesnt make sense to go up or down. Go up means to many workload, go down doesn't make sense. But I won't say she is a very good OGL tho, like she would sometimes made us wait without doing anything.
+    mentions:
+      - { cluster: clarrie, as: "Clarrie", substantive: true, ambiguous: false }
+  - id: m7
+    transcript: |
+      Edward is my OGL during orientation. He's friendly, studies computer science at NUS. He went to Korea Uniersity to take a math mod, spent 4k sgd. He is kind lah.
+    mentions:
+      - { cluster: edward, as: "Edward", substantive: true, ambiguous: false }
+  - id: m8
+    transcript: |
+      Huiling is from China. I met her during orientation. She also lives on the 18th floor. She studies computer engineering. She is quite outgoing and friendly but her english is not really good. She is very good at drawing.
+    mentions:
+      - { cluster: huiling, as: "Huiling", substantive: true, ambiguous: false }
+  - id: m9
+    transcript: |
+      Yixin is from China. I met her during orientation. She also lives on the 4th floor. She studies computer engineering. She is quite friendly but she is a bit of otaku like me. She likes Eve and went to his concert at KL.
+    mentions:
+      - { cluster: yixin, as: "Yixin", substantive: true, ambiguous: false }
+  - id: m10
+    transcript: |
+      Me, crispy and the malaysian chinese girl have dinner together quite often, I think this is becuase we share similar backgrounds, it's good to have friends like this.
+    mentions:
+      - { cluster: crispy, as: "Crispy", substantive: true, ambiguous: false }
+      # Resolvable, not ambiguous: m2 makes Kit Yee the only person from a
+      # malaysian chinese independent school, and Crispy is named separately in
+      # this same sentence. Hard reference (no name, description only), but a
+      # careful human gets there — so it belongs to kit_yee, not UNRESOLVED.
+      - {
+          cluster: kit_yee,
+          as: "the malaysian chinese girl",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m11
+    transcript: |
+      Wanqing is from china. But she studies at sg since she was very young. She speaks mandarin fluently tho. She studies Medicine. We met during Acacia orientation. She would speak mandarin to Huiling bcuz she knows huiling's english not so good.
+    mentions:
+      - { cluster: wanqing, as: "Wanqing", substantive: true, ambiguous: false }
+      - {
+          cluster: huiling,
+          as: "Huiling",
+          substantive: false,
+          ambiguous: false,
+        }
+  - id: m12
+    transcript: |
+      Yixin, huiling and kit yee want to visit  JB, but I was kinda lazy to bring therm around so i just suggest them where to go
+    mentions:
+      # A plan involving all three, so substantive. Marked false, they were
+      # filtered out before dedupe ran and three recognition tests were lost.
+      - { cluster: yixin, as: "Yixin", substantive: true, ambiguous: false }
+      - { cluster: huiling, as: "Huiling", substantive: true, ambiguous: false }
+      - { cluster: kit_yee, as: "Kit Yee", substantive: true, ambiguous: false }
+  - id: m13
+    transcript: |
+      I met the CEG chinese girls quite often in the canteen, we sometiems have lunch together.
+    mentions:
+      # Plural but identifiable: "the CEG chinese girls" are Yixin and Huiling,
+      # both established earlier. Split into one mention per person so both
+      # recognitions are scored. Labels must differ or they collide into one key.
+      - {
+          cluster: yixin,
+          as: "the chinese girls (1)",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: huiling,
+          as: "the chinese girls (2)",
+          substantive: true,
+          ambiguous: false,
+        }
+
+  - id: m14
+    transcript: |
+      Me and the two malaysian chinese independent school girls want to join Aquacia, the Acacia swimming team together. We also plan to go cycling and running.
+    mentions:
+      # "the TWO" and exactly two MCIS people are established (m2 Kit Yee,
+      # m3 Crispy), so this resolves — it is a hard descriptive reference, not
+      # an ambiguous one. Labels must differ or they collide into one key.
+      - {
+          cluster: kit_yee,
+          as: "the malaysian chinese independent school girls (1)",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: crispy,
+          as: "the malaysian chinese independent school girls (2)",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m15
+    transcript: |
+      I met the female Acacia OGL in Laundry room at 12am. She is also drying her clothes.
+    mentions:
+      - {
+          cluster: clarrie,
+          as: "the female Acacia OGL",
+          substantive: false,
+          ambiguous: false,
+        }
+  - id: m16
+    transcript: |
+      I often meet the indian girl on my floor. She is friendly and always say hi to me. She is year 2, studying econ. She's not singporean indian, but comes from India
+    mentions:
+      - {
+          cluster: marvi,
+          as: "the indian girl",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m17
+    transcript: |
+      The geospatial girl swims quite good.
+    mentions:
+      - {
+          cluster: kit_yee,
+          as: "the geospatial girl",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m18
+    transcript: |
+      I bumped into the male OGL multiple times today in the dining hall. I said hi to him the first time and he said hi back. For the second time he was eating and didn't see me so I didn't say hi.
+    mentions:
+      - {
+          cluster: edward,
+          as: "the male OGL",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m19
+    transcript: |
+      I met Shiny in UTC2851, she is Catholic Indian. She is in the same group as me, she studies Business AI system. She is chill. She is quite smart tho, fast instinct.
+    mentions:
+      - { cluster: shiny, as: "Shiny", substantive: true, ambiguous: false }
+  - id: m20
+    transcript: |
+      I had lunch with the Catholic Indian at Flavours. She said she want to work as management officers in IT industry later. She said her dad also work in similar industry.
+    mentions:
+      - {
+          cluster: shiny,
+          as: "the Catholic Indian",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m21
+    transcript: |
+      The girl I met in UTC2851 messaged me via telegram to get my solution for the exercises given in seminar. She is hardworking.
+    mentions:
+      - {
+          cluster: shiny,
+          as: "the girl I met in UTC2851",
+          substantive: true,
+          ambiguous: false,
+        }
+  - id: m22
+    transcript: |
+      I met Leon in UTC2851. He is singaporean. He doesn't really know how to code. He is a quite humor guy.
+    mentions:
+      - { cluster: leon, as: "Leon", substantive: true, ambiguous: false }
+  - id: m23
+    transcript: |
+      Aditi is the residential assistant of the 18th floor. She knocked my door one day to asked me if there is any issue of my room facilities.
+    mentions:
+      - { cluster: aditi, as: "Aditi", substantive: true, ambiguous: false }
+  - id: m24
+    transcript: |
+      I bumped into the residential assistant when I was brushing my teeth. She said good night to me.
+    mentions:
+      - {
+          cluster: aditi,
+          as: "the residential assistant",
+          substantive: true,
+          ambiguous: false,
+        }

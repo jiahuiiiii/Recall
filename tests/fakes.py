@@ -15,7 +15,6 @@ from recall.state import (
     CommitmentExtraction,
     Draft,
     DraftBundle,
-    MatchDecision,
     PeopleExtraction,
     Person,
 )

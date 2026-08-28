@@ -232,12 +232,20 @@ uv run 03_teardown.py      # run this when done
 | [recall/graph.py](recall/graph.py) | The supervisor graph — nodes, conditional edge, fan-in |
 | [recall/state.py](recall/state.py) | The one `TypedDict` + every structured-output model |
 | [recall/memory.py](recall/memory.py) | The person graph. `PersonStore` protocol, local + AgentCore backends |
+| [recall/resolve.py](recall/resolve.py) | The three-zone band — pure scoring, no model |
+| [recall/eig.py](recall/eig.py) | Expected information gain, the Bayes update, and the two baselines |
+| [recall/questions.py](recall/questions.py) | Candidate questions derived mechanically from stored attributes |
+| [recall/answer.py](recall/answer.py) | Applying one answer, with the same likelihood EIG scored it under |
+| [recall/text.py](recall/text.py) | Token matching shared by retrieval and resolution |
 | [recall/_common.py](recall/_common.py) | `chat_model()`, cost ledger, pricing table, cache helper |
 | [recall/nodes/](recall/nodes/) | One file per graph node |
 | [recall/tools/](recall/tools/) | Transcription, web search, calendar |
 | [tests/test_graph.py](tests/test_graph.py) | Graph wiring end to end, against scripted fake models |
 | [tests/test_guards.py](tests/test_guards.py) | The two filters that keep wrong data out of the person graph |
 | [tests/test_metering.py](tests/test_metering.py) | Token accounting and pricing |
+| [eval/harness.py](eval/harness.py) | Fixture loading + the resolution sweep behind the B³/pairwise numbers |
+| [eval/run_questions.py](eval/run_questions.py) | EIG vs random vs uncertainty — the headline benchmark |
+| [eval/fixtures/](eval/fixtures/) | The four hand-written scenarios every number here comes from |
 | [web/server.py](web/server.py) | FastAPI transport — transcribe + streamed graph run |
 | [web/index.html](web/index.html) | The whole UI, one file, no framework |
 
@@ -258,6 +266,13 @@ other — resolving on that is a coin flip dressed as a decision.
 Scoring lives in [recall/resolve.py](recall/resolve.py) and is **pure** — no model call
 decides which band a mention falls in, so it is reproducible and unit-tested. The model
 extracts attributes; the arithmetic decides.
+
+Names are compared by **coverage of the shorter name**, not by the single best token
+pair. Extra tokens on the longer side are silence — a family name the speaker dropped, so
+`Kit` still matches `Kit Yee` at 1.00 — but a token with no counterpart at all counts as
+disagreement, so `Hui Ning` scores 0.50 against `Hui Wen` rather than 1.00. Taking the
+best pair meant one shared syllable carried a whole name, and since `W_NAME_EXACT` equals
+`T_MATCH`, that alone auto-merged two different people.
 
 Current thresholds: `T_MATCH=3.0`, `T_NONMATCH=1.0`, `MIN_MARGIN=1.0`. Hand-set, not
 fitted from labelled pairs — quote them with any result.
@@ -295,10 +310,21 @@ repeat, not just the scoring** — extraction varies, so the set of ambiguous me
 itself moves between runs (4–5 on identical fixtures). Replaying strategies over a case
 set collected once looks rigorous and hides the dominant source of noise.
 
-Current baseline (`arc_acacia`, 18 memos): **B³ P=1.000 R=0.856 F1=0.922**, pairwise
-F1 0.800. Precision has held at 1.000 throughout — nothing is ever wrongly merged, and
-every loss is a missed recognition. That is the right direction to fail in: a wrong merge
-silently destroys a real record, a missed one is visible and fixable.
+Fixtures: 42 memos, 77 mentions, 27 recurring people across `arc_acacia` (24 memos),
+`arc_godwin` (14 memos, 20 people, 11 loose references), `same_first_name` and
+`genuinely_ambiguous`.
+
+Baseline (`arc_acacia`): **B³ P=1.000 R=0.856 F1=0.922**, pairwise F1 0.800.
+
+> **⚠️ Re-run before quoting — taken before name matching changed.** One `arc_acacia`
+> name pair is affected and it moves the right way, so the baseline is projected to hold,
+> but projected is not measured.
+
+Precision held at 1.000 across every run of `arc_acacia` — nothing wrongly merged, every
+loss a missed recognition. That is the right direction to fail in: a wrong merge silently
+destroys a real record, a missed one is visible and fixable. **The claim is narrower than
+it looks**: `arc_godwin` contains four same-syllable name pairs that did merge before the
+fix above, and no run has yet confirmed they stay separate.
 
 ### Questions per resolution
 
@@ -351,10 +377,58 @@ a person, not fitted — quote them with any result. n is small. The claim these
 support is "EIG beats a strategy that ignores reliability", not a general superiority.
 
 
-**Known limitations.** "the two X girls" extracts as one entity, not two — `Person` emits
-one record per person, and plural-mention expansion is out of scope. Role-only references
-with no content ("bumped into the male OGL, said hi") extract nobody. And the real data
-comes from a single setting, so thresholds tuned to it may not generalise.
+## What's left
+
+### To fix
+
+1. **Confirm the name-matching change against the real pipeline.** Everything above about
+   `Hui Ning` / `Hui Wen` is measured on the pure resolve layer with hand-written notes.
+   The real pipeline puts LLM extraction in front of it, and extraction wording varies run
+   to run. 173 offline tests pass and no legitimate match regressed, but the fix is not
+   closed until a full run confirms it.
+2. **The residual merge window is not closed by construction.** A partially matched name
+   still contributes 0.75; a shared `met_at` adds 1.25; notes can add 1.50. Two different
+   people with a shared syllable, the same event and notes overlap ≥ 0.67 would still
+   cross `T_MATCH`. The consistent fix is to cap the total when the name is only partially
+   matched — the same way `W_DESCRIPTOR_MAX` is capped so a description can never
+   auto-resolve — but not before the benchmark re-run, or the two changes cannot be told
+   apart.
+3. **The precision diagnostic only covers professional networking.**
+   `same_first_name.yaml` passes because its two Alexes have *conflicting* company and
+   role, which carry negative weight. Students have neither field populated and share one
+   `met_at`, so the identical collision resolves the opposite way. Needs a
+   student-setting equivalent.
+4. **A bare nickname creates a duplicate person.** `_is_name("big boss")` is true — no
+   token is a descriptor word — so it takes the name channel, conflicts with every stored
+   name, and files a new record. Phrasing it as *"the guy everybody calls big boss"*
+   routes to the descriptor path and works, but that workaround lives in the fixture, not
+   in the code.
+5. ~~**Fixtures are not in version control.**~~ Fixed — `.gitignore` carried a blanket
+   `*.yaml` that ignored every file in `eval/fixtures/`. The negation is in; the fixtures
+   still need their first commit.
+6. **The code default model is one a personal account cannot call.** `_common.py` defaults
+   to a `global.anthropic.*` id, which is the marketplace-gated path. It works only
+   because `.env` overrides it, and `.env` is not in the repo — so a fresh clone fails
+   with `ValidationException: invalid model identifier`, which reads like a typo.
+
+### To do
+
+1. **Re-run the benchmark** — `arc_acacia` to confirm the baseline held, `arc_godwin` for
+   the first time, and questions-per-resolution, which is still SUPERSEDED above.
+2. **The AgentCore Memory backend.** `recall/memory_agentcore.py` was written blind and
+   has never run; as written it would make every known person look new. Test against a
+   throwaway memory resource, never the live graph.
+3. **Seed the demo data**, write and time the demo script, then the writeup.
+
+### Known limitations
+
+"the two X girls" extracts as one entity, not two — `Person` emits one record per person,
+and plural-mention expansion is out of scope. Role-only references with no content
+("bumped into the male OGL, said hi") extract nobody. A Whisper mis-hear that changes the
+*first* token of a name (`Zhong Xuan` → `Jong Shuen`) scores 0.00 and does not match at
+all. And both arcs come from the same kind of setting — one hall, one orientation group —
+where everyone shares an event and nobody has a company, so thresholds tuned here may not
+generalise to a professional graph.
 
 ## The three guards
 

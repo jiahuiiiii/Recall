@@ -538,31 +538,63 @@ function closePerson(){
   });
 }
 
-let mediaRecorder, chunks = [], startedAt = 0, tick;
+let mediaRecorder, chunks = [], starting = false;
 
-/* ---------- recording ---------- */
+/* ---------- recording ----------
+   Everything about one recording session lives in locals captured here, not in
+   module state. The timer used to read the module-level recorder and store its
+   own handle in a module-level `tick`: a second click during the getUserMedia
+   await started a second session, orphaned the first recorder's stream and lost
+   its interval handle, so that interval ticked forever and kept writing the
+   timer after Stop. Now each session's timer can only touch its own recorder,
+   and clears itself the moment that recorder is no longer recording. */
 $("rec").onclick = async () => {
-  if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
+  if (mediaRecorder && mediaRecorder.state !== "inactive") { mediaRecorder.stop(); return; }
+  // The await below is a window in which the guard above still sees the *old*
+  // recorder, so without this an impatient second click starts a second one.
+  if (starting) return;
+  starting = true;
+  $("rec").disabled = true;
+
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
   catch (e) { $("hint").textContent = "Microphone blocked: " + e.message + ". Check the address bar permission icon."; return; }
+  finally { starting = false; $("rec").disabled = false; }
 
   chunks = [];
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.ondataavailable = e => chunks.push(e.data);
-  mediaRecorder.onstop = () => {
+  const rec = new MediaRecorder(stream);
+  mediaRecorder = rec;
+
+  // Declared before finish() so there is no temporal-dead-zone hazard if a
+  // handler ever fires earlier than expected.
+  let tick;
+  // Idempotent: stop() fires onstop once, but an error path may also land here.
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    clearInterval(tick);
     stream.getTracks().forEach(t => t.stop());
-    clearInterval(tick); $("timer").textContent = "";
-    $("rec").className = "btn go"; $("rec").innerHTML = "● Record";
-    sendAudio(new Blob(chunks, {type: mediaRecorder.mimeType}), "memo");
+    $("timer").textContent = "";
+    $("rec").className = "btn go"; $("rec").innerHTML = "● Record"; $("rec").disabled = false;
   };
-  mediaRecorder.start();
-  startedAt = Date.now();
+
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onerror = () => { finish(); $("hint").textContent = "Recording stopped unexpectedly."; };
+  rec.onstop = () => { finish(); sendAudio(new Blob(chunks, {type: rec.mimeType}), "memo"); };
+
+  rec.start();
+  const startedAt = Date.now();
   $("rec").className = "btn on"; $("rec").innerHTML = '<span class="dot"></span>Stop';
   tick = setInterval(() => {
+    // Self-clearing, so this timer cannot outlive its own recording even if
+    // onstop never arrives. Guarding the cap on state also stops the old code
+    // calling stop() every 250ms once past 120s, which throws InvalidStateError
+    // on an already-inactive recorder without cancelling the interval.
+    if (rec.state !== "recording") { clearInterval(tick); return; }
     const s = Math.floor((Date.now()-startedAt)/1000);
     $("timer").textContent = `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-    if (s >= 120) mediaRecorder.stop();   // Groq free tier caps upload size
+    if (s >= 120) rec.stop();   // Groq free tier caps upload size
   }, 250);
 };
 

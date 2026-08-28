@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Project instructions for Claude Code. Read this at the start of every session.
+Project instructions for Codex. Read this at the start of every session.
 
 ---
 
@@ -281,7 +281,7 @@ there was nowhere else to keep the previous version.
 
 ### 5b. The code default model is one this account cannot call
 
-`_common.py` defaults `HAIKU` to `global.anthropic.claude-haiku-4-5-...`, which is
+`_common.py` defaults `HAIKU` to `global.anthropic.Codex-haiku-4-5-...`, which is
 exactly the gated path described under **This account's AWS situation**. It only works
 because `.env` sets `RECALL_MODEL_ID=global.amazon.nova-2-lite-v1:0`, and `.env` is
 gitignored — so a fresh clone, a teammate, or the AgentCore runtime without that env var
@@ -668,7 +668,7 @@ People who care about the people they meet and lose them anyway, because the det
 evaporate in the ten minutes after meeting someone. **Never** frame as extracting value
 from contacts later. The brief asks for solutions that leave people genuinely better off.
 
-## Do / Don't for Claude Code
+## Do / Don't for Codex
 
 - **Do** use `uv run`, typed structured output, and content-not-exception tool errors.
 - **Do** run the offline tests before anything that spends AWS money.

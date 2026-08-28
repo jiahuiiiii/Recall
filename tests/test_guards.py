@@ -11,7 +11,7 @@ import pytest
 
 from recall.nodes.enrich import _verify
 from recall.state import PeopleExtraction
-from tests.fakes import ARJUN, PASSING_MENTION, WEI_LIN, fake_chat_model
+from tests.fakes import PASSING_MENTION, WEI_LIN, fake_chat_model
 
 
 def test_passing_mentions_are_filtered_out(monkeypatch):

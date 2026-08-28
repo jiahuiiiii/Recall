@@ -11,6 +11,7 @@ must never be written to by an eval sweep.
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -152,50 +153,66 @@ def run_scenario(scenario: Scenario, store_path: Path) -> RunResult:
     os.environ["RECALL_STORE_PATH"] = str(store_path)
 
     # Imported late and re-imported per run so the store path env var is picked up.
-    from recall.memory import LocalPersonStore
     from recall.nodes.dedupe import dedupe_node
     from recall.nodes.extract import extract_people_node
     from recall.nodes.merge import merge_node
     from recall.nodes.persist import persist_node
 
     result = RunResult(scenario_id=scenario.id)
-    store = LocalPersonStore(store_path)
 
     for memo in scenario.memos:
-        gold_by_name = {m.as_written.lower(): m for m in memo.mentions}
         try:
             extracted = extract_people_node({"transcript": memo.transcript})
             people = extracted.get("people", [])
+
+            # One alignment, used by BOTH metrics. Doing it once is not just
+            # tidiness: scoring "was this mention kept?" by a looser rule than
+            # "which person is this mention?" lets a memo report every gold
+            # mention as extracted while none of them can be placed.
+            alignment = align(memo.mentions, people)
 
             # Substantive: did each gold mention survive the filter?
             # Aliases count. The extractor canonicalises to a full name and puts
             # the spoken form in `aliases` ("Tiu Chuei Enn" / "Crispy"), which is
             # correct behaviour -- matching on `name` alone scores it as a miss.
-            kept = {_labels(p) for p in people}
             for m in memo.mentions:
-                result.pred_substantive[m.key] = any(
-                    _matched(m.as_written, labels) for labels in kept
-                )
+                result.pred_substantive[m.key] = m.key in alignment
 
             state: dict[str, Any] = {"people": people}
             routed = dedupe_node(state)
             state.update(routed)
 
-            # Which record id did each extracted person land on?
+            # Which record id did each extracted person land on? Keyed by
+            # position in `people`, because that is what `align` refers to and
+            # because two people in one memo can carry equal dicts.
+            record_of: dict[int, str] = {}
             for match in routed.get("known_matches", []):
-                _assign(result, memo, gold_by_name, match["person"], match["record_id"])
+                i = _index_of(people, match["person"])
+                if i is not None:
+                    record_of[i] = match["record_id"]
             merge_node(state)
 
             persisted = persist_node(state)
             new_ids = persisted.get("persisted_ids", [])
             for person, rid in zip(state.get("new_people", []), new_ids):
-                _assign(result, memo, gold_by_name, person, rid)
+                i = _index_of(people, person)
+                if i is not None:
+                    record_of[i] = rid
+
+            for key, i in alignment.items():
+                if i in record_of:
+                    result.pred_clusters[key] = record_of[i]
+            # People the system named that no gold mention claims -- a spurious
+            # extraction. It has to reach the metrics, or inventing contacts is
+            # free.
+            for i, rid in record_of.items():
+                if i not in set(alignment.values()):
+                    result.pred_clusters[f"{memo.id}:<{people[i].get('name')}>"] = rid
 
             result.n_ambiguous_flagged += len(routed.get("ambiguous", []))
         except Exception as exc:  # noqa: BLE001 - one bad memo must not kill the sweep
             result.errors.append(f"{scenario.id}/{memo.id}: {type(exc).__name__}: {exc}")
 
-    store  # keep the reference alive for the duration of the scenario
     return result
 
 
@@ -206,7 +223,7 @@ def _labels(person: dict) -> frozenset[str]:
     return frozenset(x for x in out if x)
 
 
-_DISAMBIGUATOR = __import__("re").compile(r"\s*\(\d+\)\s*$")
+_DISAMBIGUATOR = re.compile(r"\s*\(\d+\)\s*$")
 
 
 def _strip_disambiguator(label: str) -> str:
@@ -220,31 +237,97 @@ def _strip_disambiguator(label: str) -> str:
     return _DISAMBIGUATOR.sub("", label).strip()
 
 
-def _matched(as_written: str, labels: frozenset[str]) -> bool:
-    """Did the system extract someone recognisable as this gold mention?
+# Function words carry no identity. Leaving them in means "the tennis boy with
+# square glasses" and "the tennis girl with round gold glasses" share `the` and
+# `with`, which under a single-shared-token rule made them the same person.
+# Words that DO discriminate -- boy/girl/guy, no, colours, sports -- stay in.
+_STOPWORDS = frozenset({"a", "an", "the", "this", "that", "these", "those", "and", "or",
+    "but", "with", "without", "who", "whom", "whose", "which", "what", "is", "was", "are",
+    "were", "be", "been", "being", "do", "does", "did", "i", "me", "my", "mine", "we",
+    "our", "us", "you", "your", "he", "him", "his", "she", "her", "hers", "they", "them",
+    "their", "at", "in", "on", "of", "for", "from", "to", "by", "as", "also", "just",
+    "still", "then", "there", "here", "got", "kept", "keep", "very", "quite", "super",
+    "really",
+})
 
-    Loose on purpose: the gold label is how the speaker referred to them
-    ("the GIC one"), while the system emits its best guess at a canonical name.
-    Exact string equality would score correct behaviour as failure.
+# Below this, two labels are not the same person. Kept low because the
+# assignment is competitive -- argmax decides between real rivals, and the floor
+# only has to keep a label with nothing in common from latching on.
+MIN_ALIGN = 0.25
+
+
+def _content(label: str) -> frozenset[str]:
+    a = _strip_disambiguator(label).lower()
+    a = re.sub(r"[^a-z0-9' ]+", " ", a)
+    return frozenset(t for t in a.split() if t and t not in _STOPWORDS)
+
+
+def similarity(as_written: str, label: str) -> float:
+    """How much two ways of referring to a person agree, in [0, 1].
+
+    Jaccard over content words, NOT "do they share any token". The gold label is
+    how the speaker referred to someone ("the CNM girl with clear glasses") and
+    the system emits its own shorthand ("CNM girl"), so exact equality would
+    score correct behaviour as failure -- but any-token-overlap scores every
+    descriptor in a memo as every other one, which is worse: it silently merges
+    distinct gold mentions into a single key and reports the rest as misses.
     """
-    a = _strip_disambiguator(as_written).lower()
-    return any(a in k or k in a or _overlap(a, k) for k in labels)
+    ta, tb = _content(as_written), _content(label)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
 
 
-def _overlap(a: str, b: str) -> bool:
-    ta, tb = set(a.split()), set(b.split())
-    return bool(ta & tb)
+def best_similarity(as_written: str, labels: frozenset[str]) -> float:
+    return max((similarity(as_written, x) for x in labels), default=0.0)
 
 
-def _assign(result: RunResult, memo: Memo, gold_by_name: dict, person: dict, record_id: str) -> None:
-    """Map a system output back onto the gold mention it corresponds to."""
-    labels = _labels(person)
-    for gold_name, mention in gold_by_name.items():
-        if _matched(gold_name, labels):
-            result.pred_clusters[mention.key] = record_id
-            return
-    # System named someone the fixture did not list -- a spurious extraction.
-    result.pred_clusters[f"{memo.id}:<{person.get('name')}>"] = record_id
+def align(mentions: list[Mention], people: list[dict]) -> dict[str, int]:
+    """Map each gold mention key onto the index of the person it refers to.
+
+    Greedy on the strongest pair first, and **one gold mention per person**,
+    with one exception: a person may serve several gold mentions that share a
+    gold cluster. That is the alias case -- "Chong Jie" and "CJ" are two keys
+    for one human, and the extractor is right to emit one record with an alias.
+    Because the exemption is keyed on the mentions agreeing about the cluster,
+    it can never hide a wrong merge: a collapse of two DIFFERENT clusters onto
+    one person still costs, which is the whole reason the assignment is
+    exclusive.
+    """
+    scored: list[tuple[float, int, int]] = []
+    for mi, m in enumerate(mentions):
+        for pi, person in enumerate(people):
+            s = best_similarity(m.as_written, _labels(person))
+            if s >= MIN_ALIGN:
+                scored.append((s, mi, pi))
+    # -s first, then mention/person index, so a tie resolves the same way every
+    # run. An unstable tie-break makes the benchmark irreproducible for a reason
+    # nobody would think to look for.
+    scored.sort(key=lambda t: (-t[0], t[1], t[2]))
+
+    out: dict[str, int] = {}
+    taken: dict[int, str] = {}          # person index -> gold cluster already on it
+    for _s, mi, pi in scored:
+        m = mentions[mi]
+        if m.key in out:
+            continue
+        if pi in taken and taken[pi] != m.cluster:
+            continue
+        out[m.key] = pi
+        taken[pi] = m.cluster
+    return out
+
+
+def _index_of(people: list[dict], person: dict) -> int | None:
+    """Position of `person` in `people`, by identity.
+
+    Identity, not equality: the nodes pass the same dict objects through, and
+    two people in one memo can compare equal before the store fills them in.
+    """
+    for i, p in enumerate(people):
+        if p is person:
+            return i
+    return None
 
 
 def fresh_store_path() -> Path:
