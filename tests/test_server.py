@@ -262,6 +262,25 @@ def test_people_endpoint_returns_the_graph_most_recent_first(monkeypatch):
     assert body["people"][1]["notes"] == ["a", "b"]
 
 
+def test_people_endpoint_carries_aliases(graph):
+    """The UI renders `p.aliases`, so leaving them out of the payload is not a
+    missing field -- it is an empty section. A merge records the absorbed name as
+    an alias, and without this the nickname looked thrown away."""
+    rid = _id(graph, "Kang Ling")
+    graph.upsert({"id": rid, "aliases": ["KL", "Ling"]})
+    person = next(p for p in client.get("/api/people").json()["people"] if p["id"] == rid)
+    assert person["aliases"] == ["KL", "Ling"]
+
+
+def test_people_endpoint_carries_the_meeting_count(graph):
+    """`met_at` is deduplicated places; the card cannot derive occasions from it."""
+    rid = _id(graph, "Kang Ling")
+    graph.upsert({"id": rid, "met_at": ["orientation camp"], "notes": ["plays tennis"]})
+    person = next(p for p in client.get("/api/people").json()["people"] if p["id"] == rid)
+    assert person["met_at"] == ["orientation camp"]
+    assert person["times_met"] == 2
+
+
 def test_people_endpoint_handles_an_empty_graph(monkeypatch):
     monkeypatch.setattr("web.server.get_store", lambda: type("S", (), {"all": lambda s: []})())
     body = client.get("/api/people").json()
@@ -337,6 +356,64 @@ def test_patch_normalises_a_bare_string(graph):
     r = client.patch(f"/api/people/{rid}", json={"notes": "one note"})
     # FastAPI rejects a str for list[str], so the client never gets to corrupt it.
     assert r.status_code == 422
+
+
+def test_people_endpoint_carries_contacts_and_their_links(graph):
+    """The panel renders `p.contacts` and hrefs `p.contact_links`. The links are
+    built server-side so the page cannot disagree with the store about what a
+    stored handle means."""
+    rid = _id(graph, "Kang Ling")
+    graph.upsert({"id": rid, "contacts": {"instagram": "kangling", "phone": "+65 9123 4567"}})
+    person = next(p for p in client.get("/api/people").json()["people"] if p["id"] == rid)
+    assert person["contacts"] == {"phone": "+65 9123 4567", "instagram": "kangling"}
+    assert person["contact_links"]["instagram"] == "https://instagram.com/kangling"
+    assert person["contact_links"]["phone"] == "tel:+6591234567"
+
+
+def test_a_person_with_no_contacts_gets_an_empty_map_not_a_missing_key(graph):
+    """The section is an editor and always renders, so the page reads the key
+    unconditionally."""
+    person = client.get("/api/people").json()["people"][0]
+    assert person["contacts"] == {} and person["contact_links"] == {}
+
+
+def test_patching_contacts_stores_the_normalised_handle(graph):
+    rid = _id(graph, "Kang Ling")
+    r = client.patch(f"/api/people/{rid}",
+                     json={"contacts": {"instagram": "https://www.instagram.com/kangling/?hl=en"}})
+
+    assert r.status_code == 200
+    assert r.json()["contacts"] == {"instagram": "kangling"}, "the field redraws as what was stored"
+    assert graph.get(rid)["contacts"] == {"instagram": "kangling"}
+    assert graph.get(rid)["notes"] == ["very smart", "very nice"], "untouched field must survive"
+
+
+def test_a_channel_left_out_of_the_patch_is_one_the_user_cleared(graph):
+    """The whole map, not one channel: an omitted field means "leave alone"
+    everywhere else in this patch, so there would otherwise be no way to say
+    "delete this number"."""
+    rid = _id(graph, "Kang Ling")
+    client.patch(f"/api/people/{rid}", json={"contacts": {"phone": "+65 9123 4567",
+                                                          "telegram": "kangling"}})
+    client.patch(f"/api/people/{rid}", json={"contacts": {"telegram": "kangling"}})
+    assert graph.get(rid)["contacts"] == {"telegram": "kangling"}
+
+
+def test_an_unknown_channel_is_refused_rather_than_silently_dropped(graph):
+    """`as_contacts` drops it, which is right for loading an old record and
+    wrong for a write -- a client that typed `whatsapp` should be told."""
+    rid = _id(graph, "Kang Ling")
+    r = client.patch(f"/api/people/{rid}", json={"contacts": {"whatsapp": "+65 9123 4567"}})
+    assert r.status_code == 400
+    assert "whatsapp" in r.json()["error"]
+    assert graph.get(rid).get("contacts", {}) == {}
+
+
+def test_patching_notes_leaves_contacts_alone(graph):
+    rid = _id(graph, "Kang Ling")
+    client.patch(f"/api/people/{rid}", json={"contacts": {"telegram": "kangling"}})
+    client.patch(f"/api/people/{rid}", json={"notes": ["very smart"]})
+    assert graph.get(rid)["contacts"] == {"telegram": "kangling"}
 
 
 def test_deleting_a_person_removes_them(graph):

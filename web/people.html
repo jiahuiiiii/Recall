@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Everyone · Recall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/app.css">
+<style>
+/* Page-specific. The sidebar shows five recent people in 286px; this page has
+   the width to browse the whole graph, so filtering and sorting live here. */
+.pagewrap{max-width:1180px;margin:0 auto;padding:0 0 60px}
+.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:0 0 16px}
+.toolbar .ctl{width:auto}
+.toolbar input.ctl{flex:1 1 240px}
+.toolbar .selwrap{flex:0 1 210px}
+.allgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:10px}
+.tagrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);background:var(--sunk);border:1px solid transparent;
+  border-radius:999px;padding:4px 9px;box-shadow:var(--sink-sm)}
+.backlink{font-size:13px;color:var(--muted);text-decoration:none}
+.backlink:hover{color:var(--gold)}
+/* Out of the control row. Tagging REWRITES every record with a model call; the
+   controls beside it only read. Sitting among them it looked like a third
+   filter, and a 9.5px mono pill next to 13px controls never lined up. It is
+   also now self-describing rather than jargon -- "Re-tag" says nothing about
+   what it does, or that it costs a call. */
+.tagline{margin:-4px 0 14px;font-size:12.5px;color:var(--muted)}
+.linkact{background:none;border:none;padding:0;font:inherit;color:var(--muted);
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px;
+  text-decoration-color:var(--line2)}
+.linkact:hover:not(:disabled){color:var(--gold);text-decoration-color:var(--gold)}
+.linkact:disabled{cursor:default;opacity:.6;text-decoration:none}
+</style></head>
+<body>
+<div class="pagewrap">
+  <div class="top">
+    <h1>Every<span>one</span></h1>
+    <p>Everyone Recall remembers. Filter, sort, and open a record.</p>
+  </div>
+  <div class="block">
+    <p class="lab">The person graph
+      <span id="pcount" style="letter-spacing:0;text-transform:none"></span>
+      <a class="backlink" href="/" style="margin-left:auto">‹ Back to the memo</a></p>
+    <div class="toolbar">
+      <input class="ctl" id="pq" type="search" placeholder="Filter by name, tag, note or place…"
+             aria-label="Filter people">
+      <span class="selwrap"><select class="ctl" id="ptag" aria-label="Filter by a shared detail">
+        <option value="">Anything they share…</option>
+      </select></span>
+      <span class="selwrap" style="flex:0 1 170px"><select class="ctl" id="psort" aria-label="Sort by">
+        <option value="recent">Recently seen</option>
+        <option value="first">First met</option>
+        <option value="name">Name</option>
+        <option value="notes">Most notes</option>
+      </select></span>
+    </div>
+    <p class="tagline"><button class="linkact" id="ptagrefresh"></button></p>
+    <div class="allgrid" id="people"></div>
+    <p class="note" id="phint"></p>
+  </div>
+</div>
+
+<script src="/shared.js"></script>
+<script>
+let PEOPLE = [], TAGS = [];
+
+configurePersonPanel({ people: () => PEOPLE, reload: load });
+
+const SORTS = {
+  // `last_seen`/`first_seen` are ISO dates, so string compare is chronological.
+  recent: (a, b) => (b.last_seen || "").localeCompare(a.last_seen || ""),
+  first:  (a, b) => (a.first_seen || "").localeCompare(b.first_seen || ""),
+  name:   (a, b) => (a.name || "").localeCompare(b.name || ""),
+  notes:  (a, b) => (b.notes || []).length - (a.notes || []).length,
+};
+
+function render(){
+  const q = ($("pq").value || "").trim().toLowerCase();
+  const chosen = TAGS.find(t => t.label === $("ptag").value);
+  const shown = PEOPLE
+    .filter(p => (!q || haystack(p).includes(q)) && (!chosen || chosen.ids.has(p.id)))
+    .sort(SORTS[$("psort").value] || SORTS.recent);
+
+  $("people").innerHTML = shown.map(p => {
+    const tags = (p.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+    const sel = selectedId === p.id ? " sel" : "";
+    return `<button class="pcard${sel}" data-id="${esc(p.id)}"
+               aria-expanded="${selectedId === p.id}">
+      <span class="arw">›</span>
+      <b>${esc(p.name)}</b>
+      <div class="m2">${esc(subtitle(p) || "—")}</div>
+      <div class="cnt">${p.notes.length} note${p.notes.length === 1 ? "" : "s"}
+        · ${metLabel(p)} · last seen ${esc(p.last_seen || "?")}</div>
+      ${tags ? `<div class="tagrow">${tags}</div>` : ""}
+    </button>`;
+  }).join("");
+  // Opens the same dialog index.html uses. It used to be a link back to
+  // `/?person=<id>`, which navigated away and threw away whatever filter and
+  // sort the user had set to find the person in the first place.
+  $("people").querySelectorAll(".pcard").forEach(b => {
+    b.onclick = () => showPerson(b.dataset.id);
+  });
+
+  const filtering = q || chosen;
+  $("phint").textContent = !shown.length ? "Nobody matches that."
+    : filtering ? `${shown.length} of ${PEOPLE.length}` : "";
+}
+
+async function load(){
+  try {
+    const r = await fetch("/api/people");
+    const j = await r.json();
+    PEOPLE = j.people || [];
+    $("pcount").textContent = j.count ? `— ${j.count} remembered` : "";
+    TAGS = deriveTags(PEOPLE);
+    const keep = $("ptag").value;
+    $("ptag").innerHTML = `<option value="">Anything they share…</option>` +
+      TAGS.map(t => `<option value="${esc(t.label)}">${esc(t.label)} (${t.ids.size})</option>`).join("");
+    if (TAGS.some(t => t.label === keep)) $("ptag").value = keep;
+    // Two different invitations. With no tags the dropdown is nearly empty and
+    // the user needs telling why; with tags it is a maintenance action they
+    // only want after the graph has changed.
+    const anyTagged = PEOPLE.some(p => (p.tags || []).length);
+    $("ptagrefresh").textContent = anyTagged
+      ? "Refresh tags"
+      : "No tags yet — generate them with the model";
+    render();
+  } catch (e) { $("phint").textContent = "Could not load the person graph: " + e.message; }
+}
+
+$("pq").addEventListener("input", render);
+$("ptag").addEventListener("change", render);
+$("psort").addEventListener("change", render);
+$("ptagrefresh").addEventListener("click", async () => {
+  const b = $("ptagrefresh");
+  b.disabled = true; const was = b.textContent; b.textContent = "Reading every record…";
+  try {
+    const r = await fetch("/api/tags/refresh", {method: "POST"});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    await load();
+    $("phint").textContent = `Tagged ${j.tagged} of ${j.people} — ${j.vocabulary.length} tags.`;
+  } catch (e) { $("phint").textContent = "Could not tag: " + e.message; }
+  finally { b.disabled = false; if (b.textContent === "Reading every record…") b.textContent = was; }
+});
+
+load().then(openPersonFromUrl);
+</script>
+</body></html>

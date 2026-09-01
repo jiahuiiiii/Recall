@@ -310,21 +310,39 @@ repeat, not just the scoring** — extraction varies, so the set of ambiguous me
 itself moves between runs (4–5 on identical fixtures). Replaying strategies over a case
 set collected once looks rigorous and hides the dominant source of noise.
 
-Fixtures: 42 memos, 77 mentions, 27 recurring people across `arc_acacia` (24 memos),
-`arc_godwin` (14 memos, 20 people, 11 loose references), `same_first_name` and
+Fixtures: 53 memos, 108 mentions, 40 recurring people across `arc_acacia` (24 memos),
+`arc_godwin` (14 memos, 20 people, 11 loose references), `ehoc_c4` (11 memos, 14 people,
+13 recurring — four memos of descriptor-only references), `same_first_name` and
 `genuinely_ambiguous`.
 
-Baseline (`arc_acacia`): **B³ P=1.000 R=0.856 F1=0.922**, pairwise F1 0.800.
+Measured 31 Aug, `repeats=3`, thresholds `T_MATCH=3.0 T_NONMATCH=1.0 MIN_MARGIN=1.0`,
+`W_NAME_EXACT=2.5`. Quote the thresholds with any number here.
 
-> **⚠️ Re-run before quoting — taken before name matching changed.** One `arc_acacia`
-> name pair is affected and it moves the right way, so the baseline is projected to hold,
-> but projected is not measured.
+```
+scenario                B3 F1    B3 P    B3 R  pair F1   subst   covrg
+ehoc_c4                 0.926   0.989   0.874    0.837   0.971   0.977
+arc_godwin              0.896   0.947   0.851    0.718   0.956   0.956
+arc_acacia              0.810   1.000   0.681    0.632   0.873   0.857
+same_first_name         1.000   1.000   1.000    1.000   1.000   1.000
+genuinely_ambiguous     1.000   1.000   1.000    1.000   1.000   1.000
 
-Precision held at 1.000 across every run of `arc_acacia` — nothing wrongly merged, every
-loss a missed recognition. That is the right direction to fail in: a wrong merge silently
-destroys a real record, a missed one is visible and fixable. **The claim is narrower than
-it looks**: `arc_godwin` contains four same-syllable name pairs that did merge before the
-fix above, and no run has yet confirmed they stay separate.
+B-cubed F1 across all scenarios: 0.927 ±0.095 (n=15)
+```
+
+**This is a new baseline, not a delta.** Three things changed since the previous
+`arc_acacia` figure (`B³ F1=0.922`, pairwise 0.800): `W_NAME_EXACT` dropped from 3.0 to
+2.5, the name and descriptor channels were separated in `compare()`, and the eval
+scorer's back-mapping was rewritten. Each is unit-tested in isolation, but no run
+separates their effect on these numbers, so the old figure is superseded rather than
+compared against.
+
+Precision is 1.000 on `arc_acacia` and `ehoc_c4` — nothing wrongly merged, every loss a
+missed recognition, which is the right direction to fail in: a wrong merge silently
+destroys a real record, a missed one is visible and fixable. **State the claim at the
+scenario level, not globally.** It was briefly false: before the channel fix, a
+description stored in a record's `aliases` came back as name evidence and merged two
+different people in `arc_acacia`. `arc_godwin` still sits at 0.947, so it holds a wrong
+merge that has not been diagnosed.
 
 ### Questions per resolution
 
@@ -332,29 +350,33 @@ fix above, and no run has yet confirmed they stay separate.
 uv run eval/run_questions.py [--repeats N]
 ```
 
-> **⚠️ SUPERSEDED — re-run before quoting. Measured 23 Aug, invalidated 24 Aug.**
-> Two changes landed after these numbers were taken, and both move them:
->
-> 1. **The simulated answerer was wrong.** It matched the phrased question against the
->    gold record at an overlap of 0.55, so "Do they live at the 18th floor?" scored 0.583
->    against "lives on the 4th floor" and the person on the 4th floor answered **yes**.
->    All three strategies were updating on false answers.
-> 2. **Multi-valued attribute probes now exist**, so every strategy draws from a richer
->    candidate pool and should need fewer questions.
->
-> The direction of (1) is not predictable from the armchair — it corrupted all three
-> strategies, not just the baselines — so the table below is quoted as history, not as a
-> result. Re-run `uv run eval/run_questions.py --repeats 5` and replace it.
+Measured 31 Aug, `repeats=3`, same thresholds as above.
 
 ```
 strategy       questions/resolution                       <=1 question
-eig            1.460 ±0.050  (n=5, min 1.400  max 1.500)       31%
-uncertainty    2.103 ±0.267  (n=5, min 1.800  max 2.333)       23%
-random         1.690 ±0.250  (n=5, min 1.500  max 2.000)       23%
+eig            0.985 ±0.111  (n=3, min 0.839  max 1.061)       68%
+uncertainty    1.359 ±0.093  (n=3, min 1.242  max 1.429)       57%
+random         1.323 ±0.079  (n=3, min 1.258  max 1.417)       60%
 ```
 
-5 full pipeline runs, 4–5 scorable mentions each. EIG's range did not overlap
-uncertainty sampling's, and it was also the most *stable* — ±0.05 against ±0.25.
+Case sets of 37/33/35 per run; budget cap 5 questions; unresolved excluded from the mean.
+EIG's max (1.061) sits below both baselines' minimums (1.242, 1.258), which is the check
+that stops a lucky run being reported as a win. 10 of 37 questions were multi-valued.
+
+**The claim is "EIG beats both baselines", not an ordering between them.** Uncertainty and
+random swapped when the nickname path landed and their ranges now overlap heavily — at
+this n they are indistinguishable from each other.
+
+Two caveats that belong next to the table:
+
+1. **The denominator moved with the resolver.** Dropping `W_NAME_EXACT` to 2.5 pushed
+   bare-name returns into the ambiguous band, so cases like `'Yixin' -> Yixin` are now
+   scored here. All three strategies draw from the same case set, so the comparison is
+   sound, but resolution quality and question efficiency are **coupled** and must not be
+   presented as independent results.
+2. **`ehoc_c4` supplies roughly a third of the cases**, so one fixture carries much of
+   the number. One `ehoc_c4/m10` extraction still fails per sweep; its cases are lost but
+   the run survives, which is what got this table to n=3.
 
 **Why EIG beats uncertainty sampling.** Attributes differ in how dependable an answer
 is, and EIG divides that out. Uncertainty sampling asks whatever is least predictable —
@@ -381,28 +403,31 @@ support is "EIG beats a strategy that ignores reliability", not a general superi
 
 ### To fix
 
-1. **Confirm the name-matching change against the real pipeline.** Everything above about
-   `Hui Ning` / `Hui Wen` is measured on the pure resolve layer with hand-written notes.
-   The real pipeline puts LLM extraction in front of it, and extraction wording varies run
-   to run. 173 offline tests pass and no legitimate match regressed, but the fix is not
-   closed until a full run confirms it.
-2. **The residual merge window is not closed by construction.** A partially matched name
-   still contributes 0.75; a shared `met_at` adds 1.25; notes can add 1.50. Two different
-   people with a shared syllable, the same event and notes overlap ≥ 0.67 would still
-   cross `T_MATCH`. The consistent fix is to cap the total when the name is only partially
-   matched — the same way `W_DESCRIPTOR_MAX` is capped so a description can never
-   auto-resolve — but not before the benchmark re-run, or the two changes cannot be told
-   apart.
-3. **The precision diagnostic only covers professional networking.**
-   `same_first_name.yaml` passes because its two Alexes have *conflicting* company and
-   role, which carry negative weight. Students have neither field populated and share one
-   `met_at`, so the identical collision resolves the opposite way. Needs a
-   student-setting equivalent.
-4. **A bare nickname creates a duplicate person.** `_is_name("big boss")` is true — no
-   token is a descriptor word — so it takes the name channel, conflicts with every stored
-   name, and files a new record. Phrasing it as *"the guy everybody calls big boss"*
-   routes to the descriptor path and works, but that workaround lives in the fixture, not
-   in the code.
+1. **The residual merge window is not closed by construction.** Now measured rather
+   than projected: `"indian girl"` resolves onto Marvi at `desc=1.00 (2.0) + notes=1.00
+   (1.5) = 3.50`, crossing `T_MATCH` **with no name involved at all**. The
+   `W_DESCRIPTOR_MAX` cap does what it claims — a description alone cannot reach 3.0 —
+   but description *plus* notes overlap can. It was the right person in that case;
+   nothing in the arithmetic guarantees the next one will be. The consistent fix is to
+   cap the total when no name channel fired.
+2. **A bare nickname still creates a duplicate person.** `_is_name` now treats a leading
+   article as marking a description, so `"the Catholic Indian"` routes correctly — but
+   `"big boss"` has no article and no descriptor word, so it still takes the name
+   channel, conflicts with every stored name, and files a new record. Phrasing it as
+   *"the guy everybody calls big boss"* works, and that workaround still lives in the
+   fixture, not in the code.
+3. **`with_structured_output` sometimes returns a JSON string, not a list.**
+   `PeopleExtraction.people` arrived as `str` and raised `ValidationError`, killing one
+   memo in `run_eval` and an entire run of `run_questions` — which is why the headline
+   table is n=2. Not a fixture problem; it needs a retry or a coercing validator.
+4. **`arc_godwin`'s precision loss is the adjudicator, not the resolver.** `jia_en` and
+   `jia_ying` share a record, but all four of their mentions scored **AMBIGUOUS**
+   (1.27–2.19) — nothing auto-resolved. With four `Jia*` people in one orientation group,
+   coverage-based name matching scores them 0.50 on the shared syllable and the band
+   flags every one. The merge came from `_adjudicate()`, the LLM fallback that settles
+   the band on non-interactive runs because nobody is there to answer. So this number
+   measures the fallback guesser, not the path the product actually takes — interactively
+   those mentions are held and one buys a question.
 5. ~~**Fixtures are not in version control.**~~ Fixed — `.gitignore` carried a blanket
    `*.yaml` that ignored every file in `eval/fixtures/`. The negation is in; the fixtures
    still need their first commit.
@@ -413,8 +438,8 @@ support is "EIG beats a strategy that ignores reliability", not a general superi
 
 ### To do
 
-1. **Re-run the benchmark** — `arc_acacia` to confirm the baseline held, `arc_godwin` for
-   the first time, and questions-per-resolution, which is still SUPERSEDED above.
+1. **Re-run the headline at n≥3.** The 30 Aug table is n=2 because one run died on the
+   structured-output bug above. Fix that first, or the same run will keep dropping out.
 2. **The AgentCore Memory backend.** `recall/memory_agentcore.py` was written blind and
    has never run; as written it would make every known person look new. Test against a
    throwaway memory resource, never the live graph.

@@ -30,6 +30,7 @@ from pydantic import BaseModel
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from recall._common import LEDGER  # noqa: E402
+from recall.contacts import CHANNELS, as_contacts, links, unknown_channels  # noqa: E402
 from recall.graph import build_graph  # noqa: E402
 from recall.memory import get_store  # noqa: E402
 from recall.state import as_list  # noqa: E402
@@ -69,7 +70,42 @@ NODE_LABELS = {
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(HERE / "index.html")
+    # No caching. The page is a single file edited constantly during the build,
+    # and a browser reusing it makes a shipped change look like a change that
+    # never applied -- which cost a debugging round once already. Nothing here
+    # is served at a scale where caching buys anything.
+    return FileResponse(
+        HERE / "index.html",
+        headers={"Cache-Control": "no-store, must-revalidate"},
+    )
+
+
+@app.get("/people")
+def people_page() -> FileResponse:
+    """The whole person graph, with filtering and sorting.
+
+    A separate page rather than a wider sidebar: 286px cannot show a contact
+    book, and the memo column is what the app is for. Clicking a person here
+    links back to `/` with `?person=`, so the detail panel -- notes, merge,
+    forget -- stays defined in exactly one place.
+    """
+    return FileResponse(HERE / "people.html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
+@app.get("/app.css")
+def app_css() -> FileResponse:
+    """The stylesheet both pages use."""
+    return FileResponse(HERE / "app.css", media_type="text/css",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
+@app.get("/shared.js")
+def shared_js() -> FileResponse:
+    """Helpers both pages use. Shared so the tag vocabulary and the subtitle
+    rule cannot drift between them."""
+    return FileResponse(HERE / "shared.js", media_type="application/javascript",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 @app.post("/api/transcribe")
@@ -114,13 +150,34 @@ def api_people() -> JSONResponse:
                 {
                     "id": r.get("id"),
                     "name": r.get("name"),
+                    # The detail panel's "Also known as" section and the alias
+                    # search on /people both read this. Omitted, they did not
+                    # error -- they silently rendered nothing, so a merge that
+                    # correctly recorded "Crispy" as an alias looked like it had
+                    # thrown the nickname away.
+                    "aliases": r.get("aliases", []),
                     "company": r.get("company"),
                     "role": r.get("role"),
                     "met_at": r.get("met_at", []),
                     "notes": r.get("notes", []),
+                    # Display-only dates, parallel to `notes`. The detail panel
+                    # groups by these; without them it can only render one
+                    # undated block, which is what made a record look like
+                    # unrelated fragments.
+                    "note_log": r.get("note_log", []),
+                    "tags": r.get("tags", []),
+                    # How to reach them, plus the URL for each. The links are
+                    # built server-side so the page cannot disagree with the
+                    # store about what a stored handle means -- there is one
+                    # implementation of "kangling" -> instagram.com/kangling.
+                    "contacts": as_contacts(r.get("contacts")),
+                    "contact_links": links(r.get("contacts")),
                     "enrichment": r.get("enrichment"),
                     "first_seen": r.get("first_seen"),
                     "last_seen": r.get("last_seen"),
+                    # Occasions, not places. The card cannot derive this from
+                    # met_at -- that list is deduplicated locations.
+                    "times_met": r.get("times_met"),
                 }
                 for r in people
             ],
@@ -137,11 +194,73 @@ def api_delete_person(record_id: str) -> JSONResponse:
     return JSONResponse({"deleted": record_id})
 
 
+@app.post("/api/tags/refresh")
+def api_refresh_tags() -> JSONResponse:
+    """Re-tag the whole graph in one model call.
+
+    Not done on every run: tags are for filtering, they change only when the
+    graph does, and re-deriving them per memo would spend a call per memo for a
+    result nobody looked at. The user asks when they want them refreshed.
+    """
+    from recall.tags import generate_tags
+
+    store = get_store()
+    records = store.all()
+    try:
+        assigned = generate_tags(records)
+    except Exception as exc:  # noqa: BLE001 - surface it, do not 500 the UI
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"}, status_code=502)
+
+    for rec in records:
+        tags = assigned.get(rec.get("id", ""))
+        if tags is None:
+            continue
+        store.replace({**rec, "tags": tags})
+    return JSONResponse({
+        "tagged": sum(1 for v in assigned.values() if v),
+        "people": len(records),
+        "vocabulary": sorted({t for v in assigned.values() for t in v}),
+    })
+
+
+class MergeRequest(BaseModel):
+    """Fold `source_id` into the person named in the path."""
+
+    source_id: str
+
+
+@app.post("/api/people/{record_id}/merge")
+def api_merge_person(record_id: str, req: MergeRequest) -> JSONResponse:
+    """Declare that two records are the same human.
+
+    The counterpart to delete(). Resolution will miss returns -- a nickname it
+    did not recognise, a name spelled differently -- and without this the user
+    can only delete one of the duplicates, losing its notes. Merging keeps both
+    sets and teaches the resolver: the absorbed name becomes an alias, so the
+    next mention resolves instead of duplicating again.
+    """
+    try:
+        merged = get_store().merge(req.source_id, record_id)
+    except KeyError:
+        return JSONResponse({"error": "no such person"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse({
+        "id": merged.get("id"), "name": merged.get("name"),
+        "aliases": merged.get("aliases", []), "notes": merged.get("notes", []),
+        "met_at": merged.get("met_at", []), "absorbed": req.source_id,
+    })
+
+
 class PersonPatch(BaseModel):
     """Partial edit of a stored record. Omitted fields are left alone."""
 
     notes: list[str] | None = None
     met_at: list[str] | None = None
+    # The WHOLE contact map when present, not one channel: a channel the client
+    # leaves out is one the user cleared, and there is no other way to say
+    # "delete this number" in a patch whose omitted fields mean "leave alone".
+    contacts: dict[str, str] | None = None
 
 
 @app.patch("/api/people/{record_id}")
@@ -162,9 +281,26 @@ def api_patch_person(record_id: str, patch: PersonPatch) -> JSONResponse:
         updated["notes"] = as_list(patch.notes)
     if patch.met_at is not None:
         updated["met_at"] = as_list(patch.met_at)
-    store.replace(updated)
-    return JSONResponse({"id": record_id, "notes": updated.get("notes", []),
-                         "met_at": updated.get("met_at", [])})
+    if patch.contacts is not None:
+        # `as_contacts` would drop an unknown channel silently, which is right
+        # for loading an old record and wrong for a write: a client that typed
+        # `whatsapp` should be told, not watch it vanish.
+        unknown = unknown_channels(patch.contacts)
+        if unknown:
+            return JSONResponse(
+                {"error": f"unknown contact channel(s): {', '.join(unknown)}. "
+                          f"Valid: {', '.join(CHANNELS)}"},
+                status_code=400,
+            )
+        updated["contacts"] = as_contacts(patch.contacts)
+    stored = store.replace(updated)
+    # The stored values, not the submitted ones: a pasted profile URL comes back
+    # as the handle it was normalised to, so the field the user is looking at
+    # shows what the graph actually holds.
+    return JSONResponse({"id": record_id, "notes": stored.get("notes", []),
+                         "met_at": stored.get("met_at", []),
+                         "contacts": stored.get("contacts", {}),
+                         "contact_links": links(stored.get("contacts"))})
 
 
 class RunRequest(BaseModel):

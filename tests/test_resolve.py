@@ -25,10 +25,44 @@ HUILING = {"id": "p_hui", "name": "Huiling", "aliases": [],
 GRAPH = [VIKTORIA, KIT_YEE, HUILING]
 
 
-def test_exact_name_auto_resolves():
+def test_exact_name_alone_is_ambiguous_not_resolved():
+    """A bare name is not proof of identity.
+
+    This assertion was inverted on 28 Aug. W_NAME_EXACT used to equal T_MATCH,
+    so a name with zero corroboration auto-resolved -- and because _adjudicate()
+    only runs on the AMBIGUOUS branch, nothing ever reviewed it. Two different
+    people called Alex merged into one record in the real pipeline. The name
+    still ranks the right candidate first; it just has to buy a question instead
+    of a silent merge.
+    """
     z, cands = decide({"name": "Viktoria", "notes": []}, GRAPH)
+    assert z is Zone.AMBIGUOUS
+    assert cands[0].record_id == "p_vik"
+
+
+def test_exact_name_plus_one_corroborating_signal_resolves():
+    """A genuine return still resolves without a question. If this breaks, the
+    cap has been set too low and every recognition now costs a question."""
+    z, cands = decide({"name": "Viktoria", "met_at": "dining hall", "notes": []}, GRAPH)
     assert z is Zone.RESOLVED
     assert cands[0].record_id == "p_vik"
+
+
+def test_same_first_name_in_a_student_setting_does_not_merge():
+    """The precision case that `same_first_name.yaml` could not cover.
+
+    Uni students have no company and no role, so the conflicting-employer
+    evidence that blocks the professional case is simply absent -- both fields
+    are silent, contribute nothing, and the name used to carry the merge on its
+    own. Everything here is empty except the shared name, which is exactly the
+    shape the real extractor produces.
+    """
+    z, _ = decide(
+        {"name": "Alex", "notes": ["doing masters in robotics at NTU"]},
+        [{"id": "p_a", "name": "Alex", "company": None, "role": None, "met_at": [],
+          "notes": ["in payments compliance at a bank"]}],
+    )
+    assert z is not Zone.RESOLVED, "a shared first name alone must not auto-merge"
 
 
 def test_same_common_first_name_alone_does_not_resolve():

@@ -28,6 +28,10 @@ from recall.text import overlap_ratio, tokens  # noqa: E402
 
 STRATEGIES = ["eig", "uncertainty", "random"]
 
+# Memos lost to a bad extraction. Reported at the end rather than swallowed: a
+# smaller case set is a real caveat on the number, not a detail.
+COLLECT_ERRORS: list[str] = []
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -94,6 +98,11 @@ def main() -> int:
 
     if failed_runs:
         print(f"!! {failed_runs} of {args.repeats} runs failed and are excluded.\n")
+    if COLLECT_ERRORS:
+        print(f"!! {len(COLLECT_ERRORS)} memo(s) dropped mid-run (cases lost, run kept):")
+        for e in COLLECT_ERRORS[:5]:
+            print("   !", e[:150])
+        print()
     print(f"scorable ambiguous mentions per run: {case_counts}")
     for c in example_cases:
         print(f"  {c['scenario']}/{c['memo']}  {c['mention']!r} -> {c['gold_name']}"
@@ -183,10 +192,19 @@ def collect_cases(scenario) -> list[dict]:
     cases: list[dict] = []
 
     for memo in scenario.memos:
-        people = extract_people_node({"transcript": memo.transcript}).get("people", [])
-        state = {"people": people}
-        out = dedupe_node(state)
-        state.update(out)
+        # Per-memo, exactly as `harness.run_scenario` does. Without this a single
+        # malformed extraction unwinds all five scenarios and `main` discards the
+        # ENTIRE run -- ~34 scorable cases -- which is why the 30 and 31 Aug
+        # headline tables are n=2 off a 3-repeat sweep. Losing one memo's cases
+        # is a smaller lie than losing a third of the measurement.
+        try:
+            people = extract_people_node({"transcript": memo.transcript}).get("people", [])
+            state = {"people": people}
+            out = dedupe_node(state)
+            state.update(out)
+        except Exception as exc:  # noqa: BLE001
+            COLLECT_ERRORS.append(f"{scenario.id}/{memo.id}: {type(exc).__name__}: {exc}")
+            continue
 
         for entry in out.get("ambiguous", []):
             gold = _gold_for(memo, entry["person"].get("name", ""))

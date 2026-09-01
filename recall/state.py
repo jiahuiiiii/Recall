@@ -10,12 +10,13 @@ exactly. If a node's output "vanishes", suspect a typo here first.
 
 from __future__ import annotations
 
+import json
 import operator
 from typing import Annotated, Literal, TypedDict
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # --------------------------------------------------------------------------
@@ -42,6 +43,35 @@ def as_list(value: object) -> list[str]:
     if isinstance(value, (list, tuple, set)):
         return [str(v).strip() for v in value if v is not None and str(v).strip()]
     return [str(value)]
+
+
+def decode_list(value: object) -> object:
+    """Undo a model returning a JSON *string* where the schema says list.
+
+    Structured output is not a guarantee about the wire format. Bedrock
+    intermittently returns `people` as `'[{"name": "Big Boss", ...}]'` -- a
+    correct JSON document, encoded once too often -- and Pydantic rejects it
+    with `Input should be a valid list [input_type=str]`. That killed one memo
+    in a resolution sweep and an ENTIRE run of the question benchmark, which is
+    why the 30 Aug headline is n=2 rather than n=3.
+
+    Coercion rather than a retry: the payload is already correct, so re-asking
+    costs a model call to receive the same content. A string that is not JSON is
+    left alone, so Pydantic still reports the real problem instead of this
+    function hiding it.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text:
+        return []
+    if text[0] not in "[{":
+        return value  # a bare string; as_list semantics apply, not JSON
+    try:
+        decoded = json.loads(text)
+    except json.JSONDecodeError:
+        return value
+    return decoded if isinstance(decoded, list) else [decoded]
 
 
 class Person(BaseModel):
@@ -81,6 +111,11 @@ class Person(BaseModel):
         )
     )
 
+    @field_validator("notes", "aliases", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: object) -> object:
+        return as_list(decode_list(v))
+
 
 class PeopleExtraction(BaseModel):
     """All people found in a single memo."""
@@ -88,6 +123,11 @@ class PeopleExtraction(BaseModel):
     people: list[Person] = Field(
         default_factory=list, description="One entry per distinct human mentioned."
     )
+
+    @field_validator("people", mode="before")
+    @classmethod
+    def _coerce_people(cls, v: object) -> object:
+        return decode_list(v)
 
 
 class MatchDecision(BaseModel):
@@ -177,8 +217,17 @@ class PersonRecord(TypedDict, total=False):
     met_at: list[str]
     notes: list[str]
     enrichment: str | None
+    # How to reach them: {"phone": "+65 …", "instagram": "kangling", …}. Keys
+    # are `contacts.CHANNELS`; a channel with nothing in it is ABSENT, never
+    # "". User-entered and display-only -- `resolve.compare` does not read it,
+    # so it cannot move the resolution benchmark. See `recall/contacts.py`.
+    contacts: dict[str, str]
     first_seen: str
     last_seen: str
+    # How many separate occasions this person has been recorded on. NOT
+    # len(met_at) -- that is the set of distinct places, deduplicated, so
+    # meeting the same person three times at the same hall leaves it at 1.
+    times_met: int
 
 
 class KnownMatch(TypedDict, total=False):

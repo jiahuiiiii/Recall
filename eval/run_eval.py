@@ -62,6 +62,7 @@ def main() -> int:
     rows: dict[str, dict[str, list[float]]] = {}
     all_errors: list[str] = []
     total_ambiguous = 0
+    total_flagged = 0
 
     for s in scenarios:
         acc = {"b3_f1": [], "b3_p": [], "b3_r": [], "pw_f1": [], "sub_f1": []}
@@ -69,6 +70,7 @@ def main() -> int:
         for _ in range(args.repeats):
             r = run_scenario(s, fresh_store_path())
             all_errors += r.errors
+            total_flagged += r.n_ambiguous_flagged
             pred = _with_misses(s.gold_clusters, r.pred_clusters)
             covered.append(
                 len(s.gold_clusters.keys() & r.pred_clusters.keys()) / max(len(s.gold_clusters), 1)
@@ -100,11 +102,15 @@ def main() -> int:
     overall = [v for acc in rows.values() for v in acc["b3_f1"]]
     print(f"\nB-cubed F1 across all scenarios: {summarise(overall)}")
 
-    print("\n--- question efficiency (the headline, once EIG exists) ---")
+    # This script measures RESOLUTION only. It used to close with a hardcoded
+    # "no question node yet / NOT IMPLEMENTED", which stayed there long after
+    # `ask_node` shipped and read as a status report -- it was a string
+    # literal. A stale literal that looks like a measurement is worse than no
+    # line at all, so point at the script that actually measures the headline.
+    print("\n--- ambiguous band (the denominator run_questions.py measures over) ---")
     print(f"  gold ambiguous mentions      : {total_ambiguous}")
-    print("  questions asked              : 0  (no question node yet)")
-    print("  resolved with <=1 question   : n/a")
-    print("  EIG vs random vs uncertainty : NOT IMPLEMENTED")
+    print(f"  flagged ambiguous at runtime : {total_flagged}")
+    print("  questions per resolution     : run `uv run eval/run_questions.py`")
 
     if all_errors:
         print(f"\n--- errors ({len(all_errors)}) ---")

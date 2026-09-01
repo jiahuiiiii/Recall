@@ -35,7 +35,16 @@ from recall.text import best_match, overlap_ratio, tokens
 # event where you met are next: two people can share a floor, far fewer share an
 # employer AND a name. Disagreement on a field both records have is evidence
 # AGAINST, which is what stops "same common first name" from resolving.
-W_NAME_EXACT = 3.0
+# Capped below T_MATCH on purpose, exactly like W_DESCRIPTOR_MAX. At 3.0 this
+# equalled T_MATCH, so an exact name match ALONE auto-resolved with zero
+# corroboration and _adjudicate() -- which only runs on AMBIGUOUS -- never saw
+# it. Two people called Alex merged into one record, silently. A name is the
+# most distinctive single field, so it still dominates; it just is not proof of
+# identity by itself. One corroborating signal (same event 1.25, same company
+# 2.0, real notes overlap) carries a genuine return past T_MATCH; a bare shared
+# name lands in the ambiguous band and buys a question, which is the whole
+# point of the system. Measured on same_first_name, not hypothetical.
+W_NAME_EXACT = 2.5
 W_NAME_SIMILAR = 1.5
 W_NAME_CONFLICT = -1.5
 
@@ -109,24 +118,58 @@ def compare(person: dict, record: dict) -> Agreement:
     names_a = [n for n in [person.get("name") or "", *(person.get("aliases") or [])] if n]
     names_b = [n for n in [record.get("name") or "", *(record.get("aliases") or [])] if n]
 
-    a_named = any(_is_name(n) for n in names_a)
-    b_named = any(_is_name(n) for n in names_b)
+    # Split each side, ENTRY BY ENTRY. Asking "does this side have any name?"
+    # and then comparing every entry was the bug: a record with one real name
+    # licensed its descriptor aliases to be compared as names. Merging "the
+    # indian girl" into Marvi stored that phrase in her aliases; four memos
+    # later "the Catholic Indian" matched it at 1.00 on `indian`, took the
+    # uncapped name channel, and merged a second stranger in. A description
+    # laundered through the alias field must not come back as a name --
+    # W_DESCRIPTOR_MAX exists precisely so a description cannot auto-resolve.
+    named_a = [n for n in names_a if _is_name(n)]
+    named_b = [n for n in names_b if _is_name(n)]
+    described_a = [n for n in names_a if not _is_name(n)]
 
-    if a_named and b_named:
+    if named_a and named_b:
         # Compare names only against names, and only on distinctive tokens.
         name = max(
-            (best_match(_name_only(a), _name_only(b)) for a in names_a for b in names_b),
+            (best_match(_name_only(a), _name_only(b)) for a in named_a for b in named_b),
             default=0.0,
         )
         name_conflict = name == 0.0
         descriptor = 0.0
+
+        # A name we do not recognise is not automatically a DIFFERENT person.
+        # "Crispy" shares nothing with "Tiu Chuei Enn", so the name channel
+        # conflicted at -1.5 and filed a duplicate -- even though her record
+        # said "everyone calls her Crispy" in its notes. The nickname was
+        # already there; only `name` and `aliases` were being read.
+        #
+        # So before calling it a conflict, ask whether this label appears
+        # ANYWHERE in the record. If it does, it is an unrecognised label with
+        # corroboration, not a contradiction: route it through the descriptor
+        # channel, which is capped below T_MATCH and therefore buys a question
+        # instead of a silent merge.
+        #
+        # A label found nowhere in the record still conflicts, which is what
+        # keeps "Harold" from going ambiguous against "Viktoria".
+        if name_conflict:
+            found = _descriptor_match(named_a, record)
+            if found > 0.0:
+                name_conflict = False
+                descriptor = found
     else:
         # At least one side is a description. There is no name to agree or
         # conflict with, so the name channel stays silent and the description is
         # matched against everything known about the record instead.
+        #
+        # Only the MENTION's descriptions count. Passing the record's own
+        # labels here compared the record against itself, so any named mention
+        # scored a free desc=1.00 against any record we only ever knew by
+        # description -- evidence manufactured from one side.
         name = 0.0
         name_conflict = False
-        descriptor = _descriptor_match(names_a if not a_named else names_b, record)
+        descriptor = _descriptor_match(described_a, record) if described_a else 0.0
 
     return Agreement(
         name=name,
@@ -245,6 +288,14 @@ def _field(a: str | None, b: str | None) -> float | None:
     return best_match(a, b)
 
 
+# A phrase opening with an article is a description of someone, not what they
+# are called: people say "the Catholic Indian", never "the Alex". Without this,
+# a description whose words happen to miss DESCRIPTOR_WORDS ("catholic",
+# "indian" are in neither) takes the name channel, and then either conflicts
+# with every stored name or matches the wrong one outright.
+DETERMINERS = {"the", "a", "an", "this", "that", "some", "another"}
+
+
 def _is_name(value: str) -> bool:
     """A real name, not a description.
 
@@ -252,6 +303,9 @@ def _is_name(value: str) -> bool:
     reference look like a name conflict, and — worse — lets two unrelated
     descriptions match each other on a shared word like `girl`.
     """
+    first = value.strip().lower().split()
+    if first and first[0].strip(".,'\"") in DETERMINERS:
+        return False
     t = tokens(value)
     return bool(t) and not (t & DESCRIPTOR_WORDS)
 

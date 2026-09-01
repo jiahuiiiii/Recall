@@ -3,9 +3,22 @@
 from __future__ import annotations
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from pydantic import ValidationError
 
 from recall._common import cached_system, chat_model
 from recall.state import PeopleExtraction, RecallState
+
+# Structured output is not a guarantee about the wire format. Nova intermittently
+# returns `people` as a STRING rather than a list -- sometimes a correctly encoded
+# JSON document (handled by `state.decode_list`), sometimes malformed:
+#
+#   '[{"name": "OGL guy", ...}]}, "met_at": "MPSH"}]'   <- met_at after the close
+#
+# Malformed output cannot be coerced, only re-asked. `temperature=0` is not
+# determinism on Bedrock, so a retry genuinely resamples. Two spare attempts,
+# because the cost of losing the memo is an entire benchmark run: one bad
+# extraction used to take out ~34 scorable cases in run_questions.
+EXTRACT_ATTEMPTS = 3
 
 SYSTEM = """You extract people from a voice memo that someone recorded right after \
 a networking event, conference, or meeting.
@@ -18,6 +31,10 @@ Rules:
 - One entry per distinct human. If the speaker refers to the same person by name and \
 then by nickname or role ("Wei Lin ... she ... the GIC woman"), that is ONE person; \
 put the alternate references in `aliases`.
+- A nickname stated as a FACT is still an alias. "Tiu Chuei Enn, everyone calls her \
+Crispy" means `name: "Tiu Chuei Enn"` and `aliases: ["Crispy"]` -- put it in `aliases`, \
+not only in `notes`. Recording it as a note alone means the next memo that says just \
+"Crispy" cannot find her and files a duplicate person.
 - Do not invent details. If the company or role was not said, leave it null. A \
 guessed employer poisons the dedupe step downstream.
 - `notes` is a LIST, one entry per distinct thing said about the person. Split on \
@@ -57,12 +74,20 @@ def extract_people_node(state: RecallState) -> dict:
     llm = chat_model(label="extract_people", temperature=0.0).with_structured_output(
         PeopleExtraction
     )
-    result: PeopleExtraction = llm.invoke(
-        [
-            SystemMessage(content=cached_system(SYSTEM)),
-            HumanMessage(content=f"Voice memo transcript:\n\n{transcript}"),
-        ]
-    )
+    messages = [
+        SystemMessage(content=cached_system(SYSTEM)),
+        HumanMessage(content=f"Voice memo transcript:\n\n{transcript}"),
+    ]
+    for attempt in range(EXTRACT_ATTEMPTS):
+        try:
+            result: PeopleExtraction = llm.invoke(messages)
+            break
+        except ValidationError:
+            # Raise on the last attempt rather than returning an empty list: a
+            # memo that silently yields nobody is a missed recognition the eval
+            # cannot distinguish from a correct empty extraction.
+            if attempt == EXTRACT_ATTEMPTS - 1:
+                raise
     # The model reports everyone; the filter is code. Asking a model to silently
     # omit borderline people makes the decision invisible and unstable -- the same
     # memo yielded different name lists run to run. An explicit boolean it must
