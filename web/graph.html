@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connections · Recall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/app.css">
+<style>
+/* Page-specific. /people answers "who do I know" in a card grid; this page
+   answers "how do they stand to each other", which a grid cannot show at all.
+   Same data, laid out by its edges. */
+.pagewrap{max-width:1180px;margin:0 auto;padding:0 0 60px}
+.backlink{font-size:13px;color:var(--muted);text-decoration:none}
+.backlink:hover{color:var(--gold)}
+.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.toolbar .ctl{width:auto}
+.toolbar input.ctl{flex:1 1 220px}
+.linkact{background:none;border:none;padding:0;font:inherit;color:var(--muted);
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px;
+  text-decoration-color:var(--line2)}
+.linkact:hover:not(:disabled){color:var(--gold);text-decoration-color:var(--gold)}
+.linkact:disabled{cursor:default;opacity:.6;text-decoration:none}
+
+/* The canvas is pressed into the page, like every other surface you scroll or
+   type into. A raised panel would read as a card sitting on top of the page
+   rather than a space you look into. */
+.stage{position:relative;display:grid;grid-template-columns:1fr 300px;gap:12px}
+@media (max-width:860px){.stage{grid-template-columns:1fr}}
+.canvaswrap{position:relative;border-radius:var(--r);background:var(--sunk);
+  box-shadow:var(--sink);overflow:hidden;min-height:520px}
+#net{display:block;width:100%;height:560px;cursor:grab;touch-action:none}
+#net.dragging{cursor:grabbing}
+/* Sits over the canvas rather than in the toolbar: it acts on the view, and a
+   control that acts on the picture belongs on the picture. */
+.recenter{position:absolute;top:10px;right:10px;z-index:2;background:var(--panel);
+  color:var(--muted);border:0;border-radius:999px;padding:7px 12px;
+  font:inherit;font-size:12px;cursor:pointer;box-shadow:var(--raise-sm)}
+.recenter:hover{color:var(--gold)}
+.recenter:active{box-shadow:var(--sink-sm)}
+/* `pointer-events:none` is load-bearing, not tidiness. This sits over the whole
+   canvas, and the message it shows on an empty graph invites you to "draw one
+   yourself by clicking a person" -- which it would then swallow. Nothing here
+   is interactive, so it must never take a click. */
+.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:30px;color:var(--muted);font-size:14px;line-height:1.6;
+  pointer-events:none}
+/* The `hidden` attribute works through the UA rule `[hidden]{display:none}`,
+   which ANY author `display` declaration outranks. Without this line
+   `el.hidden = true` sets the attribute, changes nothing visually, and leaves
+   an invisible-looking overlay covering the graph. */
+.empty[hidden]{display:none}
+.empty b{color:var(--ink2);font-weight:600}
+
+/* Legend doubles as a filter: clicking a kind hides it, which is the only way
+   to read a dense graph without deleting anything. */
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.lg{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--sunk);
+  border:1px solid transparent;border-radius:999px;padding:4px 9px;box-shadow:var(--sink-sm);
+  cursor:pointer;user-select:none}
+.lg.off{opacity:.4}
+/* The key is not clickable, so it must not offer a pointer or a hover. */
+.lg.key{cursor:default}
+.lg i.dash{width:14px;height:0;border-top:1.5px dashed var(--line2);border-radius:0}
+.lg i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.lg b{color:var(--ink2);font-weight:500}
+
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--panel);border-radius:var(--r2);box-shadow:var(--raise-sm);padding:14px}
+.card h3{margin:0 0 4px;font-family:var(--display);font-size:17px;font-weight:700}
+.card .sub{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.relrow{padding:9px 0;border-top:1px solid var(--line)}
+.relrow:first-of-type{border-top:0}
+.relhead{display:flex;align-items:center;gap:7px;font-size:13.5px}
+.relhead i{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+.relhead i.dash{width:14px;height:0;border-radius:0;border-top:1.5px dashed var(--line2)}
+.relhead a{color:var(--ink);text-decoration:none;font-weight:600}
+.relhead a:hover{color:var(--gold)}
+.relwhat{margin:3px 0 0;font-size:12.5px;color:var(--ink2)}
+/* The evidence is the point of the guard, so it is shown, not summarised. An
+   edge you cannot check is an assertion about two real people you have to take
+   on trust. */
+.relwhy{margin:5px 0 0;padding:6px 9px;background:var(--sunk);border-radius:8px;
+  box-shadow:var(--sink-sm);font-size:11.5px;color:var(--muted);line-height:1.5}
+.relwhy em{color:var(--ink2);font-style:normal}
+.reltag{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);margin-left:auto}
+.relrow .linkact{font-size:11.5px;margin-top:5px}
+.addform{display:grid;gap:7px;margin-top:4px}
+.addform .ctl{width:100%}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.55}
+</style></head>
+<body>
+<div class="pagewrap">
+  <div class="top">
+    <h1>Connect<span>ions</span></h1>
+    <p>How the people you have met stand to each other. Drag to move, scroll to zoom,
+       click someone to read the edges and the note each one rests on.</p>
+  </div>
+
+  <div class="block">
+    <p class="lab">The relationship graph
+      <span id="gcount" style="letter-spacing:0;text-transform:none"></span>
+      <a class="backlink" href="/people" style="margin-left:auto">Everyone ›</a>
+      <a class="backlink" href="/" style="margin-left:14px">‹ Back to the memo</a></p>
+
+    <div class="toolbar">
+      <input class="ctl" id="gq" type="search" placeholder="Find a person…"
+             aria-label="Find a person in the graph">
+      <label class="hint" style="display:flex;align-items:center;gap:6px;margin:0">
+        <input type="checkbox" id="ghost"> also link people who share a tag
+        <span id="ghostn"></span>
+      </label>
+    </div>
+    <p class="hint" style="margin:-4px 0 12px">
+      <button class="linkact" id="grefresh"></button>
+    </p>
+
+    <div class="stage">
+      <div class="canvaswrap">
+        <canvas id="net"></canvas>
+        <button class="recenter" id="recenter"
+                title="Fit the whole graph back in view">Recenter</button>
+        <div class="empty" id="gempty" hidden></div>
+      </div>
+      <div class="side" id="side"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const escAttr = s => esc(s).replace(/"/g, "&quot;");
+
+// Eight kinds, eight colours. The server sends the vocabulary (/api/relations
+// -> kinds) so a ninth kind cannot exist server-side with no colour here and
+// render as an invisible line.
+const KIND_COLOR = {
+  partner:    "#FF8243",
+  colleague:  "#3ECAC6",
+  classmate:  "#FCE883",
+  friend:     "#FFC0CB",
+  family:     "#C08BFF",
+  mentor:     "#7FB3FF",
+  competitor: "#FF5C5C",
+  knows:      "#8AA5A1",
+};
+// Only this one has a direction, so only this one gets an arrowhead. Drawing
+// one on a symmetric edge would assert something the data does not say.
+const DIRECTED = new Set(["mentor"]);
+
+let PEOPLE = [], RELS = [], KINDS = [];
+let nodes = [], links = [];
+let hidden = new Set();          // kinds switched off in the legend
+let selected = null, hovered = null;
+let view = {x: 0, y: 0, k: 1};   // pan/zoom
+let glide = null;                // where Recenter is easing the view to
+let dragNode = null, panning = null, moved = false, downAt = null;
+
+const cv = $("net"), ctx = cv.getContext("2d");
+const css = v => getComputedStyle(document.body).getPropertyValue(v).trim();
+
+/* ------------------------------------------------------------------ data */
+
+async function load(){
+  const [pr, rr] = await Promise.all([
+    fetch("/api/people").then(r => r.json()),
+    fetch("/api/relations").then(r => r.json()),
+  ]);
+  PEOPLE = pr.people || [];
+  RELS = (rr.relations || []).filter(r => !r.dangling);
+  KINDS = rr.kinds || [];
+  build();
+  drawLegend();
+  $("gcount").textContent =
+    ` — ${PEOPLE.length} ${PEOPLE.length === 1 ? "person" : "people"}, ${RELS.length} ` +
+    `${RELS.length === 1 ? "relationship" : "relationships"}`;
+  refreshLabel();
+  ghostCount();
+  emptyState();
+  renderSide();
+}
+
+function refreshLabel(){
+  const derived = RELS.filter(r => r.source !== "user").length;
+  $("grefresh").textContent = derived
+    ? `Re-read the notes for relationships (one model call, replaces the ${derived} it found before)`
+    : "Read the notes for relationships (one model call)";
+}
+
+function ghostCount(){
+  const n = links.filter(l => l.ghost).length;
+  // A switch that can do nothing has to say so. With no tags on the records --
+  // they are only written when you re-tag the graph on Everyone -- there is
+  // nothing to link, and silence reads as a broken checkbox.
+  const tagged = PEOPLE.some(p => (p.tags || []).length);
+  $("ghostn").textContent = n ? `(${n})`
+    : tagged ? "(none shared)"
+    : "(no tags yet — tag the graph on Everyone)";
+}
+
+function emptyState(){
+  const box = $("gempty");
+  if (PEOPLE.length < 2){
+    box.hidden = false;
+    box.innerHTML = "<div><b>Not enough people yet.</b><br>" +
+      "Record a memo or two, then come back.</div>";
+  } else if (!RELS.length){
+    box.hidden = false;
+    box.innerHTML = "<div><b>No relationships recorded yet.</b><br>" +
+      "Read the notes for relationships above, or draw one yourself by " +
+      "clicking a person.</div>";
+  } else {
+    box.hidden = true;
+  }
+}
+
+/* Ghost links: people who share a tag, drawn faintly and never stored.
+   They are NOT relationships -- two people studying computer science are not
+   classmates -- so they are a display layer with its own switch, kept visually
+   distinct from anything the notes actually say. */
+function ghostLinks(){
+  // Computed whether or not the switch is on, so the count beside it can say
+  // how many there ARE. `visible()` gates both the drawing and the spring in
+  // `tick`, so an unticked box costs a few objects and changes nothing on
+  // screen or in the layout.
+  const byTag = new Map();
+  for (const p of PEOPLE)
+    for (const t of (p.tags || []))
+      byTag.set(t, [...(byTag.get(t) || []), p.id]);
+  const seen = new Set(), out = [];
+  for (const [tag, ids] of byTag){
+    if (ids.length > 6) continue;   // a tag everyone shares links everyone
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++){
+        const k = ids[i] < ids[j] ? ids[i] + "|" + ids[j] : ids[j] + "|" + ids[i];
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push({a: ids[i], b: ids[j], kind: "__ghost", what: tag, ghost: true});
+      }
+  }
+  return out;
+}
+
+function build(){
+  const prev = new Map(nodes.map(n => [n.id, n]));
+  nodes = PEOPLE.map((p, i) => {
+    const old = prev.get(p.id);
+    const a = (i / PEOPLE.length) * Math.PI * 2;
+    return {
+      id: p.id, name: p.name || "(unnamed)", person: p,
+      // Size carries how much you know about someone. sqrt so a record with
+      // twenty notes is bigger than one with four, not five times bigger.
+      r: 5 + Math.sqrt((p.notes || []).length) * 2.6,
+      x: old ? old.x : Math.cos(a) * 170 + (Math.random() - .5) * 40,
+      y: old ? old.y : Math.sin(a) * 170 + (Math.random() - .5) * 40,
+      vx: 0, vy: 0,
+    };
+  });
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  links = [...RELS, ...ghostLinks()]
+    .map(r => ({...r, sa: byId.get(r.a), sb: byId.get(r.b)}))
+    .filter(l => l.sa && l.sb);
+
+}
+
+const visible = l => !hidden.has(l.kind) && (!l.ghost || $("ghost").checked);
+
+/* ------------------------------------------------------------------ force */
+
+// Hand-rolled rather than d3-force: the graph is tens of nodes, so the O(n^2)
+// pass costs nothing, and the house rule is not to add a dependency until the
+// simple version has demonstrably failed. If this ever holds hundreds of
+// people, swap in Barnes-Hut here and nothing else changes.
+const REPULSION = 5200, SPRING = 0.012, DAMP = 0.86, GRAVITY = 0.0025;
+
+function tick(){
+  for (let i = 0; i < nodes.length; i++){
+    for (let j = i + 1; j < nodes.length; j++){
+      const a = nodes[i], b = nodes[j];
+      let dx = a.x - b.x, dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 1) { dx = Math.random() - .5; dy = Math.random() - .5; d2 = 1; }
+      const f = REPULSION / d2, d = Math.sqrt(d2);
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+    }
+  }
+  for (const l of links){
+    if (!visible(l)) continue;
+    const rest = l.ghost ? 200 : 118;
+    const k = l.ghost ? SPRING * 0.25 : SPRING;
+    const dx = l.sb.x - l.sa.x, dy = l.sb.y - l.sa.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const f = (d - rest) * k;
+    const fx = (dx / d) * f, fy = (dy / d) * f;
+    l.sa.vx += fx; l.sa.vy += fy; l.sb.vx -= fx; l.sb.vy -= fy;
+  }
+  for (const n of nodes){
+    if (n === dragNode) { n.vx = n.vy = 0; continue; }
+    n.vx -= n.x * GRAVITY; n.vy -= n.y * GRAVITY;
+    n.vx *= DAMP; n.vy *= DAMP;
+    n.x += n.vx; n.y += n.vy;
+  }
+}
+
+/* ------------------------------------------------------------------- draw */
+
+/* Put the whole graph back on screen.
+
+   Fit-to-bounds rather than a hard reset to the starting numbers: after you
+   have dragged someone out past the edge, resetting the pan alone leaves them
+   out there, and you would have to zoom out by hand anyway.
+
+   `k` is capped at 1 so this never magnifies. On a graph that already fits,
+   "Recenter" gives back exactly the view you started with, which is what the
+   button promises; on one that has spread out, it zooms out enough to show
+   everything. */
+// Shared by the wheel and by Recenter, so the two cannot disagree. It was .25
+// for both, and at .25 a node dragged a few thousand units out could not be
+// fitted back on screen -- the button silently failed to do the one thing it
+// promises. Low enough to fit anything; only reached when something is far out.
+const MIN_ZOOM = .05, MAX_ZOOM = 3;
+
+function recenter(){
+  const rect = cv.getBoundingClientRect();
+  if (!nodes.length) { glide = {x: 0, y: 0, k: 1}; return; }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of nodes){
+    const pad = n.r + 18;   // the name sits under the dot and has to fit too
+    x0 = Math.min(x0, n.x - pad); x1 = Math.max(x1, n.x + pad);
+    y0 = Math.min(y0, n.y - pad); y1 = Math.max(y1, n.y + pad);
+  }
+  const w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0);
+  const k = Math.max(MIN_ZOOM, Math.min(1, (rect.width - 40) / w, (rect.height - 40) / h));
+  // Aimed at, not jumped to. `ease` walks the view there over ~25 frames.
+  glide = {k, x: -k * (x0 + x1) / 2, y: -k * (y0 + y1) / 2};
+}
+
+/* Move the view a fraction of the way to `glide` each frame.
+
+   Exponential easing rather than a fixed-duration tween: it needs no clock, no
+   start value and no completion callback, and interrupting it is just clearing
+   the target -- which is what every pan, zoom and drag does, so the view never
+   fights the hand holding it. */
+function ease(){
+  if (!glide) return;
+  const E = .18;
+  view.x += (glide.x - view.x) * E;
+  view.y += (glide.y - view.y) * E;
+  view.k += (glide.k - view.k) * E;
+  // Exponential easing approaches without arriving, so it is snapped and
+  // stopped once the remainder is under a pixel. Left running it would repaint
+  // forever, chasing a target it gets ever closer to and never reaches.
+  if (Math.abs(glide.x - view.x) < .5 && Math.abs(glide.y - view.y) < .5
+      && Math.abs(glide.k - view.k) < .002){
+    view = {...glide};
+    glide = null;
+  }
+}
+
+function fit(){
+  const rect = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = rect.width * dpr; cv.height = rect.height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return rect;
+}
+
+// How far apart adjacent strands of the same pair sit at their midpoint, in
+// graph units. Enough to separate two label pills, not so much that a double
+// edge reads as a detour via somewhere else.
+const BOW = 30;
+
+const bow = l => (l.slots > 1 ? (l.slot - (l.slots - 1) / 2) * BOW : 0);
+
+/* A pair really can hold several relationships -- "partner AND competitor" is
+   the case this whole feature was asked for -- and drawn straight they land on
+   the same line, so two edges look like one and their labels print on top of
+   each other. Number each edge within its pair so `geom` can bow them apart.
+
+   Over the VISIBLE links, recomputed per frame rather than once in `build`:
+   the tag switch and the legend filters both change what is on screen without
+   rebuilding, and a pair whose second edge is hidden must go back to a straight
+   line rather than stay bowed around nothing. */
+function bundle(shown){
+  const bundles = new Map();
+  for (const l of shown){
+    const k = l.a < l.b ? l.a + "|" + l.b : l.b + "|" + l.a;
+    bundles.set(k, [...(bundles.get(k) || []), l]);
+  }
+  for (const arr of bundles.values())
+    arr.forEach((l, i) => { l.slot = i; l.slots = arr.length; });
+  return shown;
+}
+
+/* Where one edge actually runs. A single edge is the straight chord; edges
+   sharing a pair become quadratic curves either side of it. Everything that
+   needs a point ON the edge -- the arrowhead, the label -- reads it from here,
+   so the three can never disagree about where the line is. */
+function geom(l){
+  const ax = l.sa.x, ay = l.sa.y, bx = l.sb.x, by = l.sb.y;
+  const dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy) || 1;
+  const off = bow(l);
+  // The control point is pushed twice as far as the wanted separation: a
+  // quadratic curve reaches only halfway to its control point at t=0.5.
+  const cx = (ax + bx) / 2 - (dy / d) * off * 2;
+  const cy = (ay + by) / 2 + (dx / d) * off * 2;
+  return {
+    ax, ay, bx, by, cx, cy, d, curved: off !== 0,
+    // B(0.5) for a quadratic: a quarter each end, half the control point.
+    mx: 0.25 * ax + 0.5 * cx + 0.25 * bx,
+    my: 0.25 * ay + 0.5 * cy + 0.25 * by,
+    // Unit normal to the chord, the direction a crowded label slides along.
+    nx: -dy / d, ny: dx / d,
+  };
+}
+
+// Rectangles already claimed this frame -- node names first, then each label as
+// it is placed. Reset per frame in draw(), never accumulated across frames, or
+// labels would fight over space they gave up when the layout moved.
+let claimed = [];
+
+const clashes = (x, y, w, h) => claimed.some(
+  r => Math.abs(r.x - x) * 2 < r.w + w + 6 && Math.abs(r.y - y) * 2 < r.h + h + 4
+);
+
+const neighbours = id => new Set(
+  links.filter(l => visible(l) && (l.a === id || l.b === id))
+       .map(l => (l.a === id ? l.b : l.a))
+);
+
+function draw(){
+  const rect = fit();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  ctx.save();
+  ctx.translate(rect.width / 2 + view.x, rect.height / 2 + view.y);
+  ctx.scale(view.k, view.k);
+
+  const focus = hovered || selected;
+  const near = focus ? neighbours(focus) : null;
+  const lit = id => !focus || id === focus || near.has(id);
+  const q = $("gq").value.trim().toLowerCase();
+
+  // Node names claim their space before any edge label is placed, so a label
+  // can never be dropped on top of a person's name.
+  claimed = [];
+  ctx.font = "500 11px " + css("--sans");
+  for (const n of nodes){
+    if (view.k > .62 || n.id === focus)
+      claimed.push({x: n.x, y: n.y + n.r + 10, w: ctx.measureText(n.name).width, h: 13});
+  }
+
+  const drawn = [];
+  for (const l of bundle(links.filter(visible))){
+    const on = !focus || l.a === focus || l.b === focus;
+    const g = geom(l);
+    ctx.beginPath();
+    ctx.moveTo(g.ax, g.ay);
+    if (g.curved) ctx.quadraticCurveTo(g.cx, g.cy, g.bx, g.by);
+    else ctx.lineTo(g.bx, g.by);
+    // `--line2` at .30 is invisible on the light theme: #CFC3B6 over a #E9E2D9
+    // ground is a difference you cannot see, so ticking the box appeared to do
+    // nothing while the links were in fact there, pulling the layout about.
+    // `--muted` is the dimmest token that stays legible in BOTH themes; the
+    // dash pattern, not the contrast, is what says "not a real relationship".
+    ctx.strokeStyle = l.ghost ? css("--muted") : (KIND_COLOR[l.kind] || css("--line2"));
+    ctx.globalAlpha = l.ghost ? (on ? .55 : .22) : (on ? .95 : .18);
+    ctx.lineWidth = l.ghost ? 1.2 : (on ? 2.1 : 1.4);
+    if (l.ghost) ctx.setLineDash([3, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (DIRECTED.has(l.kind) && on) arrow(l, g);
+    // The label rides the edge only when that edge is in focus. Drawn always,
+    // a graph of twelve people is unreadable text.
+    // Ghost links carry the tag name in `what`, and excluding them here left a
+    // dashed line that said nothing: you could see two people were linked and
+    // not why. Labelled, with a pill that reads as a note rather than a
+    // recorded relationship.
+    if (on && focus && l.what) drawn.push([l, g]);
+  }
+  // Labels after every line, so a later edge cannot paint over an earlier
+  // label, and shorter ones first -- they fit in gaps a long phrase cannot, and
+  // whichever is placed first owns its space.
+  ctx.globalAlpha = 1;
+  drawn.sort((p, q) => (p[0].what || "").length - (q[0].what || "").length);
+  for (const [l, g] of drawn) edgeLabel(l, g);
+
+  ctx.globalAlpha = 1;
+  for (const n of nodes){
+    const hit = q && n.name.toLowerCase().includes(q);
+    ctx.globalAlpha = lit(n.id) ? 1 : .22;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = n.id === selected ? css("--gold")
+                  : hit ? css("--sage") : css("--ink2");
+    ctx.fill();
+    if (n.id === focus){
+      ctx.lineWidth = 2; ctx.strokeStyle = css("--gold"); ctx.stroke();
+    }
+    // Names appear once there is room for them, and always for whatever is in
+    // focus -- the Obsidian behaviour, and the reason a dense graph stays
+    // readable instead of becoming a wall of text.
+    if (view.k > .62 || n.id === focus || hit){
+      ctx.font = "500 11px " + css("--sans");
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillStyle = lit(n.id) ? css("--ink2") : css("--muted");
+      ctx.fillText(n.name, n.x, n.y + n.r + 4);
+    }
+  }
+  ctx.restore();
+}
+
+function arrow(l, g){
+  // The tangent at the far end, which for a curve is the control point -> end
+  // direction, not the chord. Using the chord puts the arrowhead at a visible
+  // angle to the line it belongs to.
+  const fx = g.curved ? g.cx : g.ax, fy = g.curved ? g.cy : g.ay;
+  const dx = g.bx - fx, dy = g.by - fy;
+  const d = Math.hypot(dx, dy) || 1;
+  const tipX = g.bx - (dx / d) * (l.sb.r + 3), tipY = g.by - (dy / d) * (l.sb.r + 3);
+  const ang = Math.atan2(dy, dx), w = 0.42, len = 9;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX - Math.cos(ang - w) * len, tipY - Math.sin(ang - w) * len);
+  ctx.lineTo(tipX - Math.cos(ang + w) * len, tipY - Math.sin(ang + w) * len);
+  ctx.closePath();
+  ctx.fillStyle = KIND_COLOR[l.kind] || css("--line2");
+  ctx.fill();
+}
+
+function edgeLabel(l, g){
+  ctx.save();
+  ctx.font = "500 10px " + css("--sans");
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const text = l.what || l.kind;
+  const w = ctx.measureText(text).width + 10, h = 16;
+
+  // Start at the edge's own midpoint and, if something is already there, slide
+  // along the normal in widening steps either side. Bowing the strands apart
+  // separates two labels on the SAME pair; this handles the other collision --
+  // two unrelated edges whose midpoints happen to land together, which is what
+  // the force layout does whenever a hub sits between two people.
+  let x = g.mx, y = g.my, room = false;
+  for (let i = 0; i < 7 && !room; i++){
+    const step = Math.ceil(i / 2) * 17 * (i % 2 ? 1 : -1);
+    x = g.mx + g.nx * step; y = g.my + g.ny * step;
+    room = !clashes(x, y, w, h);
+  }
+  // Nowhere free. Two phrases printed over each other are unreadable AND
+  // untrustworthy -- you cannot tell which words belong to which edge -- so the
+  // crowded one is dropped. It is still one click away in the side panel.
+  if (!room) { ctx.restore(); return; }
+  claimed.push({x, y, w, h});
+
+  ctx.globalAlpha = l.ghost ? .88 : .95;
+  ctx.fillStyle = css("--panel");
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - h / 2, w, h, 8);
+  ctx.fill();
+  // A dashed outline on the pill, matching the dashed line it belongs to, so a
+  // shared tag can never be misread as a relationship somebody recorded.
+  if (l.ghost){
+    ctx.setLineDash([2, 3]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = css("--line2");
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle = css("--muted");
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function loop(){ tick(); ease(); draw(); requestAnimationFrame(loop); }
+
+/* ---------------------------------------------------------------- legend */
+
+function drawLegend(){
+  const counts = {};
+  for (const r of RELS) counts[r.kind] = (counts[r.kind] || 0) + 1;
+  $("legend").innerHTML = KINDS
+    .filter(k => counts[k.kind])
+    .map(k => `<span class="lg ${hidden.has(k.kind) ? "off" : ""}" data-kind="${escAttr(k.kind)}"
+                     role="button" tabindex="0">
+        <i style="background:${KIND_COLOR[k.kind]}"></i>${esc(k.label)} <b>${counts[k.kind]}</b>
+      </span>`).join("");
+  // A key, not a filter -- the checkbox above already switches these, and two
+  // controls for one thing is worse than none. It exists so the dashed style is
+  // explained where it is seen rather than only in the sentence above.
+  const ghosts = links.filter(l => l.ghost).length;
+  if (ghosts && $("ghost").checked)
+    $("legend").innerHTML += `<span class="lg key"><i class="dash"></i>shared tag
+      <b>${ghosts}</b></span>`;
+  for (const el of $("legend").querySelectorAll(".lg[data-kind]")){
+    el.onclick = () => {
+      const k = el.dataset.kind;
+      hidden.has(k) ? hidden.delete(k) : hidden.add(k);
+      drawLegend();
+    };
+  }
+}
+
+/* ------------------------------------------------------------- inspector */
+
+const nameOf = id => (PEOPLE.find(p => p.id === id) || {}).name || "someone";
+
+function renderSide(){
+  const box = $("side");
+  if (!selected){
+    box.innerHTML = `<div class="card"><h3>Nobody selected</h3>
+      <p class="sub">Click a person to see how they connect.</p>
+      <p class="hint">Edges come from the notes: one is kept only when a note on
+      one of the two records names the other person outright. That is why the
+      graph is sparser than the contact book — a relationship nobody recorded is
+      not drawn, and every edge shows the note it rests on.</p></div>`;
+    return;
+  }
+  const p = PEOPLE.find(x => x.id === selected);
+  if (!p) { selected = null; return renderSide(); }
+  const mine = RELS.filter(r => r.a === p.id || r.b === p.id);
+
+  box.innerHTML = `
+    <div class="card">
+      <h3>${esc(p.name)}</h3>
+      <p class="sub">${mine.length
+        ? `${mine.length} ${mine.length === 1 ? "relationship" : "relationships"}`
+        : "No relationships recorded"}
+        · <a class="backlink" href="/?person=${encodeURIComponent(p.id)}">open record ›</a></p>
+      ${mine.map(r => relRow(r, p.id)).join("") || ""}
+    </div>
+    ${sharedCard(p)}
+    <div class="card">
+      <h3>Add a relationship</h3>
+      <p class="sub">Say it yourself when the notes never did.</p>
+      <div class="addform">
+        <select class="ctl" id="aother">
+          <option value="">Who…</option>
+          ${PEOPLE.filter(o => o.id !== p.id)
+                  .map(o => `<option value="${escAttr(o.id)}">${esc(o.name)}</option>`).join("")}
+        </select>
+        <select class="ctl" id="akind">
+          ${KINDS.map(k => `<option value="${escAttr(k.kind)}">${esc(k.label)}</option>`).join("")}
+        </select>
+        <input class="ctl" id="awhat" placeholder="What they did together (optional)">
+        <button class="linkact" id="aadd" style="text-align:left">Add it</button>
+      </div>
+      <p class="hint" id="ahint"></p>
+    </div>`;
+
+  for (const el of box.querySelectorAll("[data-del]"))
+    el.onclick = () => removeRel(el.dataset.del);
+  for (const el of box.querySelectorAll("[data-go]"))
+    el.onclick = e => { e.preventDefault(); selected = el.dataset.go; renderSide(); };
+  const add = $("aadd");
+  if (add) add.onclick = addRel;
+}
+
+/* Who this person happens to have something in common with.
+
+   Shown whether or not the dashed links are switched on, and kept in its own
+   card under its own heading, because the distinction it draws is the one this
+   whole page rests on: a tag two records share is a coincidence of vocabulary,
+   and a relationship is something the notes said. Putting them in one list
+   would quietly promote the first into the second. */
+function sharedCard(p){
+  const mine = new Set(p.tags || []);
+  if (!mine.size) return "";
+  const others = PEOPLE
+    .filter(o => o.id !== p.id)
+    .map(o => ({o, tags: (o.tags || []).filter(t => mine.has(t))}))
+    .filter(x => x.tags.length)
+    .sort((a, b) => b.tags.length - a.tags.length);
+  if (!others.length) return "";
+  return `<div class="card">
+    <h3>Shares a tag</h3>
+    <p class="sub">Not a relationship — just something both records happen to say.</p>
+    ${others.map(({o, tags}) => `<div class="relrow">
+      <div class="relhead">
+        <i class="dash"></i>
+        <a href="#" data-go="${escAttr(o.id)}">${esc(o.name)}</a>
+      </div>
+      <p class="relwhat">${tags.map(esc).join(" · ")}</p>
+    </div>`).join("")}
+  </div>`;
+}
+
+function relRow(r, meId){
+  const otherId = r.a === meId ? r.b : r.a;
+  const label = (KINDS.find(k => k.kind === r.kind) || {}).label || r.kind;
+  // The mentor edge is the only directed one, so it is the only one whose
+  // wording has to change with which end you are standing on.
+  const dir = r.kind === "mentor" ? (r.a === meId ? " (mentors them)" : " (mentored by)") : "";
+  return `<div class="relrow">
+    <div class="relhead">
+      <i style="background:${KIND_COLOR[r.kind] || "#8AA5A1"}"></i>
+      <a href="#" data-go="${escAttr(otherId)}">${esc(nameOf(otherId))}</a>
+      <span class="reltag">${esc(label)}${dir}</span>
+    </div>
+    ${r.what ? `<p class="relwhat">${esc(r.what)}</p>` : ""}
+    <p class="relwhy">${r.source === "user"
+      ? "You recorded this."
+      : `From your notes: <em>“${esc(r.evidence)}”</em>`}</p>
+    <button class="linkact" data-del="${escAttr(r.id)}">Remove</button>
+  </div>`;
+}
+
+async function removeRel(id){
+  const res = await fetch("/api/relations/" + encodeURIComponent(id), {method: "DELETE"});
+  if (!res.ok) return;
+  RELS = RELS.filter(r => r.id !== id);
+  build(); drawLegend(); renderSide(); emptyState();
+}
+
+async function addRel(){
+  const other = $("aother").value, kind = $("akind").value;
+  if (!other) { $("ahint").textContent = "Pick who first."; return; }
+  const res = await fetch("/api/relations", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({a: selected, b: other, kind, what: $("awhat").value}),
+  });
+  const data = await res.json();
+  if (!res.ok) { $("ahint").textContent = data.error || "Could not add it."; return; }
+  await load();
+  selected = data.a === selected || data.b === selected ? selected : data.a;
+  renderSide();
+}
+
+/* -------------------------------------------------------------- pointer */
+
+function at(ev){
+  const rect = cv.getBoundingClientRect();
+  return {
+    x: (ev.clientX - rect.left - rect.width / 2 - view.x) / view.k,
+    y: (ev.clientY - rect.top - rect.height / 2 - view.y) / view.k,
+  };
+}
+
+function nodeAt(pt){
+  let best = null, bd = Infinity;
+  for (const n of nodes){
+    const d = Math.hypot(n.x - pt.x, n.y - pt.y);
+    if (d < n.r + 7 && d < bd) { best = n; bd = d; }
+  }
+  return best;
+}
+
+// A press that travels less than this is a click, not a drag. Testing "did the
+// pointer move at all" makes a hand that wobbles one pixel during a click count
+// as a drag, so selecting someone fails intermittently and looks like the click
+// handler is broken.
+const DRAG_SLOP = 4;
+
+cv.addEventListener("pointerdown", ev => {
+  glide = null;   // the hand wins; never animate against a drag
+  cv.setPointerCapture(ev.pointerId);
+  moved = false;
+  downAt = {x: ev.clientX, y: ev.clientY};
+  const n = nodeAt(at(ev));
+  if (n) dragNode = n;
+  else { panning = {x: ev.clientX - view.x, y: ev.clientY - view.y}; cv.classList.add("dragging"); }
+});
+
+cv.addEventListener("pointermove", ev => {
+  const pt = at(ev);
+  if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > DRAG_SLOP)
+    moved = true;
+  if (dragNode) { dragNode.x = pt.x; dragNode.y = pt.y; return; }
+  if (panning) { view.x = ev.clientX - panning.x; view.y = ev.clientY - panning.y; return; }
+  const n = nodeAt(pt);
+  const id = n ? n.id : null;
+  if (id !== hovered) { hovered = id; cv.title = n ? n.name : ""; }
+});
+
+cv.addEventListener("pointerup", ev => {
+  // A click that moved is a drag, and selecting on it would make every attempt
+  // to reposition someone also open their panel.
+  if (!moved){
+    const n = nodeAt(at(ev));
+    selected = n ? n.id : null;
+    renderSide();
+  }
+  dragNode = null; panning = null; downAt = null;
+  cv.classList.remove("dragging");
+});
+
+cv.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  glide = null;
+  const rect = cv.getBoundingClientRect();
+  const cx = ev.clientX - rect.left - rect.width / 2;
+  const cy = ev.clientY - rect.top - rect.height / 2;
+  const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.k * (ev.deltaY < 0 ? 1.12 : 1 / 1.12)));
+  // Zoom about the cursor, not the centre: zooming about the centre walks
+  // whatever you were looking at off the edge of the canvas.
+  view.x = cx - (cx - view.x) * (k / view.k);
+  view.y = cy - (cy - view.y) * (k / view.k);
+  view.k = k;
+}, {passive: false});
+
+// No rebuild: the links are already there and `visible()` decides the rest.
+// Rebuilding zeroed every velocity, which is the "wiggle then nothing" the
+// switch used to produce.
+$("ghost").onchange = () => { ghostCount(); drawLegend(); };
+$("gq").oninput = () => {};
+
+$("grefresh").onclick = async () => {
+  const btn = $("grefresh");
+  btn.disabled = true;
+  const was = btn.textContent;
+  btn.textContent = "Reading the notes…";
+  try {
+    const res = await fetch("/api/relations/refresh", {method: "POST"});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "refresh failed");
+    await load();
+  } catch (e) {
+    btn.textContent = "Could not read the notes: " + e.message;
+    setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 4000);
+    return;
+  }
+  btn.disabled = false;
+};
+
+$("recenter").onclick = recenter;
+window.addEventListener("resize", fit);
+load().catch(e => { $("gempty").hidden = false;
+  $("gempty").textContent = "Could not load the graph: " + e.message; });
+loop();
+</script>
+</body></html>

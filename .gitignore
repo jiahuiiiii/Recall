@@ -1,5 +1,11 @@
-data/person_graph.json
+# The user's own person graph -- real names and notes about real people.
+# Glob, not a literal: the backup/trash siblings are the same private data
+# and were committed once because the literal did not cover them.
+data/person_graph*.json
 data/calendar.json
+# The relationship edges. Same class as the person graph: the user's own
+# private data, and a merge conflict nobody can resolve.
+data/relations.json
 data/audio/*
 !data/audio/.gitkeep
 .env
@@ -16,3 +22,8 @@ uv.lock
 # comes from them. The blanket *.yaml above was silently keeping them untracked.
 !eval/fixtures/*.yaml
 .env.bak.*
+
+# Tool caches. Both write a self-ignoring .gitignore, so this is belt-and-braces
+# for anyone who clears them.
+.pytest_cache/
+.ruff_cache/

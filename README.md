@@ -174,13 +174,17 @@ The page shows four things:
   Click a person to open their full record, delete individual notes or meeting places,
   or forget them entirely. The agent will occasionally record someone it shouldn't, and
   a contact book you can't correct is one you stop trusting.
+- **Connections** (`/graph`) — the same people laid out by how they relate to each other
+  rather than as a grid. Drag, zoom, **Recenter** to fit it all back on screen, click
+  someone to read their edges and the note each one rests on. See
+  [The relationship graph](#the-relationship-graph).
 
 Use Chrome. Microphone access needs `localhost` or HTTPS, so don't demo off a LAN IP.
 
 ### CLI
 
 ```bash
-uv run pytest tests/ -q         # 122 tests, offline, no credentials, no spend
+uv run pytest tests/ -q         # 312 tests, offline, no credentials, no spend
 uv run 00_check_bedrock.py      # must print OK before any Bedrock run
 
 uv run run_demo.py              # built-in demo memo
@@ -237,17 +241,21 @@ uv run 03_teardown.py      # run this when done
 | [recall/questions.py](recall/questions.py) | Candidate questions derived mechanically from stored attributes |
 | [recall/answer.py](recall/answer.py) | Applying one answer, with the same likelihood EIG scored it under |
 | [recall/text.py](recall/text.py) | Token matching shared by retrieval and resolution |
+| [recall/relations.py](recall/relations.py) | Relationship edges between people — derived post-hoc, display-only |
 | [recall/_common.py](recall/_common.py) | `chat_model()`, cost ledger, pricing table, cache helper |
 | [recall/nodes/](recall/nodes/) | One file per graph node |
 | [recall/tools/](recall/tools/) | Transcription, web search, calendar |
 | [tests/test_graph.py](tests/test_graph.py) | Graph wiring end to end, against scripted fake models |
 | [tests/test_guards.py](tests/test_guards.py) | The two filters that keep wrong data out of the person graph |
+| [tests/test_relations.py](tests/test_relations.py) | The grounding guard, and that edges stay out of resolution |
 | [tests/test_metering.py](tests/test_metering.py) | Token accounting and pricing |
 | [eval/harness.py](eval/harness.py) | Fixture loading + the resolution sweep behind the B³/pairwise numbers |
 | [eval/run_questions.py](eval/run_questions.py) | EIG vs random vs uncertainty — the headline benchmark |
-| [eval/fixtures/](eval/fixtures/) | The four hand-written scenarios every number here comes from |
+| [eval/fixtures/](eval/fixtures/) | The five hand-written scenarios every number here comes from |
 | [web/server.py](web/server.py) | FastAPI transport — transcribe + streamed graph run |
-| [web/index.html](web/index.html) | The whole UI, one file, no framework |
+| [web/index.html](web/index.html) | Record a memo and watch the run — one file, no framework |
+| [web/people.html](web/people.html) | Everyone, as a filterable grid |
+| [web/graph.html](web/graph.html) | Connections — the relationship graph, hand-rolled force layout |
 
 ## Resolving identity
 
@@ -399,6 +407,68 @@ a person, not fitted — quote them with any result. n is small. The claim these
 support is "EIG beats a strategy that ignores reliability", not a general superiority.
 
 
+## The relationship graph
+
+A `PersonRecord` is an island: it says who someone is and nothing about how they stand to
+anyone else. [recall/relations.py](recall/relations.py) holds the edges — `partner`,
+`colleague`, `classmate`, `friend`, `family`, `mentor` (the only directed one),
+`competitor`, `knows` — and `/graph` draws them.
+
+**It cannot move the benchmark, and that is structural rather than measured.**
+`resolve.compare` reads six fields off a record (name/aliases, company, role, met_at,
+notes) and `LocalPersonStore.search` builds its candidate haystack from the same six. An
+edge is not one of them, and edges live in their own file rather than on the record, so
+there is no path by which one reaches the resolver. Two tests hold that:
+`test_relations_are_not_a_field_resolve_reads` and
+`test_relations_stay_out_of_candidate_retrieval`. The B³ and question-efficiency numbers
+below are unaffected and did not need re-running.
+
+Edges are kept out of retrieval for a second reason beyond the benchmark: a note naming
+two people is evidence they are **different** humans, so retrieving one as a candidate
+for the other is exactly backwards. Same argument as contact handles, one step stronger.
+
+**A separate model call, never a field on `Person`.** Adding `relationships` to the
+extraction schema would change the call that also emits `name`, `notes` and `company` —
+fields `compare()` *does* read — and `temperature=0` is not determinism, so both headline
+tables would have to be re-measured. Reading the stored notes afterwards costs one call
+and cannot touch a score.
+
+**The model proposes; code proves.** A model asked who relates to whom across one
+university hall returns an edge for every pair, because everyone shares a course, a floor
+and an event — the same failure mode as lexically-derived tags, except that here an edge
+is an assertion about *two* real people nobody made. So the model supplies only the kind
+and a short phrase, and code supplies the citation: an edge survives only if a stored note
+on one of the two records **names the other person outright**, whole label, on word
+boundaries.
+
+That is deliberately stricter than the resolver's own name matching, which scores partial
+agreement — right when deciding whether a spoken name is a stored person, wrong here,
+because four `Jia*` people in one orientation group would each "name" the others on a
+shared syllable. On a six-person graph, five plausible proposals grounded to two:
+
+```
+Marcus   partner    Wei Han   <- 'runs a supper club with Marcus'
+Jia En   classmate  Jia Ying  <- 'did the handover with Jia Ying'
+DROPPED  Priya / Marcus       -- no note names the other
+DROPPED  Jia En / Priya       -- no note names the other
+DROPPED  Marcus / Tiu Chuei Enn
+```
+
+Most proposals dying is the design working. The panel shows the note behind every edge,
+because a relationship you cannot check is one you have to take on trust.
+
+The graph is correctable, for the same reason the person panel is. `POST /api/relations`
+draws an edge by hand with no grounding check — you *are* the evidence — and a refresh
+never withdraws one you drew. Merging two people repoints their edges onto the survivor
+and drops the edge between them, which after a merge is the duplicate that was just fixed
+rather than a relationship. Forgetting a person forgets their edges.
+
+The optional dashed "shared tag" links are a display layer, never stored. Two people
+studying computer science are not classmates. They carry the tag as a label and get their
+own card in the side panel, kept visually and structurally apart from recorded
+relationships — one list would quietly promote a coincidence of vocabulary into something
+the notes said.
+
 ## What's left
 
 ### To fix
@@ -454,6 +524,13 @@ and plural-mention expansion is out of scope. Role-only references with no conte
 all. And both arcs come from the same kind of setting — one hall, one orientation group —
 where everyone shares an event and nobody has a company, so thresholds tuned here may not
 generalise to a professional graph.
+
+Relationship edges are sparse by construction: one is drawn only when a stored note names
+the other person outright, so a relationship the memos never recorded is not shown. A
+nickname that was never saved as an alias breaks that check — a note saying *"Marc calls
+her Crispy"* does not ground an edge to a record named `Marcus` unless `Marc` is in its
+`aliases`. Same class as the nickname-in-the-wrong-field failure, and the same remedy:
+merge the records, or draw the edge by hand.
 
 ## The three guards
 

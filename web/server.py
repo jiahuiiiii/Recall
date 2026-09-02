@@ -33,6 +33,8 @@ from recall._common import LEDGER  # noqa: E402
 from recall.contacts import CHANNELS, as_contacts, links, unknown_channels  # noqa: E402
 from recall.graph import build_graph  # noqa: E402
 from recall.memory import get_store  # noqa: E402
+from recall.relations import KINDS, get_relation_store  # noqa: E402
+from recall.relations import LABELS as REL_LABELS  # noqa: E402
 from recall.state import as_list  # noqa: E402
 from recall.tools.transcribe import transcribe  # noqa: E402
 
@@ -90,6 +92,18 @@ def people_page() -> FileResponse:
     forget -- stays defined in exactly one place.
     """
     return FileResponse(HERE / "people.html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
+@app.get("/graph")
+def graph_page() -> FileResponse:
+    """The person graph drawn as a graph.
+
+    /people is a card grid -- it answers "who do I know" and cannot show how
+    anyone stands to anyone else, because until relations.py a record held no
+    edges to show. This page is the same data laid out by its connections.
+    """
+    return FileResponse(HERE / "graph.html",
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
 
@@ -187,11 +201,15 @@ def api_people() -> JSONResponse:
 
 @app.delete("/api/people/{record_id}")
 def api_delete_person(record_id: str) -> JSONResponse:
-    """Forget a person entirely."""
+    """Forget a person entirely, edges included."""
     ok = get_store().delete(record_id)
     if not ok:
         return JSONResponse({"error": "no such person"}, status_code=404)
-    return JSONResponse({"deleted": record_id})
+    # An edge outliving one of its endpoints points at a person who no longer
+    # exists. It would not error -- the graph page simply drops the line and the
+    # relationship disappears with no record of why.
+    dropped = get_relation_store().drop_person(record_id)
+    return JSONResponse({"deleted": record_id, "relations_dropped": dropped})
 
 
 @app.post("/api/tags/refresh")
@@ -223,6 +241,120 @@ def api_refresh_tags() -> JSONResponse:
     })
 
 
+@app.get("/api/relations")
+def api_relations() -> JSONResponse:
+    """The edges of the person graph.
+
+    Served separately from /api/people rather than embedded in each record: an
+    edge belongs to a PAIR, so putting it on both records ships two copies that
+    can disagree, and putting it on one makes it invisible from the other.
+    """
+    store = get_relation_store()
+    known = {r.get("id") for r in get_store().all()}
+    rels = store.all()
+    return JSONResponse({
+        "count": len(rels),
+        # The vocabulary the page colours by. Sent rather than duplicated in JS,
+        # so a ninth kind cannot exist server-side with no colour client-side.
+        "kinds": [{"kind": k, "label": REL_LABELS[k]} for k in KINDS],
+        "relations": [
+            {
+                "id": r.get("id"), "a": r.get("a"), "b": r.get("b"),
+                "kind": r.get("kind"), "what": r.get("what", ""),
+                "evidence": r.get("evidence", ""),
+                "source": r.get("source", "derived"),
+                # An edge whose endpoint is gone would draw a line to nothing.
+                # Flagged rather than filtered, so a store that has drifted out
+                # of step with the person graph is visible instead of silent.
+                "dangling": not (r.get("a") in known and r.get("b") in known),
+            }
+            for r in rels
+        ],
+    })
+
+
+class RelationRequest(BaseModel):
+    """An edge the user drew themselves."""
+
+    a: str
+    b: str
+    kind: str
+    what: str = ""
+
+
+@app.post("/api/relations")
+def api_add_relation(req: RelationRequest) -> JSONResponse:
+    """Record a relationship by hand.
+
+    The derived edges are guarded hard -- a stored note has to name the other
+    person -- which means the model will miss relationships the user knows
+    about and never wrote down. Without this the only way to add one would be to
+    write a memo about it, so the guard would read as the feature being broken.
+
+    No corroboration check here on purpose: the user IS the evidence, and
+    `source: "user"` records that, so a refresh cannot withdraw it.
+    """
+    kind = (req.kind or "").strip().lower()
+    if kind not in KINDS:
+        return JSONResponse(
+            {"error": f"unknown kind {req.kind!r}", "kinds": list(KINDS)}, status_code=400
+        )
+    if req.a == req.b:
+        return JSONResponse({"error": "a person cannot relate to themselves"},
+                            status_code=400)
+    known = {r.get("id") for r in get_store().all()}
+    missing = [pid for pid in (req.a, req.b) if pid not in known]
+    if missing:
+        return JSONResponse({"error": f"no such person: {missing[0]}"}, status_code=404)
+
+    rel = get_relation_store().add({
+        "a": req.a, "b": req.b, "kind": kind,
+        "what": " ".join((req.what or "").split()),
+        "evidence": "", "source": "user",
+    })
+    return JSONResponse(rel)
+
+
+@app.delete("/api/relations/{rel_id}")
+def api_delete_relation(rel_id: str) -> JSONResponse:
+    """Remove one edge. The graph will get relationships wrong, and a graph you
+    cannot correct is one you stop trusting -- the same argument as delete() on
+    a person."""
+    if not get_relation_store().remove(rel_id):
+        return JSONResponse({"error": "no such relation"}, status_code=404)
+    return JSONResponse({"deleted": rel_id})
+
+
+@app.post("/api/relations/refresh")
+def api_refresh_relations() -> JSONResponse:
+    """Re-derive every edge from the stored notes, in one model call.
+
+    On demand rather than per memo, exactly like /api/tags/refresh: relations
+    only change when the notes do, and re-deriving per memo spends a call per
+    memo on a picture nobody has opened.
+
+    A separate call from extraction is the whole reason this can ship without
+    re-running the resolution benchmark -- see the module docstring in
+    `recall/relations.py`. Do not fold it into `extract`.
+    """
+    from recall.relations import generate_relations
+
+    store = get_relation_store()
+    records = get_store().all()
+    try:
+        derived = generate_relations(records)
+    except Exception as exc:  # noqa: BLE001 - surface it, do not 500 the UI
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"}, status_code=502)
+
+    kept = store.replace_derived(derived)
+    return JSONResponse({
+        "derived": len(derived),
+        "total": len(kept),
+        "user_drawn": sum(1 for r in kept if r.get("source") == "user"),
+        "people": len(records),
+    })
+
+
 class MergeRequest(BaseModel):
     """Fold `source_id` into the person named in the path."""
 
@@ -245,10 +377,16 @@ def api_merge_person(record_id: str, req: MergeRequest) -> JSONResponse:
         return JSONResponse({"error": "no such person"}, status_code=404)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+    # `merge` deletes the source record, so its edges have to follow it onto the
+    # survivor or they point at nobody. Repointing also drops the edge BETWEEN
+    # the two, which after a merge is the duplicate that was just fixed rather
+    # than a relationship.
+    moved = get_relation_store().repoint(req.source_id, record_id)
     return JSONResponse({
         "id": merged.get("id"), "name": merged.get("name"),
         "aliases": merged.get("aliases", []), "notes": merged.get("notes", []),
         "met_at": merged.get("met_at", []), "absorbed": req.source_id,
+        "relations_moved": moved,
     })
 
 

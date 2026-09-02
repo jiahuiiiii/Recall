@@ -9,7 +9,7 @@ at a time so the UI can show the conditional branch firing.
 from __future__ import annotations
 
 import json
-
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -426,3 +426,144 @@ def test_deleting_a_person_removes_them(graph):
 def test_deleting_an_unknown_person_is_a_404(graph):
     assert client.delete("/api/people/p_nope").status_code == 404
     assert client.patch("/api/people/p_nope", json={"notes": []}).status_code == 404
+
+
+# --------------------------------------------------------------------------
+# Relationship edges. Transport only -- the guard itself is tested in
+# tests/test_relations.py. What matters here is that an edge cannot outlive the
+# person it points at: `merge` deletes a record and `delete` removes one, and an
+# edge left behind draws a line to nobody and disappears with no explanation.
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def edges(tmp_path, monkeypatch, graph):
+    from recall.relations import RelationStore
+
+    store = RelationStore(tmp_path / "relations.json")
+    monkeypatch.setattr("web.server.get_relation_store", lambda: store)
+    graph.upsert({"name": "Marcus", "notes": ["runs a supper club with Kang Ling"]})
+    return store
+
+
+def test_graph_page_is_served():
+    r = client.get("/graph")
+    assert r.status_code == 200
+    assert "<title>Connections · Recall</title>" in r.text
+
+
+def test_the_kind_vocabulary_is_sent_with_the_edges(edges):
+    """The page colours edges by kind. Sending the vocabulary rather than
+    duplicating it in JS means a ninth kind cannot exist server-side with no
+    colour client-side and render as an invisible line."""
+    from recall.relations import KINDS
+
+    body = client.get("/api/relations").json()
+    assert [k["kind"] for k in body["kinds"]] == list(KINDS)
+    assert body["relations"] == []
+
+
+def test_a_user_can_draw_an_edge_the_notes_never_supported(edges, graph):
+    """The derived edges are guarded hard, so the model will miss relationships
+    the user knows about. Without this the guard reads as the feature broken."""
+    a, b = _id(graph, "Kang Ling"), _id(graph, "Marcus")
+    r = client.post("/api/relations",
+                    json={"a": a, "b": b, "kind": "partner", "what": "run a supper club"})
+    assert r.status_code == 200
+    assert r.json()["source"] == "user"
+    assert len(edges.all()) == 1
+
+
+@pytest.mark.parametrize("payload,code", [
+    ({"kind": "collaborator"}, 400),      # outside the closed vocabulary
+    ({"kind": "partner", "same": True}, 400),   # a person cannot relate to themselves
+])
+def test_a_bad_edge_is_refused_with_a_reason(edges, graph, payload, code):
+    a, b = _id(graph, "Kang Ling"), _id(graph, "Marcus")
+    body = {"a": a, "b": b if not payload.pop("same", False) else a, **payload}
+    r = client.post("/api/relations", json=body)
+    assert r.status_code == code
+    assert "error" in r.json()
+
+
+def test_an_edge_to_a_person_who_does_not_exist_is_refused(edges, graph):
+    r = client.post("/api/relations",
+                    json={"a": _id(graph, "Kang Ling"), "b": "p_nope", "kind": "friend"})
+    assert r.status_code == 404
+
+
+def test_removing_an_edge(edges, graph):
+    a, b = _id(graph, "Kang Ling"), _id(graph, "Marcus")
+    rid = client.post("/api/relations", json={"a": a, "b": b, "kind": "friend"}).json()["id"]
+    assert client.delete(f"/api/relations/{rid}").status_code == 200
+    assert client.delete(f"/api/relations/{rid}").status_code == 404
+
+
+def test_forgetting_a_person_forgets_their_edges(edges, graph):
+    """An edge outliving its endpoint does not error -- the line simply stops
+    being drawn, and the relationship disappears with no record of why."""
+    a, b = _id(graph, "Kang Ling"), _id(graph, "Marcus")
+    client.post("/api/relations", json={"a": a, "b": b, "kind": "partner"})
+    r = client.delete(f"/api/people/{b}")
+    assert r.json()["relations_dropped"] == 1
+    assert edges.all() == []
+
+
+def test_merging_two_people_moves_their_edges_onto_the_survivor(edges, graph):
+    a, b = _id(graph, "Kang Ling"), _id(graph, "Marcus")
+    graph.upsert({"name": "Crispy", "notes": ["same person as Marcus"]})
+    c = _id(graph, "Crispy")
+    client.post("/api/relations", json={"a": a, "b": c, "kind": "partner"})
+
+    r = client.post(f"/api/people/{b}/merge", json={"source_id": c})
+    assert r.json()["relations_moved"] == 1
+    assert {(e["a"], e["b"]) for e in edges.all()} == {(min(a, b), max(a, b))}
+
+
+def test_an_edge_whose_person_vanished_is_flagged_not_hidden(edges, graph):
+    """A store that has drifted out of step with the person graph should be
+    visible rather than silently thinner than it is."""
+    edges.add({"a": _id(graph, "Kang Ling"), "b": "p_ghost", "kind": "friend"})
+    assert client.get("/api/relations").json()["relations"][0]["dangling"] is True
+
+
+def test_a_refresh_replaces_derived_edges_and_keeps_user_drawn_ones(edges, graph, monkeypatch):
+    a, b = _id(graph, "Kang Ling"), _id(graph, "Marcus")
+    client.post("/api/relations", json={"a": a, "b": b, "kind": "friend"})
+    monkeypatch.setattr(
+        "recall.relations.generate_relations",
+        lambda records: [{"a": a, "b": b, "kind": "partner", "source": "derived",
+                          "evidence": "runs a supper club with Kang Ling"}],
+    )
+    body = client.post("/api/relations/refresh").json()
+    assert body["derived"] == 1 and body["user_drawn"] == 1
+    assert {e["kind"] for e in edges.all()} == {"friend", "partner"}
+
+
+def test_a_failed_refresh_is_a_message_not_a_500(edges, monkeypatch):
+    def _boom(_records):
+        raise RuntimeError("ValidationException: invalid model identifier")
+    monkeypatch.setattr("recall.relations.generate_relations", _boom)
+    r = client.post("/api/relations/refresh")
+    assert r.status_code == 502
+    assert "invalid model identifier" in r.json()["error"]
+
+
+def test_the_graph_overlay_cannot_swallow_a_click():
+    """Cheap tripwire for a bug that took the whole page down silently.
+
+    `.empty` covers the canvas. The `hidden` attribute only hides it through the
+    UA rule `[hidden]{display:none}`, which ANY author `display` declaration
+    outranks -- so with `display:flex` and no `[hidden]` rule, `el.hidden = true`
+    set the attribute, changed nothing, and left an invisible overlay eating
+    every pointerdown. Nodes could not be selected and the cause was nowhere
+    near the click handler.
+
+    `pointer-events:none` is the second half: on a graph with no edges the
+    overlay legitimately shows, and its own text invites you to "draw one
+    yourself by clicking a person".
+    """
+    page = (Path(__file__).resolve().parent.parent / "web" / "graph.html").read_text()
+    assert ".empty[hidden]{display:none}" in page
+    empty_rule = page.split(".empty{", 1)[1].split("}", 1)[0]
+    assert "pointer-events:none" in empty_rule

@@ -54,7 +54,7 @@ If asked to add a feature, default to no. Five minutes of demo cannot show bread
 
 ## Current status
 
-**The full pipeline works and the headline benchmark exists.** 269 tests, all offline.
+**The full pipeline works and the headline benchmark exists.** 311 tests, all offline.
 Runs from CLI or the web UI.
 
 ```
@@ -82,6 +82,7 @@ person takes**.
 | **User merge of two people** (`store.merge`, `/api/people/{id}/merge`, UI) | **Done 31 Aug**, 7 tests, trash file for undo |
 | **Contact handles** (`recall/contacts.py`, `PATCH /api/people/{id}`, UI) | **Done 1 Sep**, 36 tests, user-typed only — see below |
 | — the panel's contact fields commit on blur/Enter, no Save button | **Done 1 Sep** |
+| **Relationship edges** (`recall/relations.py`, `/graph`) | **Done 2 Sep**, 42 tests, display-only — see below |
 | Web UI — record, type, edit, live graph, person graph, delete | **Done**, responsive |
 | Enricher / drafter / calendar tail | Done, **frozen** (outside scope) |
 | **Multi-valued questions** (`questions.attribute_questions`) | **Done**, in the 32 above |
@@ -310,11 +311,16 @@ in `DESCRIPTOR_WORDS`, so it takes the name channel, conflicts with every stored
 and files a duplicate. The `arc_godwin` workaround — phrasing it *"the guy everybody
 calls big boss"* — still lives in the fixture, not the code.
 
-### 5. Fixtures are in `.gitignore`'s negation but still uncommitted
+### ~~5. Fixtures are in `.gitignore`'s negation but still uncommitted~~ — **DONE**
 
-`!eval/fixtures/*.yaml` is in place and all five scenarios show as untracked. **They
-still need an actual commit.** Once they have history, `arc_godwin.original.yaml.bak` is
-redundant and should go.
+All five scenarios are tracked (`git ls-files eval/fixtures/`), so the negation did its
+job. `arc_godwin.original.yaml.bak` is deleted — the history is the backup now.
+
+**What the same blind spot cost elsewhere:** `data/person_graph.json` was a *literal*
+ignore rule, so the `.backup-*` and `.trash` siblings it was written to protect were
+never covered, and four of them are committed. The rule is now a glob
+(`data/person_graph*.json`). Ignore rules for private data should be globs from the
+start — a literal only protects the one filename you thought of.
 
 ### 5a. `with_structured_output` sometimes returns a JSON string, not a list
 
@@ -488,6 +494,63 @@ number cannot clear an Instagram handle); `replace` is wholesale, which is what
 makes the UI's delete work; a merge lets the survivor's own handle win a clash
 and takes the source's only where the survivor had none.
 
+### Relationship edges are derived post-hoc, and deliberately sparse
+
+`recall/relations.py` holds the edges between people — partner, colleague,
+classmate, friend, family, mentor (directed), competitor, knows — in their own
+file (`data/relations.json`), never on a `PersonRecord`. `/graph` draws them.
+
+**It cannot move the resolution benchmark, and the guarantee is structural, not
+measured.** `resolve.compare` reads six fields off a record and
+`LocalPersonStore.search` builds its haystack from the same six; an edge is not
+one of them and does not live on the record at all.
+`test_relations_are_not_a_field_resolve_reads` and
+`test_relations_stay_out_of_candidate_retrieval` are the guards. Edges are kept
+out of retrieval for a second reason beyond the benchmark: a note naming two
+people is evidence they are **different** humans, so retrieving one as a
+candidate for the other is exactly backwards.
+
+**A separate model call, not a field on `Person`.** Adding `relationships` to
+the extraction schema would change the call that also emits `name`, `notes` and
+`company` — fields `compare()` does read — and `temperature=0` is not
+determinism, so the B³ and question-efficiency tables would both need
+re-running. Reading the stored notes afterwards costs one call and cannot touch
+a score. Same reasoning as contact handles. **Do not fold it into `extract`.**
+
+**The model proposes; code proves.** An edge survives only if a stored note on
+one of the two records **names the other person outright** — whole label, on
+word boundaries, checked in `names_in()`. Not `best_match`: partial matching
+scores `Jia En` against `Jia Ying` at 0.50 on the shared `jia`, which is right
+for the resolver and would fill this graph with edges nobody said. The model
+supplies only the kind and a short `what`, and `what` is dropped if it does not
+overlap the evidence note.
+
+Consequences worth knowing before calling it broken:
+
+- **Most proposals die, and that is the design.** On a six-person scratch graph,
+  five plausible proposals grounded to two. The dropped three were pairs whose
+  notes never mention each other — the `tags.py` failure mode (predicates true
+  of everyone), which here would be an assertion about two real people.
+- **An unrecorded nickname breaks grounding.** A note saying *"Marc calls her
+  Crispy"* does not ground an edge to a record named `Marcus` unless `Marc` is
+  in its `aliases`. Same class as the "nickname in the wrong field" finding
+  below, and the same remedy: the user merges, or draws the edge by hand.
+- **User-drawn edges are never withdrawn by a refresh** (`replace_derived`
+  keeps `source: "user"`). The graph will miss relationships, and a graph you
+  cannot correct is one you stop trusting.
+- **Edges follow people.** `POST /api/people/{id}/merge` repoints them onto the
+  survivor and drops the edge between the two merged records; `DELETE` drops
+  every edge touching the person. An edge outliving its endpoint does not
+  error — the line just stops being drawn.
+- **The "shared tag" links on `/graph` are a display layer, never stored.** Two
+  people studying computer science are not classmates. They are drawn dashed,
+  behind their own switch, and no refresh writes them. They carry the tag as a
+  label and get their own "Shares a tag" card in the side panel — unlabelled,
+  a dashed line said only *that* two people were linked, never *why* — and both
+  are kept visually and structurally apart from recorded relationships, because
+  merging the two lists would quietly promote a coincidence of vocabulary into
+  something the notes said.
+
 ### Role-only and descriptor-only references are not extracted
 
 "I bumped into the male OGL... said hi... he said hi back" extracts **nobody** — not even
@@ -622,7 +685,7 @@ failure was invisible in the output.
 
 ```bash
 uv sync --extra audio --extra web --extra aws
-uv run pytest tests/ -q          # 269 tests, offline, no credentials, no spend
+uv run pytest tests/ -q          # 311 tests, offline, no credentials, no spend
 
 uv run 00_check_bedrock.py       # must print OK before any Bedrock run
 uv run 00_check_bedrock.py --list-models [--verbose]   # probes, doesn't just list
@@ -782,6 +845,23 @@ uv run 03_teardown.py            # run this when done
   A regex shortcut does not work: the fact-shaped pattern in `questions.py`
   matches "was hungry" and misses "came to my room", so it mislabels in both
   directions. A real split needs the model.
+- **`el.hidden` does nothing against an author `display` rule, and fails silently.**
+  The `hidden` attribute hides an element only through the UA rule
+  `[hidden]{display:none}`, which ANY author `display` declaration outranks. The
+  `/graph` empty-state overlay was `position:absolute; inset:0; display:flex`, so
+  `box.hidden = true` set the attribute, changed nothing, and left an
+  invisible-looking overlay across the whole canvas eating every `pointerdown`.
+  Nodes could not be selected and the cause was nowhere near the click handler.
+  Needs `.empty[hidden]{display:none}` **and** `pointer-events:none` — the
+  overlay legitimately shows on an empty graph, where its own text invites the
+  click it would then swallow. `test_the_graph_overlay_cannot_swallow_a_click`
+  is the tripwire.
+- **A colour token can be invisible in one theme and fine in the other.** The
+  shared-tag links were `--line2` at .30 alpha: `#CFC3B6` on the light theme's
+  `#E9E2D9` ground is a difference you cannot see. The switch appeared dead
+  while the links were in fact there, pulling the layout about — which is what
+  "it wiggles and nothing changes" was. Check both themes before trusting a
+  dimmed token, and prefer `--muted` as the dimmest that still reads in both.
 - **Normalise list fields with `as_list()` at every boundary.** `list("a string")`
   silently explodes into per-character entries that then persist and consolidate without
   raising.
@@ -894,7 +974,8 @@ from contacts later. The brief asks for solutions that leave people genuinely be
   hallucinating facts the user never said — the expensive kind of bug, because it
   discredits the model instead of the process. Any throwaway run sets both:
   ```bash
-  RECALL_STORE_PATH=<scratch>/graph.json RECALL_CALENDAR_PATH=<scratch>/cal.json uv run ...
+  RECALL_STORE_PATH=<scratch>/graph.json RECALL_CALENDAR_PATH=<scratch>/cal.json \
+  RECALL_RELATIONS_PATH=<scratch>/relations.json uv run ...
   ```
 - **Don't** add a framework, technique, or sub-agent unless the simpler version has
   demonstrably failed — justify the cost in a comment.
