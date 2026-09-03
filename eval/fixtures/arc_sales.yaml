@@ -22,8 +22,13 @@ memos:
       architect at AWS, spent the whole time complaining about a migration
       backlog she can't get headcount for.
     mentions:
-      - {cluster: alex_chua, as: "Alex Chua", substantive: true, ambiguous: false}
-      - {cluster: priya,     as: "Priya",     substantive: true, ambiguous: false}
+      - {
+          cluster: alex_chua,
+          as: "Alex Chua",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: priya, as: "Priya", substantive: true, ambiguous: false }
 
   - id: m2
     transcript: |
@@ -32,7 +37,12 @@ memos:
       clears. Said he'd come back to me in about two weeks. Also he mentioned
       his team is eight engineers, smaller than I assumed.
     mentions:
-      - {cluster: alex_chua, as: "the Deloitte guy", substantive: true, ambiguous: false}
+      - {
+          cluster: alex_chua,
+          as: "the Deloitte guy",
+          substantive: true,
+          ambiguous: false,
+        }
 
   - id: m3
     transcript: |
@@ -42,8 +52,8 @@ memos:
       whether we can do point-in-time reconstruction of the data. Promised her
       a written answer on that by end of next week.
     mentions:
-      - {cluster: marcus,  as: "Marcus",  substantive: false, ambiguous: false}
-      - {cluster: wei_lin, as: "Wei Lin", substantive: true,  ambiguous: false}
+      - { cluster: marcus, as: "Marcus", substantive: false, ambiguous: false }
+      - { cluster: wei_lin, as: "Wei Lin", substantive: true, ambiguous: false }
 
   # ---- the precision test. A second Alex, different company, different role.
   # Nothing about him should touch alex_chua's record.
@@ -55,7 +65,12 @@ memos:
       introduce me to someone he knows at MAS. I said I'd ping him Monday to
       take him up on it.
     mentions:
-      - {cluster: alex_tan, as: "Alex Tan", substantive: true, ambiguous: false}
+      - {
+          cluster: alex_tan,
+          as: "Alex Tan",
+          substantive: true,
+          ambiguous: false,
+        }
 
   # ---- recognition by the promise, not by the name or the company.
   - id: m5
@@ -65,7 +80,7 @@ memos:
       asking whether the late-event handling is configurable per stream, which
       I think means the review board actually read it.
     mentions:
-      - {cluster: alex_chua, as: "He", substantive: true, ambiguous: false}
+      - { cluster: alex_chua, as: "He", substantive: true, ambiguous: false }
 
   # ---- the job change. Company now argues AGAINST a correct match.
   - id: m6
@@ -75,7 +90,7 @@ memos:
       problem though, just smaller. She wants an intro to our infra lead, said
       I'd set that up this week.
     mentions:
-      - {cluster: priya, as: "Priya", substantive: true, ambiguous: false}
+      - { cluster: priya, as: "Priya", substantive: true, ambiguous: false }
 
   - id: m7
     transcript: |
@@ -85,7 +100,12 @@ memos:
       best outcome I've had all quarter. Sending over the pilot scoping doc on
       Thursday.
     mentions:
-      - {cluster: wei_lin, as: "the GIC portfolio manager", substantive: true, ambiguous: false}
+      - {
+          cluster: wei_lin,
+          as: "the GIC portfolio manager",
+          substantive: true,
+          ambiguous: false,
+        }
 
   # ---- role-only reference to somebody new, plus a second passing mention.
   - id: m8
@@ -95,8 +115,13 @@ memos:
       questionnaire, said I'd get both over by the 20th. Marcus was on the call
       too but didn't say anything.
     mentions:
-      - {cluster: deloitte_procurement, as: "their head of procurement", substantive: true, ambiguous: false}
-      - {cluster: marcus, as: "Marcus", substantive: false, ambiguous: false}
+      - {
+          cluster: deloitte_procurement,
+          as: "their head of procurement",
+          substantive: true,
+          ambiguous: false,
+        }
+      - { cluster: marcus, as: "Marcus", substantive: false, ambiguous: false }
 
   # ---- the genuinely ambiguous one. Two Alexes are now both in the graph and
   # the speaker themselves does not know which is meant. Exactly one of these.
@@ -106,7 +131,12 @@ memos:
       Could be either of them honestly, the Deloitte one or the OCBC one, the
       number wasn't saved. Need to figure out which before I call back.
     mentions:
-      - {cluster: UNRESOLVED, as: "an Alex", substantive: true, ambiguous: true}
+      - {
+          cluster: UNRESOLVED,
+          as: "an Alex",
+          substantive: true,
+          ambiguous: true,
+        }
 
   - id: m10
     transcript: |
@@ -115,7 +145,12 @@ memos:
       handle PDPA-scoped data residency, which I need to check with legal
       before I answer him next Tuesday.
     mentions:
-      - {cluster: alex_tan, as: "Alex Tan", substantive: true, ambiguous: false}
+      - {
+          cluster: alex_tan,
+          as: "Alex Tan",
+          substantive: true,
+          ambiguous: false,
+        }
 
   # ---- descriptor-only reference to someone already known, no name, no company.
   - id: m11
@@ -125,7 +160,12 @@ memos:
       infra lead already. Need to get her a rough integration estimate before
       Friday or the budget conversation happens without us.
     mentions:
-      - {cluster: priya, as: "The head of platform at that healthtech startup", substantive: true, ambiguous: false}
+      - {
+          cluster: priya,
+          as: "The head of platform at that healthtech startup",
+          substantive: true,
+          ambiguous: false,
+        }
 
   # ---- the THREE-WAY. Wei Lin brings two GIC colleagues, so the graph now
   # holds three people who share one employer. A later loose reference to "the
@@ -142,9 +182,24 @@ memos:
       And Meixiang, a quant analyst, she is the one who will actually run the
       pilot day to day. Told Daniel I'd share the versioning design by Monday.
     mentions:
-      - {cluster: wei_lin,   as: "Wei Lin",   substantive: false, ambiguous: false}
-      - {cluster: daniel_ong, as: "Daniel Ong", substantive: true, ambiguous: false}
-      - {cluster: meixiang,  as: "Meixiang",  substantive: true, ambiguous: false}
+      - {
+          cluster: wei_lin,
+          as: "Wei Lin",
+          substantive: false,
+          ambiguous: false,
+        }
+      - {
+          cluster: daniel_ong,
+          as: "Daniel Ong",
+          substantive: true,
+          ambiguous: false,
+        }
+      - {
+          cluster: meixiang,
+          as: "Meixiang",
+          substantive: true,
+          ambiguous: false,
+        }
 
   - id: m13
     transcript: |
@@ -152,4 +207,9 @@ memos:
       Pretty sure it's the one who's running the pilot day to day, but I need to
       check which of them before I reply so I don't send it to the wrong person.
     mentions:
-      - {cluster: meixiang, as: "someone from the GIC team", substantive: true, ambiguous: false}
+      - {
+          cluster: meixiang,
+          as: "someone from the GIC team",
+          substantive: true,
+          ambiguous: false,
+        }

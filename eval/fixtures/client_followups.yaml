@@ -1,0 +1,164 @@
+id: client_followups
+description: Draft notes from customer meetings and follow-ups over a few weeks.
+
+memos:
+  - id: m1
+    transcript: |
+      Okay, just out from the fintech breakfast at MBS. Wah, very packed. I
+      talked quite long with Alex Chua, Deloitte side, the data platform team.
+      He was saying their batch job always misses the morning cut-off. Something
+      about the file coming in too late, so he asked if streaming can help. I
+      said Friday I send him the architecture slides. Maybe don't send the whole
+      deck, just the relevant part first. Then Priya Nair came over, from AWS.
+      She asked the Singapore data question again, like where it sits and who
+      can access. Told her next week I send the deployment note. Alex wants
+      email. Priya said WhatsApp the link can already. Okay, two separate things.
+    mentions:
+      - { cluster: alex_chua, as: "Alex Chua", substantive: true, ambiguous: false }
+      - { cluster: priya_nair, as: "Priya Nair", substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Eh quick note before I forget. At the banking roundtable I met Alex Tan
+      from OCBC, procurement transformation, I think that's the exact team name.
+      He asked for a security questionnaire before they even discuss pilot. No
+      date, he just said send when ready. Later Mei Lin Ong from GIC sat at our
+      table. She kept asking about the audit trail, whether she can see why the
+      agent made one decision and then who changed it. I said next week I can
+      send one example. She doesn't want a full deck, one screen is enough. For
+      Alex, questionnaire first. His risk people may ask for the audit thing
+      later also, but not yet.
+    mentions:
+      - { cluster: alex_tan, as: "Alex Tan", substantive: true, ambiguous: false }
+      - { cluster: mei_lin_ong, as: "Mei Lin Ong", substantive: true, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Just finished the thing at Suntec, the commerce meetup. Daniel Koh from
+      GrabPay, partnerships guy, said his team spends damn long cleaning up
+      duplicate merchants. Like one account under shop name, another under the
+      owner's name. I told him tomorrow I'll send the API one-pager. Then Sara
+      Lim, Ninja Van procurement, talked about almost the same headache but for
+      suppliers. Singapore enters one way, Malaysia another way, then after the
+      expansion everything became messy. She wants a small pilot outline by end
+      of month. Hmm, Daniel needs the merchant example, Sara needs country
+      offices, so cannot recycle blindly. Oh, Kevin Low was near the lift. We
+      just waved, didn't actually talk.
+    mentions:
+      - { cluster: daniel_koh, as: "Daniel Koh", substantive: true, ambiguous: false }
+      - { cluster: sara_lim, as: "Sara Lim", substantive: true, ambiguous: false }
+      - { cluster: kevin_low, as: "Kevin Low", substantive: false, ambiguous: false }
+
+  - id: m4
+    transcript: |
+      Okay, today's call, mainly the Deloitte data guy. He brought one architect
+      along, female, didn't catch her name. They want to try the morning cut-off
+      problem first, not all the other use cases. He asked whether early next
+      week can open a sandbox. Tuesday afternoon sounds like the time because
+      the architect can stay and upload the first file together. They'll use
+      fake data first, maybe ten thousand rows. If timing looks okay then only
+      they try a live sample. I said I resend the setup steps also because the
+      old link expired already. Need somebody from our side on standby. And
+      please check the sample once first, last export the date format was wrong.
+    mentions:
+      - { cluster: alex_chua, as: "The Deloitte data guy", substantive: true, ambiguous: false }
+      - { cluster: deloitte_architect, as: "one architect", substantive: true, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      Back from the compliance lunch. Uh, three things. My GIC contact asked
+      about the audit trail again. For the next demo she wants the decision log
+      visible, but we still never pick a date. Anonymised data is okay for her.
+      The bank Alex was there also. He said their risk team must clear the
+      questionnaire first, then procurement can open the pilot. I told him
+      Friday I'll return a first draft. He wants to see the fields before any
+      demo, I think. Near the end Marcus Lee from Sea joined us. Finance
+      director, regional. He wants the governance checklist by Tuesday, and he
+      asked can it show which control already has an owner and which one nobody
+      picked up yet. That's all, I think.
+    mentions:
+      - { cluster: mei_lin_ong, as: "My GIC contact", substantive: true, ambiguous: false }
+      - { cluster: alex_tan, as: "The bank Alex", substantive: true, ambiguous: false }
+      - { cluster: marcus_lee, as: "Marcus Lee", substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      Priya Nair called after lunch. I didn't know she left AWS already, last
+      month apparently. Now VectorCloud, customer engineering lead. So update
+      that. She still wants the Singapore residency note and, uh, partner
+      pricing before next Thursday. Pricing can be rough, they are just planning
+      first. She brought Nadia Rahman from GovTech onto the call. Nadia is doing
+      some citizen-service case product. She mostly listened, then asked if a
+      user corrects somebody's details, does the old note disappear or not. I
+      said I'll send a two-paragraph summary, no rush. Better answer that exact
+      question inside. Don't throw the whole technical deck at her, she didn't
+      ask for it.
+    mentions:
+      - { cluster: priya_nair, as: "Priya Nair", substantive: true, ambiguous: false }
+      - { cluster: nadia_rahman, as: "Nadia Rahman", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      Two things from the founders event. AC from Deloitte said sandbox can run,
+      but their sample file keeps failing the schema check. The file uploads,
+      then dies at address field. Maybe empty postal code, not sure. I took a
+      photo of the error, send that to engineering and ask them tomorrow. Then
+      at the coffee queue the GrabPay guy caught me. He wants the API one-pager
+      updated by Monday, with the duplicate merchant example inside. The common
+      one is same merchant, two trading names, so use that. Ah Marcus Lee walked
+      past while we talked, just hello only. No conversation. Okay, engineering
+      photo first, one-pager after that.
+    mentions:
+      - { cluster: alex_chua, as: "AC", substantive: true, ambiguous: false }
+      - { cluster: daniel_koh, as: "The GrabPay guy", substantive: true, ambiguous: false }
+      - { cluster: marcus_lee, as: "Marcus Lee", substantive: false, ambiguous: false }
+
+  - id: m8
+    transcript: |
+      Just came out of the supplier workshop. Their head of procurement asked
+      whether Singapore and Malaysia vendor records can stay separate in the
+      pilot. Malaysia side is okay with sample data first. Singapore wants ten
+      real vendors, which, hmm, better check legal before I confirm anything. I
+      told her next week I'll send a revised scope. While the session was going
+      on, the OCBC procurement guy messaged. Their risk team accepted our
+      questionnaire, so now he wants two dates for the pilot. Tuesday or
+      Thursday, afternoon, and risk joins maybe first half hour. I'll send some
+      options tomorrow morning. Wait for legal before writing the ten-vendor
+      part.
+    mentions:
+      - { cluster: sara_lim, as: "Their head of procurement", substantive: true, ambiguous: false }
+      - { cluster: alex_tan, as: "The OCBC procurement guy", substantive: true, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      Okay messy one, AI governance panel just ended. The ex-AWS solutions
+      architect introduced me to some regulator, I didn't catch the regulator's
+      name. VectorCloud maybe joining our pilot. She wants the updated residency
+      note by Friday. Mei Lin was there too, still asking for that decision-log
+      demo. She said use the corrected-contact example, easier than showing the
+      whole audit screen. Then near the exit one of the Alexes came over and
+      asked for a new deck by Friday morning. Now I really cannot remember which
+      Alex. Deloitte one or OCBC one, both were around today. Need to look at my
+      messages. The regulator asked one question only, why a person was matched,
+      but no follow-up yet.
+    mentions:
+      - { cluster: priya_nair, as: "The ex-AWS solutions architect", substantive: true, ambiguous: false }
+      - { cluster: mei_lin_ong, as: "Mei Lin", substantive: true, ambiguous: false }
+      - { cluster: UNRESOLVED, as: "one of the Alexes", substantive: true, ambiguous: true }
+      - { cluster: panel_regulator, as: "some regulator", substantive: true, ambiguous: false }
+
+  - id: m10
+    transcript: |
+      Friday wrap, last one. The finance director from Sea went through the
+      governance checklist and wants their legal team on the next call. That
+      one probably needs forty-five minutes because he wants to check every
+      approval step. I said Monday I send three time slots. The GovTech product
+      lead replied also. She wants a short discovery chat next week, maybe
+      twenty minutes, no fixed day. Just citizen-service case first, no pricing
+      yet. I can offer Wednesday morning or Thursday afternoon. Oh Kevin Low was
+      copied on the email, but that's all, I didn't speak to him. Need two
+      separate invites, one long for Sea and one short for GovTech. Okay done.
+    mentions:
+      - { cluster: marcus_lee, as: "The finance director from Sea", substantive: true, ambiguous: false }
+      - { cluster: nadia_rahman, as: "The GovTech product lead", substantive: true, ambiguous: false }
+      - { cluster: kevin_low, as: "Kevin Low", substantive: false, ambiguous: false }

@@ -76,7 +76,7 @@ person takes**.
 | **`ask_node`** — one question per memo, rejected set carried in state        | **Done**                                              |
 | Eval harness — fixtures, B³/pairwise, validator, audio→fixture               | **Done** (`eval/`)                                    |
 | Simulated answerer (`eval/strategies.py`)                                    | **Done**, 7 tests — was untested, and was wrong       |
-| **EIG vs random vs uncertainty benchmark**                                   | **Done**, re-run 31 Aug at n=3 — see below            |
+| **EIG vs random vs uncertainty benchmark**                                   | **Done**, re-run 3 Sep, 11 scenarios — EIG 0.86 < unc 1.03 < rand 1.13, ranges disjoint |
 | Person store, merge + consolidation, delete/patch                            | **Done**                                              |
 | **User merge of two people** (`store.merge`, `/api/people/{id}/merge`, UI)   | **Done 31 Aug**, 7 tests, trash file for undo         |
 | **Contact handles** (`recall/contacts.py`, `PATCH /api/people/{id}`, UI)     | **Done 1 Sep**, 36 tests, user-typed only — see below |
@@ -106,40 +106,55 @@ person takes**.
 | AgentCore Memory backend                                                     | Written blind, **known broken**, never run            |
 | AgentCore deploy (`01`–`04`)                                                 | Written, never run                                    |
 
-### Resolution baseline — re-measured 3 Sep (post-`NAMELESS_CEILING`), `repeats=3`
+### Resolution baseline — re-measured 3 Sep (11 scenarios), `repeats=3`
 
 Thresholds in force: `T_MATCH=3.0`, `T_NONMATCH=1.0`, `MIN_MARGIN=1.0`, `W_NAME_EXACT=2.5`,
 `NAMELESS_CEILING=2.5`. Quote them with any result.
 
 | scenario              | B³ F1        | B³ P  | B³ R  | pair F1 | subst | covrg |
 | --------------------- | ------------ | ----- | ----- | ------- | ----- | ----- |
-| `ehoc_c4`             | 0.945 ±0.035 | 1.000 | 0.897 | 0.874   | 0.989 | 1.000 |
-| `arc_godwin`          | 0.882 ±0.007 | 0.947 | 0.825 | 0.680   | 0.952 | 0.930 |
-| `arc_acacia`          | 0.810 ±0.000 | 1.000 | 0.681 | 0.632   | 0.873 | 0.857 |
-| `arc_sales`           | 0.869 ±0.039 | 1.000 | 0.770 | 0.643   | 0.897 | 0.929 |
+| `partner_notes`       | 0.968 ±0.000 | 1.000 | 0.938 | 0.933   | 0.970 | 0.938 |
+| `account_notes`       | 0.962 ±0.000 | 1.000 | 0.926 | 0.929   | 0.944 | 0.944 |
+| `ehoc_c4`             | 0.924 ±0.059 | 0.989 | 0.870 | 0.850   | 0.959 | 0.954 |
+| `conference_notes`    | 0.916 ±0.022 | 1.000 | 0.846 | 0.859   | 0.944 | 0.944 |
+| `arc_godwin`          | 0.877 ±0.000 | 0.947 | 0.816 | 0.667   | 0.952 | 0.947 |
+| `site_visit_notes`    | 0.870 ±0.025 | 1.000 | 0.771 | 0.719   | 0.971 | 0.941 |
+| `arc_sales`           | 0.865 ±0.000 | 1.000 | 0.762 | 0.615   | 0.933 | 0.929 |
+| `client_followups`    | 0.865 ±0.034 | 1.000 | 0.763 | 0.682   | 0.946 | 0.939 |
+| `arc_acacia`          | 0.775 ±0.026 | 1.000 | 0.633 | 0.493   | 0.873 | 0.857 |
 | `same_first_name`     | 1.000        | 1.000 | 1.000 | 1.000   | 1.000 | 1.000 |
 | `genuinely_ambiguous` | 1.000        | 1.000 | 1.000 | 1.000   | 1.000 | 1.000 |
 
-`B³ F1 across all scenarios: 0.918 ±0.095 (n=18)` — no extraction failures this run.
+`B³ F1 across all scenarios: 0.911 ±0.121 (n=33)` — no extraction failures this run.
 
-**This re-baseline exists because `NAMELESS_CEILING` (To fix #2) changed the resolver.**
-Capping a nameless match into the ambiguous band could in principle have cost recall, so
-it was re-run against the prior `0.927 ±0.095 (n=15)`. It did not: overall B³ is
-statistically identical (0.918 vs 0.927, both ±0.095), and **precision held at 1.000 on
-every fixture except `arc_godwin` (0.947, the adjudicator — see To fix #5d), which is
-exactly what the cap is for.** A nameless description now asks instead of possibly merging
-wrong; nothing legitimate regressed. `ehoc_c4` even rose (coverage 1.000 this run).
+**Precision is 1.000 on eight of eleven scenarios, and — the headline — on all five new
+professional fixtures.** The B2B set was written with deliberate name collisions (two
+Aarons at different banks, two Alexes, Cheryl Ng/Cheryl Wong, Darren Chia/Darren Chew,
+Elena Loh/Elaine Low, Alisha Rahman/Alicia Yap); **none merged.** The only sub-1.000
+precision is `ehoc_c4` (0.989) and `arc_godwin` (0.947), both the LLM adjudicator on
+non-interactive runs, not the band (To fix #5d). This is the strongest evidence yet that
+the resolver's precision is a property of the method, not of one student setting.
 
-**`arc_sales` is now the third arc in the table**, not a separate note. B³ P = 1.000 — the
-two Alexes at different firms did not merge, the case no student arc can test because
-nobody in them has an employer. Recall 0.770 is the weak half: the loose references
-(`"the Deloitte guy"`, `"someone from the GIC team"`) are missed recognitions, not wrong
-merges — the right direction to fail in, and the direction the question path exists to
-fix. 13 memos, so it is still below `run_eval`'s ~20-memo "anecdote" warning; quote it
-with the number.
+**Two things moved from the prior `0.918 ±0.095 (n=18)` baseline, and both are expected:**
 
-The runtime ambiguous band flagged **164 of the mentions across the sweep**, far above the
-4 labelled ambiguous. Names plus companies produce partial matches everywhere, and
+- **The spread widened (±0.095 → ±0.121).** More scenarios, more range: the diagnostics
+  sit at 1.000, `arc_acacia` at 0.775. Not a regression, just a wider sample.
+- **`arc_acacia` recall fell (0.681 → 0.633).** This is the `NAMELESS_CEILING` policy
+  (To fix #2) doing exactly what it was chosen to do: `arc_acacia` leans on descriptor-only
+  references that now go to a question instead of auto-resolving. Recall is the cost of
+  the "always ask when no name" trade, paid where descriptions carry the most weight.
+  Precision there stayed 1.000.
+
+**`arc_sales` and the B2B fixtures carry the professional-setting claim now.** B³ P = 1.000
+across all of them — the case no student arc can test, because nobody in them has an
+employer. Recall in the 0.76–0.94 band is the loose-reference half: company/role-only
+mentions (`"the DBS transformation guy"`, `"the Axiata CRM director"`) are missed
+recognitions, not wrong merges — the right direction to fail in, and the direction the
+question path exists to fix. Quote `arc_sales`/`client_followups` with their memo counts —
+both are ~10 memos, below `run_eval`'s ~20-memo "anecdote" warning, so cite the count.
+
+The runtime ambiguous band flagged **294 mentions across the sweep**, far above the
+9 labelled ambiguous. Names plus companies produce partial matches everywhere, and
 `NAMELESS_CEILING` now holds every nameless match in the band too, so a professional
 setting feeds the EIG denominator much harder than a hall does.
 
@@ -186,44 +201,48 @@ when written**: `arc_acacia` held a real wrong merge (`marvi`+`shiny`, see Hard-
 findings) that the broken scorer hid. `arc_godwin` sits at 0.947, and that loss is
 **the LLM adjudicator, not the band** — see To fix #5d.
 
-### Question efficiency — measured 31 Aug, `repeats=3`
+### Question efficiency — re-measured 3 Sep (11 scenarios), `repeats=3`
 
 ```
 strategy       questions/resolution                       <=1 question
-eig            0.985 ±0.111  (n=3, min 0.839  max 1.061)       68%
-uncertainty    1.359 ±0.093  (n=3, min 1.242  max 1.429)       57%
-random         1.323 ±0.079  (n=3, min 1.258  max 1.417)       60%
+eig            0.862 ±0.037  (n=3, min 0.824  max 0.897)       78%
+uncertainty    1.033 ±0.072  (n=3, min 0.985  max 1.129)       75%
+random         1.129 ±0.008  (n=3, min 1.118  max 1.134)       69%
 ```
 
-Case sets of 37/33/35 per run, budget cap 5. EIG's max (1.061) sits below BOTH baselines'
-minimums (1.242, 1.258) — `_verdict()` passes at full repeats. 10/37 multi-valued, 27/37
-yes/no.
+**The strongest version of the headline the project has produced.** ~69 scorable cases
+across the three runs (~23/run), budget cap 5. **EIG's maximum (0.897) sits below both
+baselines' minimums (uncertainty 0.985, random 1.118)** — the ranges do not overlap at
+all, so `_verdict()` passes decisively. 26/69 of the chosen questions are multi-valued,
+43/69 yes/no.
 
-**Claim "EIG beats both baselines", never an ordering between them.** Uncertainty and
-random swapped places when the nickname path landed (they were 1.093 / 1.183, now 1.359 /
-1.323) and their ranges overlap heavily. At this n they are indistinguishable from each
-other. Only EIG separates.
+**Why this run separates the strategies where earlier ones barely did.** The B2B fixtures
+supply many **3- and 4-hypothesis** ambiguous cases — e.g. `partner_notes/m6 'Fortinet
+channel guy'` against four candidates, `client_followups/m8 'OCBC procurement guy'`
+against three. With two candidates every discriminating question is worth the same bits
+and all strategies tie; with three or four, the argmax has something to choose, and EIG's
+choice is measurably better. The near-homophone name pairs are what manufacture those
+multi-way ties. This is the result the enlarged fixture set was for.
 
-**Absolute numbers rose for every strategy** (EIG 0.881 → 0.985) because the band grew
-from 136 to 150 runtime flags and the arrivals are hard cases — unrecognised labels with
-weak corroboration. That is the nickname fix working, not a regression, but it shows the
-headline is sensitive to band size. See caveat 1.
+**Claim "EIG beats both baselines."** Here it also beats them in order (EIG < uncertainty
+< random) with clean separation, but keep the conservative claim — uncertainty and random
+have swapped before at smaller n. What is solid and repeatable is that **EIG is first and
+its range clears both.**
 
-Two caveats that must travel with this table:
+One caveat still travels with this table:
 
-1. **The denominator is coupled to the resolver.** `W_NAME_EXACT=2.5` pushes bare-name
-   returns into the ambiguous band, so `'Yixin' -> Yixin` is now a scored case. Fair
-   across strategies (one case set), but resolution quality and question efficiency are
-   **not independent results** and must not be written up as if they were.
-2. **`ehoc_c4` supplies roughly a third of the cases** — one fixture carries much of
-   the number.
+- **The denominator is coupled to the resolver.** `W_NAME_EXACT=2.5` and now
+  `NAMELESS_CEILING=2.5` push bare-name and nameless returns into the ambiguous band, so
+  resolution quality and question efficiency are **not independent results** and must not
+  be written up as if they were. Fair across strategies (one case set per run), which is
+  what the comparison rests on.
 
-`run_eval` still logs one `ehoc_c4/m10` extraction failure per sweep. Its cases are lost;
-the run is not. That is the fix that got this table to n=3 — see To fix #5a.
+No extraction failures took down a run this sweep — the per-memo isolation (To fix #5a)
+held across all 11 scenarios.
 
 ### Fixtures
 
-53 memos, 108 mentions, 40 recurring people across five scenarios. `uv run
+114 memos, 234 mentions, 83 recurring people across eleven scenarios. `uv run
 eval/check_fixtures.py` exits 0.
 
 | Scenario              | memos | people | what it carries                                                                                                                                                       |
@@ -232,8 +251,19 @@ eval/check_fixtures.py` exits 0.
 | `arc_sales`           | 13    | 7      | **the first professional setting.** `company`/`role` populated and CONFLICTING, not silent. Two Alexes at different firms, one job change, three GIC people for a 4-way ambiguous case (m13), dated commitments in most memos |
 | `arc_godwin`          | 14    | 20     | Luminia OG. **11 loose references**, 8 of which land in the ambiguous band — the EIG denominator. Four same-syllable name pairs                                       |
 | `ehoc_c4`             | 11    | 14     | Eusoff Hall orientation. **13 recurring of 14** — the densest recognition test. Four memos of descriptor-only references, and the fixture that exposed the scorer bug |
+| `account_notes`       | 10    | 8      | **B2B accounts.** Two Aarons at different banks (Goh/DBS vs Lim/StanChart), heavy role/company loose refs, a job change (Sophia: Oceanic→NexPort), one 2-way Aaron ambiguity |
+| `client_followups`    | 10    | 11     | customer follow-ups. Two Alexes again, densest cast (11 people), 3 passing mentions                                                                                    |
+| `conference_notes`    | 10    | 8      | three-day conference. **Near-homophone pairs** Raymond Lee/Ray Lim, Cheryl Ng/Cheryl Wong, Farid Hassan/Farah Aziz — the precision landmines                          |
+| `partner_notes`       | 9     | 9      | MY/SG partners. Four near-collision pairs (Vikram/Victor, Ben Lim/Bernard Low, Nur Aisyah/Noor Aziz, Alisha Rahman/Alicia Yap)                                         |
+| `site_visit_notes`    | 9     | 9      | site visits. Darren Chia/Darren Chew, Elena Loh/Elaine Low — same/near-same names that must not merge                                                                  |
 | `same_first_name`     | 2     | 2      | precision diagnostic. Merged two Alexes until 28 Aug; now 1.000                                                                                                       |
 | `genuinely_ambiguous` | 2     | 1      | two memos, one scored mention                                                                                                                                         |
+
+**The five `*_notes` / `*_followups` fixtures are a professional B2B set added 3 Sep**
+(banks, logistics, insurance, regional partners). They are the direct answer to the
+"benchmark rests on one kind of setting" caveat: real employers that agree AND conflict,
+and deliberate near-homophone name pairs that stress precision in a way the student arcs
+cannot. `account_notes` measured B³ P=1.000 on its first run — the two Aarons did not merge.
 
 The `ambiguous` counter in `check_fixtures.py` reads the **label**, not the runtime band.
 `arc_godwin`'s eight scorable references are labelled `ambiguous: false` on purpose — you
@@ -373,13 +403,25 @@ now scores 1.000.
 3.25-point swing, and which one you get is decided by the extractor, not the resolver.
 See Hard-won findings on projecting from the pure layer.
 
-### 4. A bare nickname resolves as a name conflict — **half closed**
+### 4. A bare nickname resolves as a name conflict — **half closed, rest deferred to Future work**
 
 `_is_name` now treats a leading article as marking a description, so `"the Catholic
 Indian"` routes to the descriptor path. `"big boss"` still does not: no article, no token
 in `DESCRIPTOR_WORDS`, so it takes the name channel, conflicts with every stored name,
 and files a duplicate. The `arc_godwin` workaround — phrasing it _"the guy everybody
 calls big boss"_ — still lives in the fixture, not the code.
+
+Narrower than it reads: a bare nickname resolves **fine** once it is a stored alias
+(`"big boss"` vs a record whose aliases hold it scores name=1.00). The failure is only the
+**unlinked** bare nickname — first sight, or never captured as an alias.
+
+**Deferred to Future work, not fixed here.** The clean fix is an extraction flag marking a
+mention an informal label rather than a formal name (the extractor can see it is an
+epithet), routing it through the capped descriptor channel into the ambiguous band. That
+is a `Person` schema change to the same model call that emits `name`/`notes`/`company`,
+so it moves both benchmark tables — the same cost that defers contact handles, relations,
+and the opportunity field. The cheap alternative (growing `DESCRIPTOR_WORDS`) cannot cover
+an open-ended nickname space. Not demo-blocking; left documented. See Future work.
 
 ### 5. Ignore rules for private data must be globs — **lesson, item closed**
 
@@ -456,14 +498,18 @@ Related, smaller: `SONNET` / `_DEFAULT_SONNET` are defined and never used anywhe
 the model the call is actually being built for. Latent only while nothing passes
 `model=` to `chat_model()`, which nothing currently does.
 
-### 5c. `answer.rebuild_question` / `rebuild_hypotheses` are dead, and would lose noise
+### 5c. ~~`answer.rebuild_question` / `rebuild_hypotheses` are dead~~ — **DELETED 3 Sep**
 
-Nothing calls either — not the graph, not the server, not the tests. Worse, the payload
-they read from is what `ask._shown()` emits, and that carries neither `key` nor `noise`,
-so a rebuilt `Question` silently falls back to the global `ANSWER_NOISE` instead of the
-per-question reliability EIG scored it under. That is precisely the mismatch
-`recall/answer.py`'s own module docstring says must not happen. Either wire the
-out-of-graph path up and add `noise` to `_shown()`, or delete both functions.
+They described an out-of-graph answer path — resolving from the payload the UI holds,
+without resuming the graph — that nothing used. The live path resumes the graph
+(`Command(resume=...)`), which re-executes `ask_node` and rebuilds the `Question` by
+re-deriving it, so these were never called. They also carried a latent bug: the payload
+they read (`ask._shown()`) has no `key` or `noise`, so a rebuilt `Question` would fall
+back to the global `ANSWER_NOISE` rather than the per-question reliability EIG scored it
+under — the exact mismatch `answer.py`'s docstring forbids. Wiring them up would have
+meant building a parallel resolution path that still could not persist without resuming
+the graph anyway, so they were deleted. `resolve_with_answer` (the real Bayes update,
+called from inside the node) is untouched.
 
 ### 6. Already documented, unchanged
 
@@ -671,8 +717,10 @@ eval/                       the benchmark — the hardest part to rebuild
   run_questions.py          question efficiency      → the headline table
   check_fixtures.py         validator — free, no model calls, exits 0
   from_audio.py             record a memo straight into a fixture
-  fixtures/                 arc_acacia · arc_godwin · arc_ehoc (id: ehoc_c4)
-                            arc_sales · same_first_name · genuinely_ambiguous
+  fixtures/                 10 scenarios: arc_acacia · arc_godwin · arc_ehoc (ehoc_c4)
+                            arc_sales · account_notes · client_followups
+                            conference_notes · partner_notes · site_visit_notes
+                            same_first_name · genuinely_ambiguous
 
 tests/                      411 tests, offline, no credentials, no spend
   fakes.py                  scripted fake models — how the graph is tested
@@ -840,8 +888,9 @@ note before blaming the model.
 Real users talk this way constantly, so this is a genuine product gap, not a fixture
 artifact. It needs plural-mention expansion, which is a separate feature from EIG.
 
-**Out of scope; do not build it.** In fixtures, keep plural references rare and expect
-them to fail — each one costs a recognition test that can never pass.
+**Out of scope for now; parked in Future work.** In fixtures, keep plural references rare
+and expect them to fail — each one costs a recognition test that can never pass. The fix
+is plural-mention expansion, a separate feature from EIG — see Future work.
 
 ### The "someone new" prior is a placeholder, not a considered number
 
@@ -1184,6 +1233,18 @@ uv run 03_teardown.py            # run this when done
 
 ## Future work (cut from scope — cite, don't build)
 
+- **Unlinked bare-nickname routing (To fix #4).** An extraction flag marking a mention an
+  informal label rather than a formal name, so `"big boss"` with no article and no
+  descriptor word routes through the capped descriptor channel into the ambiguous band
+  instead of filing a duplicate. A `Person` schema change that moves both benchmark
+  tables, so batched with the other schema-touching deferrals below. Resolves fine today
+  once the nickname is a stored alias; only the unlinked first-sight case fails.
+- **Plural-mention expansion.** A phrase naming nobody individually — "the two malaysian
+  chinese independent school girls" — yields ONE `Person` today, not two. Real users talk
+  this way constantly, so it is a genuine product gap. The fix is to let extraction emit
+  N records from one plural phrase (a count + shared descriptor per head), then let each
+  land in the resolver independently. Separate feature from EIG, and it changes the
+  extraction call, so it re-baselines the tables. See Known limitations.
 - **Bi-temporal belief graph.** Copy Graphiti's schema (arXiv:2501.13956). Currently a
   flat `PersonRecord`. The intended model:
 

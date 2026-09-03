@@ -1,0 +1,158 @@
+id: account_notes
+description: Draft customer account and renewal notes recorded across one quarter.
+
+memos:
+  - id: m1
+    transcript: |
+      Monday account review. Aaron Goh from DBS transformation said the pilot
+      users actually like search, so that's okay, but the approval people want
+      something they can export. CSV, because some reviewers cannot enter the
+      pilot environment. I said Thursday we can send a sample. Then Melissa Tan
+      from Oceanic Logistics called. Finance controller. Their renewal money is
+      frozen until October, so she asked if we can shrink from five teams to
+      maybe two. She doesn't know the user count yet. Next budget meeting is the
+      important one, no exact date from her. So, Aaron gets the sample first.
+      Melissa I ask for numbers later this week. Don't put them in the same email
+      thread, obviously.
+    mentions:
+      - { cluster: aaron_goh, as: "Aaron Goh", substantive: true, ambiguous: false }
+      - { cluster: melissa_tan, as: "Melissa Tan", substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Standard Chartered security call just now. Aaron Lim, cloud security lead,
+      asked for the pen-test summary and the data flow before the fifteenth.
+      Main questions were temporary files, where they sit, and who can see the
+      contact record. Naveen Iyer from procurement joined also. He cannot issue
+      the vendor form until security signs off, so nothing for him to do yet.
+      Legal name and billing address only, once we reach his part. Aaron wants
+      all security documents in one folder. Naveen wants the vendor form sent
+      separately. Oh, Naveen is on leave Friday, he said. If we have questions,
+      ask him by Thursday afternoon. I think that's it.
+    mentions:
+      - { cluster: aaron_lim, as: "Aaron Lim", substantive: true, ambiguous: false }
+      - { cluster: naveen_iyer, as: "Naveen Iyer", substantive: true, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Customer lunch was damn noisy, but okay. Grace Ho from Great Eastern is
+      handling that agent-assist rollout. Some branches use it quite a lot, some
+      almost never. I told her next week I can send a simple usage report. Just
+      weekly active users and how many notes, she said, no need fancy dashboard.
+      Imran Shah from Axiata came later. Regional CRM director. He wants a
+      duplicate-contact workshop early October, maybe Malaysia and Indonesia
+      teams together, so probably one hour. Need him to send three real examples
+      first, anonymised of course. Kelvin Ong sat with us for maybe five minutes,
+      but we only complained about parking. No business conversation with
+      Kelvin.
+    mentions:
+      - { cluster: grace_ho, as: "Grace Ho", substantive: true, ambiguous: false }
+      - { cluster: imran_shah, as: "Imran Shah", substantive: true, ambiguous: false }
+      - { cluster: kelvin_ong, as: "Kelvin Ong", substantive: false, ambiguous: false }
+
+  - id: m4
+    transcript: |
+      Eh the DBS transformation guy called again. The sample export cannot be a
+      perfect example, he said. Put one failed approval, then one customer name
+      corrected by somebody, with the reason and time. Fake names are fine, but
+      timestamps must look real. Their steering meeting moved forward, so he
+      needs it tomorrow morning, before nine if possible. I need to see whether
+      our export keeps the old value. If not, maybe add the activity-log
+      screenshot as page two. And check the date format please, last time it was
+      month first and looked wrong. I'll try to send around eight thirty. Only
+      customer call today, the rest all internal.
+    mentions:
+      - { cluster: aaron_goh, as: "The DBS transformation guy", substantive: true, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      Renewal update. The Oceanic finance controller is leaning towards the
+      smaller rollout, two teams only. Singapore first, maybe Malaysia later if
+      budget opens up. She wants that option shown clearly in the quote, not one
+      small note at the bottom. Budget meeting is on the twenty-eighth, unless
+      they move it again. Then Naveen from procurement emailed about Standard
+      Chartered. Security still hasn't signed the data flow, so hold the vendor
+      form. He said check again next Monday. Means pricing is not the blocker,
+      security is. Okay, revise Oceanic quote, don't send Standard Chartered
+      anything yet. I nearly replied to the wrong thread, luckily saw the
+      subject line.
+    mentions:
+      - { cluster: melissa_tan, as: "The Oceanic finance controller", substantive: true, ambiguous: false }
+      - { cluster: naveen_iyer, as: "Naveen from procurement", substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      Sophia Chen called with a surprise update. She left Oceanic last month,
+      now COO at NexPort. I totally missed that. Need to update her company and
+      email before sending anything. She wants a short leadership intro deck by
+      Friday. They haven't chosen a use case, so keep it broad, maybe use
+      customer handover on the first page. Later I had the Great Eastern call.
+      Grace from Great Eastern wants the usage report split branch by branch,
+      but only five main branches. Everything else can sit under other. No new
+      deadline. So tonight maybe update Sophia's details first, then do the
+      branch table tomorrow. Don't send Grace the old all-in-one report.
+    mentions:
+      - { cluster: sophia_chen, as: "Sophia Chen", substantive: true, ambiguous: false }
+      - { cluster: grace_ho, as: "Grace from Great Eastern", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      Security docs call finished. The Standard Chartered Aaron said data flow
+      is okay now, but our pen-test wording is too technical. He wants one plain
+      English paragraph: what we tested, what we didn't test, no tool names.
+      Tomorrow can send. Then Imran at Axiata confirmed the cleanup workshop,
+      October third, two p.m. Indonesia ops team is joining. They want to bring
+      three cases from their existing queue, but anonymised. I said I'll send a
+      small template today so they know which fields we need. Indonesia side may
+      reply a bit later because tomorrow is a holiday there. Right, paragraph
+      for the bank, template for Axiata. Two different things.
+    mentions:
+      - { cluster: aaron_lim, as: "The Standard Chartered Aaron", substantive: true, ambiguous: false }
+      - { cluster: imran_shah, as: "Imran at Axiata", substantive: true, ambiguous: false }
+
+  - id: m8
+    transcript: |
+      Great Eastern check-in. Their rollout owner said branch managers don't
+      want one more dashboard. They want a weekly email, very simple, show which
+      branch had no activity and maybe one example of a useful note. No ranking
+      of individual staff, she was quite clear on that. I said can mock up one
+      before our next call, but we haven't booked the call. Melissa Tan messaged
+      around the same time. Oceanic budget meeting moved to next month again.
+      Keep the two-team quote valid another thirty days and put implementation
+      on a separate line. Okay. I can update both tomorrow, but don't send the
+      Great Eastern email mock-up until there's actually a meeting date.
+    mentions:
+      - { cluster: grace_ho, as: "Their rollout owner", substantive: true, ambiguous: false }
+      - { cluster: melissa_tan, as: "Melissa Tan", substantive: true, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      Lobby voice note, might be a bit messy. One of the Aarons asked for a
+      revised document by Tuesday. At that time I thought I would remember who,
+      but now no chance. DBS or Standard Chartered? He said legal would look at
+      it after him, but both accounts have documents open, so useless clue. Need
+      to check WhatsApp and email. Separate thing: the former Oceanic operations
+      director confirmed her NexPort leadership meeting for Thursday morning. She needs
+      the deck Wednesday, five slides only, and put customer handover right at
+      the start. That one is clear. For the Aaron document, don't send until I
+      find the message. Tuesday deadline, that part I'm sure.
+    mentions:
+      - { cluster: UNRESOLVED, as: "One of the Aarons", substantive: true, ambiguous: true }
+      - { cluster: sophia_chen, as: "The former Oceanic operations director", substantive: true, ambiguous: false }
+
+  - id: m10
+    transcript: |
+      Friday wrap. Naveen Iyer said security finally cleared Standard Chartered,
+      so vendor form can go Monday end of day. Still needs our finance signature,
+      don't forget that Monday morning. The Axiata CRM director changed the
+      workshop plan also. Their three anonymised cases will arrive Friday, and
+      each country team wants ten minutes to explain how they handle duplicates
+      now. So less presentation, more discussion. Agenda should go out before
+      October third, maybe after I see the cases. Kelvin was copied on this email
+      thread again but didn't say anything, never spoke to him. Okay, finance
+      signature for the form, wait for Axiata cases, then do agenda. That's the
+      order.
+    mentions:
+      - { cluster: naveen_iyer, as: "Naveen Iyer", substantive: true, ambiguous: false }
+      - { cluster: imran_shah, as: "The Axiata CRM director", substantive: true, ambiguous: false }
+      - { cluster: kelvin_ong, as: "Kelvin", substantive: false, ambiguous: false }

@@ -1,0 +1,151 @@
+id: site_visit_notes
+description: Draft voice notes from customer visits, workshops, and calls with operations teams.
+
+memos:
+  - id: m1
+    transcript: |
+      I'm in the Micron car park now. Elaine Low, facilities programme manager,
+      showed me their shift handover. Some comments inside Excel, some WhatsApp,
+      sometimes paper also, then next shift doesn't know which one is latest.
+      She wants a maintenance demo next Thursday morning. Use a chiller alarm,
+      night shift records it and day shift picks it up. Peter Goh from PSA
+      procurement was visiting the site too. He wants our vendor profile by end
+      of this week, before any technical discussion. Only company and security
+      sections for now, not the full pack. Okay, Elaine needs demo. Peter needs
+      form. I think I left Peter's card in the visitor badge holder, check before
+      driving off. The demo time is morning but she never say exact time.
+    mentions:
+      - { cluster: elaine_low, as: "Elaine Low", substantive: true, ambiguous: false }
+      - { cluster: peter_goh, as: "Peter Goh", substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Came out of the JTC sustainability workshop. Met Elena Loh, she runs their
+      sustainability programmes. After site inspection, tenants promise actions,
+      then somebody copies into a tracker later, sometimes it just disappears.
+      She said maybe show something in two weeks. No proper deadline. Mohan Raj
+      from Keppel maintenance was there also. His case is more urgent: one shift
+      says it will inspect a pump and the next shift cannot tell if it happened.
+      He wants an equipment-fault example before Monday. For JTC, use tenant and
+      action owner. For Keppel, use cooling pump and shift handover. Hmm, don't
+      mix those slides. Elena said she will send one old inspection template.
+      Mohan took my number and prefers WhatsApp.
+    mentions:
+      - { cluster: elena_loh, as: "Elena Loh", substantive: true, ambiguous: false }
+      - { cluster: mohan_raj, as: "Mohan Raj", substantive: true, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Logistics roundtable today. Darren Chia from SATS operations is looking at
+      ground-crew handover. Wants a short call Friday, early morning can, because
+      supervisors move around the apron after that. Mobile flow matters. Darren
+      Chew from DHL IT asked about customer escalation history. He wants the
+      architecture diagram next week and needs to know where records are stored.
+      Afternoon is better once their team is back. So Friday invite for
+      SATS tonight. DHL, wait for their time. Wei Ming joined our table
+      maybe ten minutes, but we talked about food only, nothing work-related.
+      Oh, SATS example should be a delayed baggage cart, not cargo shipment. I
+      wrote cargo in my notebook, need to correct that.
+    mentions:
+      - { cluster: darren_chia, as: "Darren Chia", substantive: true, ambiguous: false }
+      - { cluster: darren_chew, as: "Darren Chew", substantive: true, ambiguous: false }
+      - { cluster: wei_ming, as: "Wei Ming", substantive: false, ambiguous: false }
+
+  - id: m4
+    transcript: |
+      Micron demo prep call. The facilities programme manager wants the chiller
+      alarm example, then next shift corrects one person's name and you can
+      still see what changed. Demo moved to Thursday ten thirty. One day-shift
+      team and one night-shift team will join, so don't only show final
+      record; show actual handover. Rachel Sim from ST Engineering quality was
+      on the same call. She asked whether an action links back to the original
+      voice note. Screenshot is okay if live flow takes too long. Need answer her
+      before demo. Use fake equipment names. Hmm, maybe prepare the screenshot
+      anyway in case Wi-Fi at site is bad. Thursday ten thirty, not ten. I'll
+      put both shifts in the invite once their emails come.
+    mentions:
+      - { cluster: elaine_low, as: "The facilities programme manager", substantive: true, ambiguous: false }
+      - { cluster: rachel_sim, as: "Rachel Sim", substantive: true, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      PSA vendor call done. Peter from procurement said profile is complete,
+      only legal still wants the data-retention clause by Tuesday. Exact wording,
+      not a summary. I said tomorrow can send. He doesn't need model details yet.
+      On the same call I also met Nurul Huda from Schneider Electric,
+      EHS transformation. Her team records safety observations during site walk,
+      then discusses again at weekly meeting. She wants to see if a rough promise
+      like fix after shutdown can come back later even without a date. Maybe do
+      discovery after school holidays, nothing booked. Okay, Peter's clause is
+      urgent. Nurul can wait, but maybe send a short message so she has my
+      number. I didn't catch which Schneider plant she covers, ask next time.
+    mentions:
+      - { cluster: peter_goh, as: "Peter from procurement", substantive: true, ambiguous: false }
+      - { cluster: nurul_huda, as: "Nurul Huda", substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      SATS site visit update. The ground-crew Darren said bring the overnight
+      supervisor into Friday's call because that's where handover breaks most.
+      He wants two possible times by tomorrow. Early morning better. The Keppel
+      maintenance lead called also. He said our equipment-fault example is okay,
+      but put something like check again after shutdown, because their team
+      doesn't always give a calendar date. And use cooling pump, not generic
+      machine. Keppel can only review after three; before that everybody is on
+      site. So, separate slots. Same basic handover flow, different details.
+      Need to send SATS times tonight and ask Keppel whether Tuesday afternoon
+      works. Wait, Friday call is SATS only. Don't accidentally invite the
+      Keppel people.
+    mentions:
+      - { cluster: darren_chia, as: "The ground-crew Darren", substantive: true, ambiguous: false }
+      - { cluster: mohan_raj, as: "The Keppel maintenance lead", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      JTC and DHL both replied today. The sustainability Elena wants the tenant
+      inspection mock-up next Wednesday. Use three tenants and give each one a
+      different action owner, otherwise she said too simple. The DHL IT person
+      reviewed the architecture diagram. Wants one note on Singapore hosting and
+      whether old escalation notes stay searchable when an account moves region.
+      No fixed deadline, just before their internal review later this month. I
+      can add one paragraph below the diagram, no need another document. JTC is
+      fixed date, so finish that first. Hmm, for the three tenants maybe one has
+      exact date, one says after inspection, one no date. That will look closer
+      to their real notes. DHL paragraph can do Friday.
+    mentions:
+      - { cluster: elena_loh, as: "The sustainability Elena", substantive: true, ambiguous: false }
+      - { cluster: darren_chew, as: "The DHL IT person", substantive: true, ambiguous: false }
+
+  - id: m8
+    transcript: |
+      Recording in the lobby, very noisy. Someone called Elaine or Elena asked
+      for a multi-site view. Was that Micron person or JTC person? I didn't catch
+      the company. Both talked about more than one location, so that clue is no
+      use. Caller said next week's review, also no use. Need to check call list
+      and maybe ask. Rachel from ST Engineering was clear though. She wants the
+      traceability answer in writing by Friday, plus screenshot with original
+      memo beside the action. Use the same chiller example, hide all customer
+      names. One page only. Okay, Rachel can proceed. Multi-site request hold
+      first. The number that called ended six-two, maybe that helps when I look
+      later. Wah, lobby announcement covered half the call.
+    mentions:
+      - { cluster: UNRESOLVED, as: "Someone called Elaine or Elena", substantive: true, ambiguous: true }
+      - { cluster: rachel_sim, as: "Rachel from ST Engineering", substantive: true, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      End-of-week notes. The Schneider EHS lead came back on the safety-walk
+      idea. Thirty-minute discovery after school holidays. She'll bring two
+      plant teams, exact day later. They want to take one open observation
+      from a real safety walk and follow it through the weekly meeting. Need to
+      confirm which plant before the call. Peter Goh from PSA also said legal
+      accepted the retention clause. Next is technical workshop on the
+      twenty-fourth with IT and procurement. Keep it to data flow and access
+      controls, he said. Ask how much time we have before making agenda. Wei
+      Ming was copied again but didn't say anything, so nothing there. Okay,
+      Schneider date pending. PSA date fixed, twenty-fourth. I think Peter will
+      send the invite himself.
+    mentions:
+      - { cluster: nurul_huda, as: "The Schneider EHS lead", substantive: true, ambiguous: false }
+      - { cluster: peter_goh, as: "Peter Goh", substantive: true, ambiguous: false }
+      - { cluster: wei_ming, as: "Wei Ming", substantive: false, ambiguous: false }

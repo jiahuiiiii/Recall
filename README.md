@@ -334,7 +334,7 @@ telegram_bot.py  Telegram front-end — long-poll, voice note in, keyboard out
 | [eval/metrics.py](eval/metrics.py) | B³ and pairwise clustering scores. Pure functions, no model |
 | [eval/strategies.py](eval/strategies.py) | The three strategies and the simulated answerer |
 | [eval/run_questions.py](eval/run_questions.py) | EIG vs random vs uncertainty — the headline benchmark |
-| [eval/fixtures/](eval/fixtures/) | The five hand-written scenarios every number here comes from |
+| [eval/fixtures/](eval/fixtures/) | The eleven hand-written scenarios every number here comes from |
 | [web/server.py](web/server.py) | FastAPI transport — transcribe + streamed graph run |
 | [web/index.html](web/index.html) | Record a memo and watch the run — one file, no framework |
 | [web/people.html](web/people.html) | Everyone, as a filterable grid |
@@ -421,39 +421,48 @@ repeat, not just the scoring** — extraction varies, so the set of ambiguous me
 itself moves between runs (4–5 on identical fixtures). Replaying strategies over a case
 set collected once looks rigorous and hides the dominant source of noise.
 
-Fixtures: 53 memos, 108 mentions, 40 recurring people across `arc_acacia` (24 memos),
-`arc_godwin` (14 memos, 20 people, 11 loose references), `ehoc_c4` (11 memos, 14 people,
-13 recurring — four memos of descriptor-only references), `same_first_name` and
-`genuinely_ambiguous`.
+Fixtures: **114 memos, 234 mentions, 83 recurring people across eleven scenarios** — the
+three student arcs (`arc_acacia`, `arc_godwin`, `ehoc_c4`), one professional sales arc
+(`arc_sales`), five B2B account/partner/conference fixtures (`account_notes`,
+`client_followups`, `conference_notes`, `partner_notes`, `site_visit_notes`), and two
+tiny diagnostics (`same_first_name`, `genuinely_ambiguous`).
 
-Measured 31 Aug, `repeats=3`, thresholds `T_MATCH=3.0 T_NONMATCH=1.0 MIN_MARGIN=1.0`,
-`W_NAME_EXACT=2.5`. Quote the thresholds with any number here.
+Measured 3 Sep, `repeats=3`, thresholds `T_MATCH=3.0 T_NONMATCH=1.0 MIN_MARGIN=1.0`,
+`W_NAME_EXACT=2.5 NAMELESS_CEILING=2.5`. Quote the thresholds with any number here.
 
 ```
 scenario                B3 F1    B3 P    B3 R  pair F1   subst   covrg
-ehoc_c4                 0.926   0.989   0.874    0.837   0.971   0.977
-arc_godwin              0.896   0.947   0.851    0.718   0.956   0.956
-arc_acacia              0.810   1.000   0.681    0.632   0.873   0.857
+partner_notes           0.968   1.000   0.938    0.933   0.970   0.938
+account_notes           0.962   1.000   0.926    0.929   0.944   0.944
+ehoc_c4                 0.924   0.989   0.870    0.850   0.959   0.954
+conference_notes        0.916   1.000   0.846    0.859   0.944   0.944
+arc_godwin              0.877   0.947   0.816    0.667   0.952   0.947
+site_visit_notes        0.870   1.000   0.771    0.719   0.971   0.941
+arc_sales               0.865   1.000   0.762    0.615   0.933   0.929
+client_followups        0.865   1.000   0.763    0.682   0.946   0.939
+arc_acacia              0.775   1.000   0.633    0.493   0.873   0.857
 same_first_name         1.000   1.000   1.000    1.000   1.000   1.000
 genuinely_ambiguous     1.000   1.000   1.000    1.000   1.000   1.000
 
-B-cubed F1 across all scenarios: 0.927 ±0.095 (n=15)
+B-cubed F1 across all scenarios: 0.911 ±0.121 (n=33)
 ```
 
-**This is a new baseline, not a delta.** Three things changed since the previous
-`arc_acacia` figure (`B³ F1=0.922`, pairwise 0.800): `W_NAME_EXACT` dropped from 3.0 to
-2.5, the name and descriptor channels were separated in `compare()`, and the eval
-scorer's back-mapping was rewritten. Each is unit-tested in isolation, but no run
-separates their effect on these numbers, so the old figure is superseded rather than
-compared against.
+**Precision is 1.000 on eight of eleven scenarios — including all five professional B2B
+fixtures**, which were written with deliberate name collisions (two Aarons at different
+banks, two Alexes, Cheryl Ng/Cheryl Wong, Darren Chia/Darren Chew, Elena Loh/Elaine Low).
+None merged. The only sub-1.000 precision is `ehoc_c4` (0.989) and `arc_godwin` (0.947),
+both the LLM adjudicator on non-interactive runs, not the resolution band. This is the
+strongest evidence that precision is a property of the method, not of one student setting
+— **state the claim at the scenario level, not globally**, since it was briefly false
+before the channel fix (a description laundered through `aliases` once merged two people
+in `arc_acacia`).
 
-Precision is 1.000 on `arc_acacia` and `ehoc_c4` — nothing wrongly merged, every loss a
-missed recognition, which is the right direction to fail in: a wrong merge silently
-destroys a real record, a missed one is visible and fixable. **State the claim at the
-scenario level, not globally.** It was briefly false: before the channel fix, a
-description stored in a record's `aliases` came back as name evidence and merged two
-different people in `arc_acacia`. `arc_godwin` sits at 0.947, and that loss has since been
-diagnosed: it is `_adjudicate()`, not the band — see To fix below.
+Recall is the softer half — 0.63 on `arc_acacia`, 0.76–0.94 on the professional set. Those
+losses are loose references (company/role-only, no name) that the `NAMELESS_CEILING` policy
+now sends to a clarifying question rather than auto-resolving. That is a deliberate trade:
+a little recall for the guarantee that a nameless mention never silently merges into the
+wrong person. A missed recognition is visible and fixable; a wrong merge destroys a real
+record.
 
 ### Questions per resolution
 
@@ -461,33 +470,38 @@ diagnosed: it is `_adjudicate()`, not the band — see To fix below.
 uv run eval/run_questions.py [--repeats N]
 ```
 
-Measured 31 Aug, `repeats=3`, same thresholds as above.
+Measured 3 Sep, `repeats=3`, same thresholds as above.
 
 ```
 strategy       questions/resolution                       <=1 question
-eig            0.985 ±0.111  (n=3, min 0.839  max 1.061)       68%
-uncertainty    1.359 ±0.093  (n=3, min 1.242  max 1.429)       57%
-random         1.323 ±0.079  (n=3, min 1.258  max 1.417)       60%
+eig            0.862 ±0.037  (n=3, min 0.824  max 0.897)       78%
+uncertainty    1.033 ±0.072  (n=3, min 0.985  max 1.129)       75%
+random         1.129 ±0.008  (n=3, min 1.118  max 1.134)       69%
 ```
 
-Case sets of 37/33/35 per run; budget cap 5 questions; unresolved excluded from the mean.
-EIG's max (1.061) sits below both baselines' minimums (1.242, 1.258), which is the check
-that stops a lucky run being reported as a win. 10 of 37 questions were multi-valued.
+~69 scorable cases across the three runs; budget cap 5 questions; unresolved excluded from
+the mean. **EIG's max (0.897) sits below both baselines' minimums (0.985, 1.118)** — the
+ranges do not overlap, which is the check that stops a lucky run being reported as a win.
+26 of 69 chosen questions were multi-valued.
 
-**The claim is "EIG beats both baselines", not an ordering between them.** Uncertainty and
-random swapped when the nickname path landed and their ranges now overlap heavily — at
-this n they are indistinguishable from each other.
+This is the strongest version of the result the project has produced, and the enlarged
+fixture set is why: the B2B fixtures supply many **3- and 4-hypothesis** ambiguous cases
+(`'Fortinet channel guy'` against four candidates, `'OCBC procurement guy'` against three).
+With only two candidates every discriminating question is worth the same bits and all
+strategies tie; with three or four, the argmax has something to choose and EIG's choice is
+measurably better. The deliberate near-homophone name pairs are what manufacture those
+multi-way ties.
 
-Two caveats that belong next to the table:
+**The claim is "EIG beats both baselines."** Here it also beats them in clean order (EIG <
+uncertainty < random, disjoint ranges), but keep the conservative wording — uncertainty
+and random have swapped at smaller n before. What is solid is that EIG is first and its
+range clears both.
 
-1. **The denominator moved with the resolver.** Dropping `W_NAME_EXACT` to 2.5 pushed
-   bare-name returns into the ambiguous band, so cases like `'Yixin' -> Yixin` are now
-   scored here. All three strategies draw from the same case set, so the comparison is
-   sound, but resolution quality and question efficiency are **coupled** and must not be
-   presented as independent results.
-2. **`ehoc_c4` supplies roughly a third of the cases**, so one fixture carries much of
-   the number. One `ehoc_c4/m10` extraction still fails per sweep; its cases are lost but
-   the run survives, which is what got this table to n=3.
+One caveat belongs next to the table: **the denominator moves with the resolver.**
+`W_NAME_EXACT=2.5` and `NAMELESS_CEILING=2.5` push bare-name and nameless returns into the
+ambiguous band, so resolution quality and question efficiency are **coupled** and must not
+be presented as independent results. All three strategies draw from the same case set per
+run, which is what makes the comparison sound.
 
 **Why EIG beats uncertainty sampling.** Attributes differ in how dependable an answer
 is, and EIG divides that out. Uncertainty sampling asks whatever is least predictable —

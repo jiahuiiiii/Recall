@@ -1,0 +1,148 @@
+id: partner_notes
+description: Draft notes from partner meetings in Malaysia and Singapore.
+
+memos:
+  - id: m1
+    transcript: |
+      Partner breakfast in KL just ended. Alicia Yap from Ingram Micro, regional
+      alliances, asked for a joint solution brief for their reseller roadshow.
+      First draft by the twelfth. Rough one okay, she said, because their team
+      will add branding later. Audience is mostly smaller resellers, so don't
+      write too enterprise. Bernard Low from Tech Data was there also. He asked
+      if the report can split opportunities by reseller and by country. I said
+      after I get back Singapore I'll send two screenshots. Never promise which
+      day though. Both want PDF, no login link. So Alicia needs one simple page,
+      Bernard needs reporting view. I put both cards inside laptop sleeve. Must
+      remember to take them out before they disappear.
+    mentions:
+      - { cluster: alicia_yap, as: "Alicia Yap", substantive: true, ambiguous: false }
+      - { cluster: bernard_low, as: "Bernard Low", substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Afternoon Maxis meeting. Met Alisha Rahman, enterprise sales director.
+      Their example is an SME account that becomes enterprise halfway through
+      the deal. Old owner has all the customer notes, new owner sees almost
+      nothing. She wants a sample handover flow next week. Ben Lim from Fortinet
+      channels joined on video. He asked whether a partner manager can correct a
+      contact without changing the reseller's own record. Also wants a short
+      partner demo this Friday at four, twenty minutes only. Hmm, don't try to
+      force one example for both. Maxis is account owner handover. Fortinet is
+      partner and reseller record. I think Ben's calendar invite already came
+      in; need to check. Alisha said WhatsApp her the flow first.
+    mentions:
+      - { cluster: alisha_rahman, as: "Alisha Rahman", substantive: true, ambiguous: false }
+      - { cluster: ben_lim, as: "Ben Lim", substantive: true, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Startup ecosystem event, quite chaotic. Nur Aisyah from Cradle said every
+      time cohorts change, the new programme manager loses all the founder
+      context. Especially after demo day. She wants a one-page concept before
+      month end. Noor Aziz from MDEC runs digital adoption programmes. Her case
+      is small business advisers meeting the same owners at different events.
+      She asked for a demo sometime September, but which programme she hasn't
+      decided. Need to ask. So Nur gets the concept first. Noor, wait for the
+      programme name before preparing. Oh, outside I bumped into Hafiz. Just
+      hello, how are you, then he left. Nothing to follow up there. I think Nur
+      gave me her assistant's email, not her own.
+    mentions:
+      - { cluster: nur_aisyah, as: "Nur Aisyah", substantive: true, ambiguous: false }
+      - { cluster: noor_aziz, as: "Noor Aziz", substantive: true, ambiguous: false }
+      - { cluster: hafiz, as: "Hafiz", substantive: false, ambiguous: false }
+
+  - id: m4
+    transcript: |
+      The Ingram alliances lady called while I was eating. Their roadshow meeting
+      moved to Tuesday, so she needs the joint brief Monday already. One
+      distributor example, one end-customer example. Distributor one can use our
+      own partner meeting. Customer one must be anonymised, she reminded me
+      twice. First page should explain, very simply, why remembering the correct
+      person matters when an account changes hands. She will do colours and logo
+      herself. I only send clean copy plus one diagram. If the customer example
+      isn't ready Sunday night, send the words first, diagram Monday morning.
+      She sounded quite rushed, so better don't wait until Monday afternoon.
+      That's the only partner call today.
+    mentions:
+      - { cluster: alicia_yap, as: "The Ingram alliances lady", substantive: true, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      Channel review update. Bernard from Tech Data saw the screenshots. He likes
+      them but wants filter by reseller and country, Malaysia and Singapore
+      first. I said later this week I can do a mock-up. He introduced Victor Chen
+      from CloudMile, solutions director. Victor said after a cloud assessment,
+      one engineer promises something, then delivery manager takes over and
+      nobody remembers who said what. He thinks a quick voice note is easier
+      than another form. Asked for a discovery call after Hari Raya, no date.
+      Before that call, find out roughly how many engineers touch one account.
+      Bernard mock-up is sales reporting; Victor's thing is delivery handover,
+      quite different. I have Victor's LinkedIn, maybe no email yet.
+    mentions:
+      - { cluster: bernard_low, as: "Bernard from Tech Data", substantive: true, ambiguous: false }
+      - { cluster: victor_chen, as: "Victor Chen", substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      Maxis follow-up today. Their enterprise sales director said the handover
+      example is okay, but add one account with two decision makers. Old owner
+      knows one of them, new owner knows the other one. She wants that before
+      next Wednesday. The Fortinet channel guy was there too. Friday demo moved
+      from four to four thirty, still under twenty minutes. Fortinet only wants
+      partner-manager view for now, no end-customer screen. So opening story can
+      be the same, last screen must be different. Hmm, send Maxis update Tuesday,
+      rehearse the short Fortinet version Friday lunch. The channel guy said he
+      will bring his channel team. Wait for the updated
+      invite before blocking the room.
+    mentions:
+      - { cluster: alisha_rahman, as: "Their enterprise sales director", substantive: true, ambiguous: false }
+      - { cluster: ben_lim, as: "The Fortinet channel guy", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      Cradle workshop done. The programme partner from the startup event said
+      their reminders usually sound like after demo day or once grant is
+      approved, not proper dates. So the concept note needs at least one of those,
+      not everything on calendar. She also wants to see which founder made the
+      promise, not only company name. I said okay, I'll add it. Vikram Singh from
+      Redington was sitting beside her. He asked for reseller pricing, one
+      example at fifty users, one at two hundred, by end next week. Indicative
+      only, don't commit discount yet. I think finish Cradle note first because
+      that deadline is month end. Pricing table can go to finance after. Vikram
+      prefers email; the Cradle person said WhatsApp is faster.
+    mentions:
+      - { cluster: nur_aisyah, as: "The programme partner from the startup event", substantive: true, ambiguous: false }
+      - { cluster: vikram_singh, as: "Vikram Singh", substantive: true, ambiguous: false }
+
+  - id: m8
+    transcript: |
+      One thing I didn't catch properly. Someone said Alicia, or maybe Alisha,
+      on a quick call while I was walking. Asked for a multi-user demo tomorrow.
+      Was that Ingram partner or Maxis person? Both could ask that, and there is
+      no calendar invite yet. Need to check call history and message them, cannot
+      rely on memory. The MDEC programme person was clear though. September demo
+      on the nineteenth, three agencies joining. Start with the small business
+      adviser story, then leave fifteen minutes for questions. She'll confirm
+      the room later. Okay, the MDEC one can prepare. The Alicia or Alisha one,
+      find out first before sending any link. I was near KL Sentral when the call
+      came, maybe the background noise covered the company name.
+    mentions:
+      - { cluster: UNRESOLVED, as: "Alicia, or maybe Alisha", substantive: true, ambiguous: true }
+      - { cluster: noor_aziz, as: "The MDEC programme person", substantive: true, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      Final partner notes for the week. The CloudMile solutions director said
+      Tuesday after lunch for discovery call, probably two, he'll send invite.
+      Delivery and engineering teams are joining. They want the agenda before
+      the call so they can bring a real assessment example. The
+      Redington guy came back on pricing also. Still wants fifty-user and
+      two-hundred-user examples, no hard deadline. Just internal discussion, so
+      indicative numbers are enough after finance checks. Hmm, CloudMile agenda
+      first because date fixed. Redington can go next week. Hafiz was in the
+      group chat again but didn't say anything. No conversation with him. I
+      nearly tagged him when replying, but removed it before sending.
+    mentions:
+      - { cluster: victor_chen, as: "The CloudMile solutions director", substantive: true, ambiguous: false }
+      - { cluster: vikram_singh, as: "The Redington guy", substantive: true, ambiguous: false }
+      - { cluster: hafiz, as: "Hafiz", substantive: false, ambiguous: false }

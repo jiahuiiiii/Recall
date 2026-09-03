@@ -82,28 +82,3 @@ def resolve_with_answer(
         bits_remaining=round(entropy(beliefs), 4),
         answer=answer,
     )
-
-
-def rebuild_question(payload: dict) -> Question:
-    """Reconstruct the Question a stored `state["question"]` describes.
-
-    The graph resumes by re-executing the node from the top, so in the normal
-    path the Question object is simply derived again. This exists for the other
-    path -- a resolution applied outside the graph, from what the UI was handed
-    -- and pins that both routes score the answer with the same object.
-    """
-    return Question(
-        key=payload.get("key", "resumed"),
-        text=payload.get("question", ""),
-        outcomes=dict(payload.get("outcomes") or {}),
-        answer_space=tuple(payload.get("answers") or ()),
-        noise=payload.get("noise"),
-    )
-
-
-def rebuild_hypotheses(payload: dict) -> list[Hypothesis]:
-    """The hypothesis set a stored `state["question"]` describes."""
-    return [
-        Hypothesis(h.get("record_id", ""), h.get("name", ""), float(h.get("prior", 0.0)))
-        for h in payload.get("hypotheses") or []
-    ]

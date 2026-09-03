@@ -1,0 +1,163 @@
+id: conference_notes
+description: Draft voice notes recorded during and after a three-day regional conference.
+
+memos:
+  - id: m1
+    transcript: |
+      Day one, morning. Just came out of the banking panel. I spoke with Cheryl
+      Ng from Maybank, digital innovation. Their SME people put customer notes
+      in, like, three different systems, then nobody knows which one is latest.
+      She wants a quick workflow demo tomorrow afternoon. Mobile is more
+      important than dashboard because branch staff record after calls. Then I
+      met Farid Hassan, Petronas procurement manager. He needs our vendor
+      security pack by next Wednesday before he can bring in IT. Mostly asked
+      where data sits and who approves access. So for Cheryl, short workflow
+      video. For Farid, standard security docs. Both said email. I think I have
+      their cards in the front pocket.
+    mentions:
+      - { cluster: cheryl_ng, as: "Cheryl Ng", substantive: true, ambiguous: false }
+      - { cluster: farid_hassan, as: "Farid Hassan", substantive: true, ambiguous: false }
+
+  - id: m2
+    transcript: |
+      Lunch update. Met Cheryl Wong from Shopee, merchant ops. Their seller data
+      has quite a lot of duplicates. One seller can be under personal name, shop
+      name, old company name, all that. She asked if the audit trail shows what
+      got merged and whether somebody can undo it. No deadline, just send after
+      conference. Raymond Lee from IBM joined the table halfway. He thinks the
+      same story may work for public sector case officers and said he can intro
+      us this Friday. He hasn't checked with his team, so send him a short blurb
+      first, not the whole technical deck. Hmm, I need to find Cheryl's email,
+      she didn't give me a card, maybe it's in the event app.
+    mentions:
+      - { cluster: cheryl_wong, as: "Cheryl Wong", substantive: true, ambiguous: false }
+      - { cluster: raymond_lee, as: "Raymond Lee", substantive: true, ambiguous: false }
+
+  - id: m3
+    transcript: |
+      Evening mixer, noisy ah. Ray Lim from AirAsia Cargo handles regional ops.
+      He said handover notes disappear between KL and Bangkok stations, or they
+      come in two different formats and nobody reads them. He wants a one-page
+      use case next week. Janice Teo from UOB compliance was beside us for a
+      while. She asked if the user fixes a wrong person match, can you still see
+      the old value. I said I'll show it in Thursday's demo. Just one correction
+      flow, no need big presentation. Ray's example should be a delayed cargo
+      flight, I think that's what he said. Oh, Suresh Kumar was at the entrance.
+      Said hello only, then he went somewhere else.
+    mentions:
+      - { cluster: ray_lim, as: "Ray Lim", substantive: true, ambiguous: false }
+      - { cluster: janice_teo, as: "Janice Teo", substantive: true, ambiguous: false }
+      - { cluster: suresh_kumar, as: "Suresh Kumar", substantive: false, ambiguous: false }
+
+  - id: m4
+    transcript: |
+      Day two breakfast. The Maybank innovation lady found me near the coffee.
+      Demo is three thirty today, level three, not at our booth. Her SME ops
+      team is joining also. They only have twenty minutes before the next
+      panel, so start straight with voice note and customer handover. Skip
+      architecture unless they ask. She said use one customer coming back under
+      a shorter name, then show what happens. If it goes okay, she can arrange a
+      proper branch call next week. Need to test the microphone before lunch;
+      yesterday it was cutting out. I saw Raymond across the hall, we waved but
+      didn't manage to talk. Right, three thirty, level three. Don't go wrong
+      room.
+    mentions:
+      - { cluster: cheryl_ng, as: "The Maybank innovation lady", substantive: true, ambiguous: false }
+      - { cluster: raymond_lee, as: "Raymond", substantive: false, ambiguous: false }
+
+  - id: m5
+    transcript: |
+      The Petronas procurement guy came to the booth just now. Security review
+      moved forward, so Wednesday is too late already. He needs the vendor pack
+      tomorrow morning. Standard pack first, he said, don't customise until the
+      security team actually sends questions. Farah Aziz from Telekom Malaysia
+      was with him. Data governance. She asked whether Malaysia data can stay in
+      Malaysia and whether access logs are separate. I said I'll send a simple
+      deployment diagram. No date from her. She wants user, model, and stored
+      contact data shown as different boxes, because their privacy team may
+      join later. Okay, Farid's pack is urgent. Farah diagram after that. I have
+      her email from the badge scan.
+    mentions:
+      - { cluster: farid_hassan, as: "The Petronas procurement guy", substantive: true, ambiguous: false }
+      - { cluster: farah_aziz, as: "Farah Aziz", substantive: true, ambiguous: false }
+
+  - id: m6
+    transcript: |
+      Maybank demo finished. Went okay, I think. Cheryl asked for a two-week
+      pilot outline by month end, only three branch users first. They want to
+      record the same customer in different ways and see whether correction is
+      easy. No integration for this pilot, just show the result. Later the
+      Shopee merchant ops Cheryl stopped me near coffee. She wants the audit
+      screen with seller examples. Screenshots are enough for now, maybe early
+      next week, she didn't confirm. Need to be careful because both asked about
+      correcting records, but one is customer handover and one is seller
+      duplicates. Pilot outline first. Seller screenshots after. I wrote the
+      Shopee request on the back of the lunch coupon, don't lose it.
+    mentions:
+      - { cluster: cheryl_ng, as: "Cheryl", substantive: true, ambiguous: false }
+      - { cluster: cheryl_wong, as: "The Shopee merchant ops Cheryl", substantive: true, ambiguous: false }
+
+  - id: m7
+    transcript: |
+      Day three morning. The AirAsia operations guy said the one-pager should
+      follow a delayed cargo flight, night shift promises to check something,
+      then KL hands over to Bangkok. He can review next Tuesday. Need a rough
+      timeline inside, not too much product detail. Raymond Lee, the IBM partner,
+      confirmed Friday eleven for the public sector intro. First call is only
+      fifteen minutes, so he wants a plain problem statement, no research paper.
+      He'll forward the meeting link when the other side confirms. I need both
+      documents ready by Monday, but the AirAsia one can be one page. Janice
+      walked past while we were talking. She waved, nothing else. Okay, Friday
+      eleven for Raymond, Tuesday review for AirAsia.
+    mentions:
+      - { cluster: ray_lim, as: "The AirAsia operations guy", substantive: true, ambiguous: false }
+      - { cluster: raymond_lee, as: "Raymond Lee", substantive: true, ambiguous: false }
+      - { cluster: janice_teo, as: "Janice", substantive: false, ambiguous: false }
+
+  - id: m8
+    transcript: |
+      Quick one after the governance roundtable. Farah from Telekom said my
+      diagram cannot only show data location. Add access logs and retention.
+      Maybe use seven days versus thirty days, she said, just enough to start the
+      discussion. She wants it Monday. The UOB compliance person came back also,
+      still on deleting a wrongly matched contact. She wants a screen recording:
+      wrong match, correction, then activity log after deletion. No narration
+      needed, three captions can already. Before Friday. Use fake names in both,
+      obviously. Hmm, I can probably record the UOB one tomorrow morning, then
+      change the diagram in afternoon. Farah said email PDF. UOB person wants an
+      MP4 link. I think I saved both addresses.
+    mentions:
+      - { cluster: farah_aziz, as: "Farah from Telekom", substantive: true, ambiguous: false }
+      - { cluster: janice_teo, as: "The UOB compliance person", substantive: true, ambiguous: false }
+
+  - id: m9
+    transcript: |
+      Last afternoon, my brain gone already. One of the Cheryls asked for the
+      audit-trail deck before Monday. Was it Maybank or Shopee ah? Both were
+      talking about correcting records, and I honestly cannot remember. She also
+      asked whether two users can correct the same record. Still fits both. Need
+      to check badge photos or messages later. After that the Petronas guy came
+      by. He got the vendor pack, said looks complete, maybe another
+      questionnaire from data team next week. Nothing to do until it arrives.
+      So Farid follow-up can wait. Cheryl deck cannot wait, but first find out
+      which Cheryl. Deadline was definitely before Monday. Maybe I wrote it in
+      the notebook, check hotel tonight.
+    mentions:
+      - { cluster: UNRESOLVED, as: "One of the Cheryls", substantive: true, ambiguous: true }
+      - { cluster: farid_hassan, as: "The Petronas guy", substantive: true, ambiguous: false }
+
+  - id: m10
+    transcript: |
+      Post-conference calls today. Ray from AirAsia likes the handover example.
+      He wants a rough pilot estimate sometime this month, split one station and
+      three stations, training separate. No exact date, just this month. Then the
+      IBM person called with news. Raymond Lee left IBM and joined QuantEdge as
+      alliances director. Same phone number. Update his company before emailing,
+      otherwise very awkward. Friday's public sector intro is still happening,
+      but he is doing it as a conference follow-up, not for QuantEdge. Use his
+      personal email for now. So, AirAsia estimate first draft maybe next week.
+      Raymond intro still Friday. And don't put QuantEdge logo anywhere, not
+      their meeting. Okay, that's the conference follow-up finished.
+    mentions:
+      - { cluster: ray_lim, as: "Ray from AirAsia", substantive: true, ambiguous: false }
+      - { cluster: raymond_lee, as: "Raymond Lee", substantive: true, ambiguous: false }
