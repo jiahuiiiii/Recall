@@ -1,0 +1,12 @@
+Okay just got out of the fintech summit at Marina Bay Sands. Long chat with Alex
+Chua from Deloitte, he runs their data platform team, was digging into how our
+streaming ingest handles late-arriving events. Genuinely technical guy, asked
+better questions than anyone else there. I said I'd send him the architecture
+deck by Friday.
+
+Also caught Priya for maybe five minutes, she's a solutions architect at AWS,
+spent the whole time complaining about a migration backlog she cannot get
+headcount for. Promised her an intro to our infra lead next week.
+
+Oh and I waved at Marcus across the room, he was rushing off somewhere, didn't
+actually get to talk.

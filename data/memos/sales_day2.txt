@@ -1,0 +1,12 @@
+Right, few weeks on. Follow-up call with the Deloitte guy went well, he's taken
+the deck to his architecture review board and wants a pricing conversation once
+that clears. Said he'd come back to me in about two weeks.
+
+Then a payments meetup at Lau Pa Sat in the evening and I met another Alex,
+confusing sia. This one is Alex Tan, payments compliance at OCBC, much older,
+nothing to do with the Deloitte one. He offered to introduce me to someone he
+knows at MAS. Told him I'd ping him Monday to take him up on it.
+
+And I bumped into Priya, she's left AWS, she's head of platform at a healthtech
+startup called Sagely now. Same migration problem, just smaller. She still wants
+that intro, so I need to actually send it this week.

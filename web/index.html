@@ -399,6 +399,23 @@ function handle(ev){
     document.querySelectorAll("#results .opt").forEach(b => {
       b.onclick = () => answer(b.dataset.value);
     });
+  } else if (ev.type === "confirm") {
+    // Also a pause, so the pipeline strip stays undimmed for the same reason.
+    pendingThread = ev.thread_id;
+    $("results").innerHTML = confirmCard(ev.confirm, true);
+    $("rsec").classList.remove("hidden");
+    $("rsec").scrollIntoView({behavior:"smooth", block:"nearest"});
+    if (ev.usage) showLive(ev.usage);
+    const picked = () => Array.from(document.querySelectorAll(".evtbox"))
+      .filter(b => b.checked).map(b => b.dataset.index);
+    $("evt-add").onclick = () => {
+      const sel = picked();
+      // "none" rather than "" -- an empty string is exactly the unparseable
+      // reply the node declines on, and going through the explicit word means
+      // the intent is the same on both sides of the wire.
+      answer(sel.length ? sel.join(",") : "none");
+    };
+    $("evt-skip").onclick = () => answer("none");
   } else if (ev.type === "error") {
     $("results").innerHTML = `<div class="bad">${esc(ev.message)}</div>`;
     $("rsec").classList.remove("hidden");
@@ -464,6 +481,44 @@ function questionCard(q, live){
     ${rejected ? `<div class="rej">
       <p class="lab" style="margin-bottom:8px">Questions it did not ask</p>
       ${rejected}</div>` : ""}
+  </div>`;
+}
+
+/* The calendar confirmation. Same pause mechanism as the question, different
+   question: not "who is this" but "shall I write this down".
+
+   Every proposed event is shown with the exact title and date that will be
+   written -- the node hands over what `propose_event` built, not a paraphrase,
+   so approving this is approving the thing that actually lands. Checked by
+   default, because the common case is yes and a gate you have to fight is a
+   gate people stop reading. */
+function confirmCard(c, live){
+  const events = c.events || [];
+  const rows = events.map(e => `
+    <label class="evt">
+      <input type="checkbox" class="evtbox" data-index="${e.index}" checked>
+      <span class="evtmain">
+        <span class="evttitle">${esc(e.title)}</span>
+        <span class="evtmeta">${esc(e.date)} · ${esc(e.channel || "email")}</span>
+      </span>
+    </label>`).join("");
+
+  const where = c.backend === "mcp"
+    ? "Google Calendar (via MCP)"
+    : "the local ledger (data/calendar.json)";
+
+  return `<div class="card ask">
+    <span class="chip g">Confirm before writing</span>
+    <p class="askq" style="font-size:20px">Add ${events.length}
+      reminder${events.length === 1 ? "" : "s"} to your calendar?</p>
+    <div class="sub" style="margin-top:2px">Destination: <b>${esc(where)}</b></div>
+    <div class="evts">${rows}</div>
+    ${live ? `<div class="opts" style="margin-top:12px">
+      <button class="opt" id="evt-add">Add selected</button>
+      <button class="opt else" id="evt-skip">Skip all</button>
+    </div>
+    <p class="note" style="margin-top:10px">Waiting — nothing is written until you choose.</p>`
+    : ""}
   </div>`;
 }
 
@@ -544,8 +599,19 @@ function render(s, usage){
 
   if ((s.calendar_events || []).length) {
     out.push(`<div class="card todo"><h3>Calendar</h3><ul class="todos">` +
-      s.calendar_events.map(e => `<li><span class="who">${esc(e.status)}</span>
-        <span>${esc(e.detail || e.title || "")}</span></li>`).join("") +
+      s.calendar_events.map(e => {
+        // Google link first — one tap opens the event with a Save button, no
+        // file to wrestle with. The .ics stays as a secondary link for people
+        // who import into Apple Calendar or Outlook.
+        const gcal = e.gcal
+          ? ` <a class="ics" href="${esc(e.gcal)}" target="_blank" rel="noopener">Add to Google Calendar</a>`
+          : "";
+        const ics = (e.ics_path && e.status !== "declined")
+          ? ` <a class="ics ics-file" href="/api/calendar/${esc(e.idempotency_key)}.ics">.ics</a>`
+          : "";
+        return `<li><span class="who">${esc(e.status)}</span>
+        <span>${esc(e.detail || e.title || "")}</span>${gcal}${ics}</li>`;
+      }).join("") +
       `</ul></div>`);
   }
 

@@ -50,12 +50,17 @@ def test_the_right_person_outranks_the_wrong_one():
 
 def test_a_description_still_recalls_the_person_it_describes():
     """The fix must not buy precision by making descriptors useless. "the indian
-    girl" is how this person was actually referred to, and must still land."""
+    girl" is how this person was actually referred to, and must still LAND as a
+    live hypothesis -- it just asks rather than auto-merges now.
+
+    Under the To fix #2 policy (decided 3 Sep) a nameless match is capped into
+    the ambiguous band: recalled, scored, and put to a question, never silently
+    resolved. AMBIGUOUS is the correct landing, not RESOLVED and not NEW."""
     described = {"name": "indian girl", "aliases": [],
                  "notes": ["comes from India", "not Singaporean Indian", "studying econ"]}
     a = compare(described, MARVI)
     assert a.descriptor > 0.0
-    assert zone(score(a)) is Zone.RESOLVED
+    assert zone(score(a)) is Zone.AMBIGUOUS
 
 
 def test_a_record_is_not_evidence_about_itself():

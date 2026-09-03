@@ -21,6 +21,11 @@ audio = ["groq>=0.13.0"]
 aws = ["bedrock-agentcore>=0.1.0", "bedrock-agentcore-starter-toolkit>=0.1.0"]
 # Local web UI: record a memo in the browser and watch the graph run.
 web = ["fastapi>=0.115.0", "uvicorn[standard]>=0.32.0", "python-multipart>=0.0.12"]
+deploy = [
+    "cryptography>=43.0.0",
+    "google-api-python-client>=2.140.0",
+    "google-auth-oauthlib>=1.2.0",
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -27,3 +27,7 @@ uv.lock
 # for anyone who clears them.
 .pytest_cache/
 .ruff_cache/
+data/demo_graph.json
+
+# Runtime .ics output (the ics calendar backend writes here)
+data/ics/

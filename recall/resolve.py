@@ -84,6 +84,18 @@ T_NONMATCH = 1.0
 # separates "clearly her" from "could be any of them".
 MIN_MARGIN = 1.0
 
+# A mention with NO name -- only a description, or an unrecognised label that
+# turned up elsewhere in the record -- can be strong evidence of a TYPE of
+# person but is never proof of WHICH person. So when the name channel
+# contributes nothing at all, cap the whole total below T_MATCH: the mention can
+# land anywhere in the ambiguous band and buy a question, but can never
+# auto-resolve. Same shape as W_DESCRIPTOR_MAX caps the descriptor channel --
+# this caps the SUM, because W_DESCRIPTOR_MAX (2.0) plus notes overlap (1.5)
+# reached 3.5 with no name involved at all and silently merged "indian girl"
+# into Marvi. Measured on the real pipeline, To fix #2. Below T_MATCH by a clear
+# margin so a genuinely named, corroborated match always outranks a nameless one.
+NAMELESS_CEILING = 2.5
+
 
 class Zone(str, Enum):
     RESOLVED = "resolved"
@@ -192,6 +204,12 @@ def score(a: Agreement) -> float:
     """Weighted sum of the agreement. Higher means more likely the same human."""
     total = 0.0
 
+    # Did the name channel say anything -- agree, partially agree, or conflict?
+    # A conflict counts: the names were compared and disagreed, which is real
+    # evidence (and negative), so it is not a nameless match. Only when the
+    # channel is fully silent (name 0.0, no conflict) does the ceiling apply.
+    name_spoke = a.name > 0.0 or a.name_conflict
+
     if a.name >= 1.0:
         total += W_NAME_EXACT
     elif a.name > 0.0:
@@ -210,6 +228,10 @@ def score(a: Agreement) -> float:
     total += W_DESCRIPTOR_MAX * a.descriptor
     total += W_EVENT_AGREE * a.event
     total += min(W_NOTES_MAX, W_NOTES_MAX * a.notes)
+
+    # No name involved: cap into the ambiguous band so it asks, never merges.
+    if not name_spoke:
+        total = min(total, NAMELESS_CEILING)
     return total
 
 

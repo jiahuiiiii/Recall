@@ -1,0 +1,226 @@
+{
+  "people": [
+    {
+      "name": "Wei Lin",
+      "company": "GIC",
+      "role": "quant infrastructure lead",
+      "met_at": [
+        "the SuperAI mixer at Marina Bay Sands",
+        "the AI Engineer meetup at Funan"
+      ],
+      "notes": [
+        "about six years at GIC",
+        "their feature store is held together with cron jobs",
+        "hiring for a mid to senior quant infra role",
+        "asked how we handle backfills in Kestrel",
+        "wants two or three candidate names by Friday"
+      ],
+      "id": "p_a635e9fd",
+      "first_seen": "2026-09-03",
+      "last_seen": "2026-09-03",
+      "aliases": [],
+      "note_log": [
+        {
+          "text": "about six years at GIC",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "their feature store is held together with cron jobs",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "hiring for a mid to senior quant infra role",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "asked how we handle backfills in Kestrel",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "wants two or three candidate names by Friday",
+          "at": "2026-09-03"
+        }
+      ],
+      "contacts": {},
+      "times_met": 1
+    },
+    {
+      "name": "Arjun Menon",
+      "company": "Sea Group",
+      "role": "recommendations engineer",
+      "met_at": [
+        "the SuperAI mixer at Marina Bay Sands"
+      ],
+      "notes": [
+        "about three years in",
+        "gave the talk on embedding drift",
+        "argues you do not need a vector DB at their scale",
+        "introduced to Marcus, who has the same problem at Grab"
+      ],
+      "id": "p_00392f6d",
+      "first_seen": "2026-09-03",
+      "last_seen": "2026-09-03",
+      "aliases": [],
+      "note_log": [
+        {
+          "text": "about three years in",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "gave the talk on embedding drift",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "argues you do not need a vector DB at their scale",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "introduced to Marcus, who has the same problem at Grab",
+          "at": "2026-09-03"
+        }
+      ],
+      "contacts": {},
+      "times_met": 1
+    },
+    {
+      "name": "Priya",
+      "role": "partner at an early stage fund",
+      "met_at": [
+        "the SuperAI mixer at Marina Bay Sands"
+      ],
+      "notes": [
+        "did not catch her last name",
+        "at Antler or Jungle, I was not sure which",
+        "asked if we were raising",
+        "wants the deck next week once it is cleaned up",
+        "based in Singapore but travels to Jakarta a lot"
+      ],
+      "id": "p_fee1c6f6",
+      "first_seen": "2026-09-03",
+      "last_seen": "2026-09-03",
+      "aliases": [],
+      "note_log": [
+        {
+          "text": "did not catch her last name",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "at Antler or Jungle, I was not sure which",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "asked if we were raising",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "wants the deck next week once it is cleaned up",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "based in Singapore but travels to Jakarta a lot",
+          "at": "2026-09-03"
+        }
+      ],
+      "contacts": {},
+      "times_met": 1
+    },
+    {
+      "name": "Rachel Sim",
+      "company": "Jungle Ventures",
+      "role": "partner",
+      "met_at": [
+        "the founders dinner at Tanjong Pagar"
+      ],
+      "notes": [
+        "leads their seed practice",
+        "asked if we were raising",
+        "wants to see the deck when it is ready",
+        "does not invest outside Southeast Asia"
+      ],
+      "id": "p_29478971",
+      "first_seen": "2026-09-03",
+      "last_seen": "2026-09-03",
+      "aliases": [],
+      "note_log": [
+        {
+          "text": "leads their seed practice",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "asked if we were raising",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "wants to see the deck when it is ready",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "does not invest outside Southeast Asia",
+          "at": "2026-09-03"
+        }
+      ],
+      "contacts": {},
+      "times_met": 1
+    },
+    {
+      "name": "Chen Yu Xin",
+      "company": "Tessellate",
+      "role": "founding engineer",
+      "met_at": [
+        "the AI Engineer meetup at Funan"
+      ],
+      "notes": [
+        "seed stage, document extraction for logistics",
+        "ex-Shopee",
+        "threw out their LLM-as-judge setup because it rewarded verbosity",
+        "wants the eval paper we were reading"
+      ],
+      "id": "p_e1bde42f",
+      "first_seen": "2026-09-03",
+      "last_seen": "2026-09-03",
+      "aliases": [],
+      "note_log": [
+        {
+          "text": "seed stage, document extraction for logistics",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "ex-Shopee",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "threw out their LLM-as-judge setup because it rewarded verbosity",
+          "at": "2026-09-03"
+        },
+        {
+          "text": "wants the eval paper we were reading",
+          "at": "2026-09-03"
+        }
+      ],
+      "contacts": {},
+      "times_met": 1
+    },
+    {
+      "name": "Marcus",
+      "company": "Grab",
+      "met_at": [
+        "the AI Engineer meetup at Funan"
+      ],
+      "notes": [
+        "dealing with the same recommendations problem as Arjun"
+      ],
+      "id": "p_19e5dfeb",
+      "first_seen": "2026-09-03",
+      "last_seen": "2026-09-03",
+      "aliases": [],
+      "note_log": [
+        {
+          "text": "dealing with the same recommendations problem as Arjun",
+          "at": "2026-09-03"
+        }
+      ],
+      "contacts": {},
+      "times_met": 1
+    }
+  ]
+}

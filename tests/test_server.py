@@ -567,3 +567,128 @@ def test_the_graph_overlay_cannot_swallow_a_click():
     assert ".empty[hidden]{display:none}" in page
     empty_rule = page.split(".empty{", 1)[1].split("}", 1)[0]
     assert "pointer-events:none" in empty_rule
+
+
+class _ConfirmingGraph:
+    """A graph that pauses at `calendar` to confirm which events to write.
+
+    The second pause in the pipeline. It resumes through the same `/api/answer`
+    as the clarifying question, so the only thing distinguishing them on the
+    wire is the payload's own `type`.
+    """
+
+    CONFIRM = {
+        "type": "confirm_events",
+        "backend": "mcp",
+        "events": [
+            {"index": 0, "title": "Follow up with Wei Lin: send the Kestrel repo",
+             "date": "2026-09-09", "person_name": "Wei Lin",
+             "idempotency_key": "recall-abc123", "channel": "email"},
+            {"index": 1, "title": "Follow up with Marcus: share the list",
+             "date": "2026-09-11", "person_name": "Marcus",
+             "idempotency_key": "recall-def456", "channel": "whatsapp"},
+        ],
+    }
+
+    def __init__(self):
+        self.resumed = None
+
+    def stream(self, payload, config=None, stream_mode=None):
+        if isinstance(payload, Command):
+            self.resumed = payload.resume
+            yield {"calendar": {"calendar_events": [{"status": "created"},
+                                                    {"status": "declined"}],
+                                "messages": [AIMessage(content="Calendar: 1 created, 1 declined.")]}}
+            return
+        yield {"drafts": {"drafts": []}}
+        yield {"__interrupt__": (Interrupt(value=self.CONFIRM, id="c1"),)}
+
+    def get_state(self, config):
+        return SimpleNamespace(values={"transcript": "told Wei Lin I'd send the repo"})
+
+
+def test_a_calendar_pause_is_a_confirm_line_not_a_question(monkeypatch):
+    """Both pauses arrive as `__interrupt__`. If the server labelled them both
+    `question` the browser would render a calendar confirmation as a clarifying
+    question and there would be nothing to click."""
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: _ConfirmingGraph())
+    events = _events(client.post("/api/run", json={"transcript": "told Wei Lin"}).text)
+
+    assert events[-1]["type"] == "confirm"
+    assert not any(e["type"] == "done" for e in events)
+    assert not any(e["type"] == "question" for e in events)
+    assert events[-1]["confirm"]["backend"] == "mcp"
+    assert len(events[-1]["confirm"]["events"]) == 2
+    assert events[-1]["thread_id"]
+
+
+def test_the_confirmation_answer_resumes_the_same_run(monkeypatch):
+    graph = _ConfirmingGraph()
+    monkeypatch.setattr("web.server.build_graph", lambda **kw: graph)
+
+    paused = _events(client.post("/api/run", json={"transcript": "told Wei Lin"}).text)[-1]
+    done = _events(client.post("/api/answer",
+                               json={"thread_id": paused["thread_id"],
+                                     "answer": "0"}).text)[-1]
+
+    assert graph.resumed == "0"
+    assert done["type"] == "done"
+
+
+# --------------------------------------------------------------------------
+# Export. `business.md` promises the user can take their data with them; the
+# reason to test it is that an export which silently drops a field is worse
+# than no export -- the user believes they have a copy that they do not.
+# --------------------------------------------------------------------------
+
+
+def test_export_carries_whole_records_not_the_card_projection(graph, edges):
+    """`/api/people` picks fields for a card. Exporting through that projection
+    would drop whatever the UI does not happen to render, and the export is the
+    copy the user keeps."""
+    rec = graph.upsert(
+        {
+            "name": "Wei Han",
+            "company": "DBS",
+            "notes": ["procurement lead for tech spend"],
+            "contacts": {"phone": "+6591234567"},
+        }
+    )
+    body = client.get("/api/export").json()
+
+    exported = {r["id"]: r for r in body["people"]}[rec["id"]]
+    assert exported == graph.get(rec["id"])
+    assert body["counts"]["people"] == len(graph.all())
+
+
+def test_export_carries_the_edges_too(graph, edges):
+    """Relations live in their own file and reference people by id. People alone
+    is a graph with no edges and no way to see that any were lost."""
+    a = graph.upsert({"name": "Mei Ci"})["id"]
+    b = graph.upsert({"name": "Jerome"})["id"]
+    client.post("/api/relations", json={"a": a, "b": b, "kind": "colleague"})
+
+    body = client.get("/api/export").json()
+    assert body["counts"]["relations"] == len(body["relations"]) == 1
+    assert {body["relations"][0]["a"], body["relations"][0]["b"]} == {a, b}
+
+
+def test_export_downloads_rather_than_rendering_in_the_tab(graph, edges):
+    r = client.get("/api/export")
+    assert r.status_code == 200
+    assert "attachment" in r.headers["content-disposition"]
+    assert "recall-export.json" in r.headers["content-disposition"]
+
+
+def test_calendar_events_carry_a_google_link_except_when_declined():
+    """The web card offers one-tap add-to-Google; a declined event gets none."""
+    from web.server import _with_gcal
+
+    out = _with_gcal([
+        {"title": "Coffee", "date": "2026-09-11", "person_name": "Alex",
+         "kind": "followup", "status": "created", "idempotency_key": "recall-1"},
+        {"title": "Skipped", "date": "2026-09-11", "person_name": "Bo",
+         "status": "declined", "idempotency_key": "recall-2"},
+    ])
+    assert out[0]["gcal"].startswith("https://calendar.google.com/calendar/render")
+    assert "gcal" not in out[1]

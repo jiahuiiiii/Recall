@@ -14,7 +14,7 @@ them against people it already knows **while holding uncertainty explicitly**, a
 SimplifyNext Agentic AI hackathon. Submission **7 Sep 2026**.
 
 **Scope decision (21 Aug):** this project is the uncertainty/question direction, built on
-the working pipeline that already exists. It is *not* the full research spec — bi-temporal
+the working pipeline that already exists. It is _not_ the full research spec — bi-temporal
 graphs, contradiction sweeps and calibration curves are cut (see Future work). It is also
 no longer the enrich-and-follow-up pipeline; that tail is frozen, not extended.
 
@@ -42,8 +42,7 @@ If a change would weaken this, stop and flag it rather than proceeding.
   non-consenting third parties. Not negotiable.
 - **No attendee recommendation / "people worth meeting" scoring.**
 - **No auto-sending.** We draft; the human sends. Always.
-- **No new calendar/email/LinkedIn work.** Plumbing, not differentiation. The calendar
-  writer already exists — freeze it, don't extend it.
+- **No new email/LinkedIn work.** Plumbing, not differentiation.
 - **No new web-enrichment work.** Out of scope, and measured to be silent for most real
   contacts anyway.
 - **No POMDP solver, no AGM belief revision, no ASR fine-tuning.** Cite; don't build.
@@ -54,8 +53,8 @@ If asked to add a feature, default to no. Five minutes of demo cannot show bread
 
 ## Current status
 
-**The full pipeline works and the headline benchmark exists.** 311 tests, all offline.
-Runs from CLI or the web UI.
+**The full pipeline works and the headline benchmark exists.** 411 tests, all offline.
+Runs from the CLI, the web UI, or Telegram.
 
 ```
 transcribe -> extract -> dedupe(3-zone band) -> ask(EIG, pauses) -> (enrich | merge) -> ...
@@ -65,53 +64,114 @@ The pause is real: on an interactive run `dedupe` holds ambiguous mentions, `ask
 suspends the graph on `interrupt()`, and **the human's answer decides which branch the
 person takes**.
 
-| Piece | State |
-|---|---|
-| LangGraph supervisor, conditional edge, fan-in | **Done**, tested |
-| Transcription (Groq `whisper-large-v3`) | **Done**, ~1.2s for a 20s memo |
-| Extraction → typed `Person`, atomic `notes`, substantive filter | **Done** |
-| Candidate retrieval — stem/substring/misspelling tolerant | **Done**, 11 tests |
-| **Three-zone band** (`recall/resolve.py`) — pure, + near-tie margin | **Done**, 19 tests |
-| **EIG selection** (`recall/eig.py`) — pure, per-question reliability | **Done**, 23 tests |
-| **Question derivation** (`recall/questions.py`) — mechanical | **Done**, 32 tests |
-| **`ask_node`** — one question per memo, rejected set carried in state | **Done** |
-| Eval harness — fixtures, B³/pairwise, validator, audio→fixture | **Done** (`eval/`) |
-| Simulated answerer (`eval/strategies.py`) | **Done**, 7 tests — was untested, and was wrong |
-| **EIG vs random vs uncertainty benchmark** | **Done**, re-run 30 Aug — see below |
-| Person store, merge + consolidation, delete/patch | **Done** |
-| **User merge of two people** (`store.merge`, `/api/people/{id}/merge`, UI) | **Done 31 Aug**, 7 tests, trash file for undo |
-| **Contact handles** (`recall/contacts.py`, `PATCH /api/people/{id}`, UI) | **Done 1 Sep**, 36 tests, user-typed only — see below |
-| — the panel's contact fields commit on blur/Enter, no Save button | **Done 1 Sep** |
-| **Relationship edges** (`recall/relations.py`, `/graph`) | **Done 2 Sep**, 42 tests, display-only — see below |
-| Web UI — record, type, edit, live graph, person graph, delete | **Done**, responsive |
-| Enricher / drafter / calendar tail | Done, **frozen** (outside scope) |
-| **Multi-valued questions** (`questions.attribute_questions`) | **Done**, in the 32 above |
-| **Demo surface** — question card in the web UI, `ask` in the diagram | **Done**, 3 server tests |
-| **Answering the question** — `interrupt()`, `/api/answer`, clickable options | **Done**, 18 tests |
-| **Applying the answer** (`recall/answer.py`) — Bayes, pure | **Done**, 12 tests |
-| **Name matching** (`text.best_match`) — coverage, not single best pair | **Fixed**, see To fix #1 |
-| `arc_godwin` fixture — 14 memos, 20 people, 11 loose references | **Done**, validated |
-| `ehoc_c4` fixture — 11 memos, 14 people, 13 recurring | **Done**, validated, best-scoring arc |
-| **Eval scorer back-mapping** (`harness.align`) — one-to-one | **Fixed 30 Aug**, 8 tests |
-| **Name/descriptor channel separation** (`resolve.compare`) | **Fixed 30 Aug**, 5 tests |
-| AgentCore Memory backend | Written blind, **known broken**, never run |
-| AgentCore deploy (`01`–`04`) | Written, never run |
+| Piece                                                                        | State                                                 |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| LangGraph supervisor, conditional edge, fan-in                               | **Done**, tested                                      |
+| Transcription (Groq `whisper-large-v3`)                                      | **Done**, ~1.2s for a 20s memo                        |
+| Extraction → typed `Person`, atomic `notes`, substantive filter              | **Done**                                              |
+| Candidate retrieval — stem/substring/misspelling tolerant                    | **Done**, 11 tests                                    |
+| **Three-zone band** (`recall/resolve.py`) — pure, + near-tie margin          | **Done**, 19 tests                                    |
+| **EIG selection** (`recall/eig.py`) — pure, per-question reliability         | **Done**, 23 tests                                    |
+| **Question derivation** (`recall/questions.py`) — mechanical                 | **Done**, 32 tests                                    |
+| **`ask_node`** — one question per memo, rejected set carried in state        | **Done**                                              |
+| Eval harness — fixtures, B³/pairwise, validator, audio→fixture               | **Done** (`eval/`)                                    |
+| Simulated answerer (`eval/strategies.py`)                                    | **Done**, 7 tests — was untested, and was wrong       |
+| **EIG vs random vs uncertainty benchmark**                                   | **Done**, re-run 31 Aug at n=3 — see below            |
+| Person store, merge + consolidation, delete/patch                            | **Done**                                              |
+| **User merge of two people** (`store.merge`, `/api/people/{id}/merge`, UI)   | **Done 31 Aug**, 7 tests, trash file for undo         |
+| **Contact handles** (`recall/contacts.py`, `PATCH /api/people/{id}`, UI)     | **Done 1 Sep**, 36 tests, user-typed only — see below |
+| — the panel's contact fields commit on blur/Enter, no Save button            | **Done 1 Sep**                                        |
+| **Relationship edges** (`recall/relations.py`, `/graph`)                     | **Done 2 Sep**, 42 tests, display-only — see below    |
+| **`.ics` calendar backend** (`RECALL_CALENDAR=ics`) — no credentials, works for anyone | **Done 3 Sep**, 26 tests |
+| **One-tap "Add to Google Calendar"** (`gcal_link`, web card + bot button) — a chat app mishandles a `.ics`, a link does not | **Done 3 Sep** |
+| **Attending events** (`Commitment.kind`) — events you go to, not just follow-ups you owe | **Done 3 Sep**, in the 26 + confirm tests |
+| **Google Calendar over OAuth** (`web/google_calendar.py`, `RECALL_CALENDAR=google`) | **Done 3 Sep**, 16 tests, single-tenant |
+| **Hostable on Render** (`render.yaml`, `/healthz`, `00_check_deploy.py`) | **Done 3 Sep**, one service, never deployed |
+| Web UI — record, type, edit, live graph, person graph, delete                | **Done**, responsive                                  |
+| **Telegram bot** (`telegram_bot.py`) — voice note in, question as a keyboard | **Done 2 Sep**, 13 tests, transport only              |
+| Enricher / drafter tail                                                      | Done, **frozen** (outside scope)                      |
+| **Calendar confirmation** (`calendar_node` pauses, you tick what to add)     | **Done 2 Sep**, 27 tests                              |
+| Google Calendar over MCP (`RECALL_CALENDAR=mcp`)                             | Built, **needs your OAuth** — see Commands            |
+| **Multi-valued questions** (`questions.attribute_questions`)                 | **Done**, in the 32 above                             |
+| **Demo surface** — question card in the web UI, `ask` in the diagram         | **Done**, 3 server tests                              |
+| **Answering the question** — `interrupt()`, `/api/answer`, clickable options | **Done**, 18 tests                                    |
+| **Applying the answer** (`recall/answer.py`) — Bayes, pure                   | **Done**, 12 tests                                    |
+| **Name matching** (`text.best_match`) — coverage, not single best pair       | **Fixed**, see To fix #1                              |
+| `arc_godwin` fixture — 14 memos, 20 people, 11 loose references              | **Done**, validated                                   |
+| `ehoc_c4` fixture — 11 memos, 14 people, 13 recurring                        | **Done**, validated, best-scoring arc                 |
+| **Eval scorer back-mapping** (`harness.align`) — one-to-one                  | **Fixed 30 Aug**, 8 tests                             |
+| **Name/descriptor channel separation** (`resolve.compare`)                   | **Fixed 30 Aug**, 5 tests                             |
+| **Writeup** — plain-language, artifact + `recall-writeup.pdf`                | **Drafted 2 Sep**, states both caveats                |
+| Demo script, written and timed                                               | **Not started** — the main gap                        |
+| AgentCore Memory backend                                                     | Written blind, **known broken**, never run            |
+| AgentCore deploy (`01`–`04`)                                                 | Written, never run                                    |
 
-### Resolution baseline — measured 31 Aug (post-nickname-fix), `repeats=3`
+### Resolution baseline — re-measured 3 Sep (post-`NAMELESS_CEILING`), `repeats=3`
 
-Thresholds in force: `T_MATCH=3.0`, `T_NONMATCH=1.0`, `MIN_MARGIN=1.0`, `W_NAME_EXACT=2.5`.
-Quote them with any result.
+Thresholds in force: `T_MATCH=3.0`, `T_NONMATCH=1.0`, `MIN_MARGIN=1.0`, `W_NAME_EXACT=2.5`,
+`NAMELESS_CEILING=2.5`. Quote them with any result.
 
-| scenario | B³ F1 | B³ P | B³ R | pair F1 | subst | covrg |
-|---|---|---|---|---|---|---|
-| `arc_godwin` | 0.896 ±0.015 | 0.947 | 0.851 | 0.717 | 0.956 | 0.965 |
-| `ehoc_c4` | 0.926 ±0.045 | 0.989 | 0.874 | 0.837 | 0.971 | 0.977 |
-| `arc_godwin` | 0.896 ±0.007 | 0.947 | 0.851 | 0.718 | 0.956 | 0.956 |
-| `arc_acacia` | 0.810 ±0.000 | 1.000 | 0.681 | 0.632 | 0.873 | 0.857 |
-| `same_first_name` | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
-| `genuinely_ambiguous` | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| scenario              | B³ F1        | B³ P  | B³ R  | pair F1 | subst | covrg |
+| --------------------- | ------------ | ----- | ----- | ------- | ----- | ----- |
+| `ehoc_c4`             | 0.945 ±0.035 | 1.000 | 0.897 | 0.874   | 0.989 | 1.000 |
+| `arc_godwin`          | 0.882 ±0.007 | 0.947 | 0.825 | 0.680   | 0.952 | 0.930 |
+| `arc_acacia`          | 0.810 ±0.000 | 1.000 | 0.681 | 0.632   | 0.873 | 0.857 |
+| `arc_sales`           | 0.869 ±0.039 | 1.000 | 0.770 | 0.643   | 0.897 | 0.929 |
+| `same_first_name`     | 1.000        | 1.000 | 1.000 | 1.000   | 1.000 | 1.000 |
+| `genuinely_ambiguous` | 1.000        | 1.000 | 1.000 | 1.000   | 1.000 | 1.000 |
 
-`B³ F1 across all scenarios: 0.927 ±0.095 (n=15)` — no extraction failures this run.
+`B³ F1 across all scenarios: 0.918 ±0.095 (n=18)` — no extraction failures this run.
+
+**This re-baseline exists because `NAMELESS_CEILING` (To fix #2) changed the resolver.**
+Capping a nameless match into the ambiguous band could in principle have cost recall, so
+it was re-run against the prior `0.927 ±0.095 (n=15)`. It did not: overall B³ is
+statistically identical (0.918 vs 0.927, both ±0.095), and **precision held at 1.000 on
+every fixture except `arc_godwin` (0.947, the adjudicator — see To fix #5d), which is
+exactly what the cap is for.** A nameless description now asks instead of possibly merging
+wrong; nothing legitimate regressed. `ehoc_c4` even rose (coverage 1.000 this run).
+
+**`arc_sales` is now the third arc in the table**, not a separate note. B³ P = 1.000 — the
+two Alexes at different firms did not merge, the case no student arc can test because
+nobody in them has an employer. Recall 0.770 is the weak half: the loose references
+(`"the Deloitte guy"`, `"someone from the GIC team"`) are missed recognitions, not wrong
+merges — the right direction to fail in, and the direction the question path exists to
+fix. 13 memos, so it is still below `run_eval`'s ~20-memo "anecdote" warning; quote it
+with the number.
+
+The runtime ambiguous band flagged **164 of the mentions across the sweep**, far above the
+4 labelled ambiguous. Names plus companies produce partial matches everywhere, and
+`NAMELESS_CEILING` now holds every nameless match in the band too, so a professional
+setting feeds the EIG denominator much harder than a hall does.
+
+#### `arc_sales` question efficiency — a 4-way case, re-measured 3 Sep
+
+`run_questions.py --scenario arc_sales --repeats 3`, after adding the three-way memo
+(m12/m13: Wei Lin plus two GIC colleagues, then a nameless "someone from the GIC team"):
+
+```
+eig            0.750 ±0.000  (n=3)   100% <=1 question
+uncertainty    0.750 ±0.000  (n=3)   100%
+random         1.167 ±0.375  (n=3, min 0.750 max 1.500)   83%
+```
+
+Scorable cases per run: `[4, 4, 4]` — m2/m7/m10 at 2 hypotheses and **m13 at 4**. That
+fourth case is the point: **EIG now beats random (0.75 vs 1.17)**, where the earlier
+all-2-way version was a dead three-way tie (0.722 across the board). EIG still **ties
+uncertainty sampling**, which is honest and expected — on a flat prior (all four GIC
+records cap at `NAMELESS_CEILING`, so entropy is maximal) the two strategies often pick
+the same question. Quote it as "EIG beats random, ties uncertainty here", never as EIG
+losing.
+
+**Why two hypotheses can never separate the strategies.** With exactly two candidates
+every discriminating question is worth identical bits, so the argmax has nothing to
+choose and all three strategies agree by construction — the same property that makes
+`_spread()` show the worst question, not a plain top-N. A fixture needs a **3+**-hypothesis
+case to exercise selection at all; m13 is that case, built by giving three people one
+shared employer and then referring to them by it with no name.
+
+`arc_sales` still is not the headline on its own (one fixture, four cases). The headline
+stays the all-fixture table. But it now contributes to the question claim rather than only
+the resolution one, and it is B³ P held while doing so — see the baseline table.
 
 **A new baseline, not a delta.** The old `arc_acacia` figure (`B³ P=1.000 R=0.856
 F1=0.922`, pairwise 0.800) is superseded and must not be compared against: three things
@@ -121,7 +181,7 @@ alone; no run separates their contribution to these numbers.
 
 **Precision is a per-scenario claim, not a global one.** `arc_acacia` and `ehoc_c4` are
 at 1.000 — nothing wrongly merged, every loss a missed recognition, the right direction
-to fail in. The old blanket sentence *"precision had been 1.000 throughout"* was **false
+to fail in. The old blanket sentence _"precision had been 1.000 throughout"_ was **false
 when written**: `arc_acacia` held a real wrong merge (`marvi`+`shiny`, see Hard-won
 findings) that the broken scorer hid. `arc_godwin` sits at 0.947, and that loss is
 **the LLM adjudicator, not the band** — see To fix #5d.
@@ -166,13 +226,14 @@ the run is not. That is the fix that got this table to n=3 — see To fix #5a.
 53 memos, 108 mentions, 40 recurring people across five scenarios. `uv run
 eval/check_fixtures.py` exits 0.
 
-| Scenario | memos | people | what it carries |
-|---|---|---|---|
-| `arc_acacia` | 24 | 12 | the original arc, source of the resolution baseline |
-| `arc_godwin` | 14 | 20 | Luminia OG. **11 loose references**, 8 of which land in the ambiguous band — the EIG denominator. Four same-syllable name pairs |
-| `ehoc_c4` | 11 | 14 | Eusoff Hall orientation. **13 recurring of 14** — the densest recognition test. Four memos of descriptor-only references, and the fixture that exposed the scorer bug |
-| `same_first_name` | 2 | 2 | precision diagnostic. Merged two Alexes until 28 Aug; now 1.000 |
-| `genuinely_ambiguous` | 2 | 1 | two memos, one scored mention |
+| Scenario              | memos | people | what it carries                                                                                                                                                       |
+| --------------------- | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `arc_acacia`          | 24    | 12     | the original arc, source of the resolution baseline                                                                                                                   |
+| `arc_sales`           | 13    | 7      | **the first professional setting.** `company`/`role` populated and CONFLICTING, not silent. Two Alexes at different firms, one job change, three GIC people for a 4-way ambiguous case (m13), dated commitments in most memos |
+| `arc_godwin`          | 14    | 20     | Luminia OG. **11 loose references**, 8 of which land in the ambiguous band — the EIG denominator. Four same-syllable name pairs                                       |
+| `ehoc_c4`             | 11    | 14     | Eusoff Hall orientation. **13 recurring of 14** — the densest recognition test. Four memos of descriptor-only references, and the fixture that exposed the scorer bug |
+| `same_first_name`     | 2     | 2      | precision diagnostic. Merged two Alexes until 28 Aug; now 1.000                                                                                                       |
+| `genuinely_ambiguous` | 2     | 1      | two memos, one scored mention                                                                                                                                         |
 
 The `ambiguous` counter in `check_fixtures.py` reads the **label**, not the runtime band.
 `arc_godwin`'s eight scorable references are labelled `ambiguous: false` on purpose — you
@@ -264,7 +325,7 @@ Ordered by how much damage each one does if it ships unnoticed.
 end-to-end. `arc_godwin` B³ P=0.947 with the same-syllable pairs no longer merging on a
 shared syllable, and no legitimate match regressed. The projection held.
 
-### 2. The residual merge window — **now measured, still open**
+### 2. ~~The residual merge window~~ — **CLOSED 3 Sep (`NAMELESS_CEILING`)**
 
 No longer arithmetic-in-a-comment. Measured on the real pipeline:
 
@@ -273,13 +334,22 @@ No longer arithmetic-in-a-comment. Measured on the real pipeline:
 ```
 
 **No name channel fired at all.** `W_DESCRIPTOR_MAX` does exactly what it promises — a
-description alone cannot reach 3.0 — but description *plus* notes overlap can, and every
+description alone cannot reach 3.0 — but description _plus_ notes overlap can, and every
 person in a single-hall fixture shares vocabulary. It was the right person here; the
 arithmetic does not guarantee the next one.
 
-The fix is to cap the total when no name channel fired, the same shape as
-`W_DESCRIPTOR_MAX`. The old reason for deferring — "not before the benchmark re-run" —
-has expired; the re-run is done and there is now a clean baseline to attribute against.
+**Fixed** by `NAMELESS_CEILING` in `resolve.score()`: when the name channel contributes
+nothing (name 0.0, no conflict — the pure-descriptor path and the nickname-routed path
+both), the whole total is capped at 2.5, below `T_MATCH`. A nameless match now lands in
+the ambiguous band and buys a question instead of auto-merging. This was a **policy call,
+not just arithmetic** (decided 3 Sep): the same cap also stops a *uniquely*-identifying
+description from auto-resolving ("the german girl" with one German stored now asks too),
+because the resolver cannot tell a unique description from one that merely happens to be
+top — they score identically. The chosen trade is "always ask when no name," which costs
+a little recall to guarantee no silent nameless merge. Re-baselined: overall B³ unchanged
+(0.918 vs 0.927, both ±0.095), precision held at 1.000 everywhere the cap applies. Two
+tests moved from RESOLVED to AMBIGUOUS to encode the new policy
+(`test_resolve.py`, `test_resolve_channels.py`).
 
 ### 3. ~~`same_first_name.yaml` does not cover the student setting~~ — **the premise was wrong**
 
@@ -308,30 +378,40 @@ See Hard-won findings on projecting from the pure layer.
 `_is_name` now treats a leading article as marking a description, so `"the Catholic
 Indian"` routes to the descriptor path. `"big boss"` still does not: no article, no token
 in `DESCRIPTOR_WORDS`, so it takes the name channel, conflicts with every stored name,
-and files a duplicate. The `arc_godwin` workaround — phrasing it *"the guy everybody
-calls big boss"* — still lives in the fixture, not the code.
+and files a duplicate. The `arc_godwin` workaround — phrasing it _"the guy everybody
+calls big boss"_ — still lives in the fixture, not the code.
 
-### ~~5. Fixtures are in `.gitignore`'s negation but still uncommitted~~ — **DONE**
+### 5. Ignore rules for private data must be globs — **lesson, item closed**
 
-All five scenarios are tracked (`git ls-files eval/fixtures/`), so the negation did its
-job. `arc_godwin.original.yaml.bak` is deleted — the history is the backup now.
-
-**What the same blind spot cost elsewhere:** `data/person_graph.json` was a *literal*
-ignore rule, so the `.backup-*` and `.trash` siblings it was written to protect were
-never covered, and four of them are committed. The rule is now a glob
-(`data/person_graph*.json`). Ignore rules for private data should be globs from the
+The fixtures are tracked and the blanket `*.yaml` negation works. The same blind spot
+cost something elsewhere, which is why this stays: `data/person_graph.json` was a
+_literal_ ignore rule, so the `.backup-*` and `.trash` siblings it existed to protect
+were never covered, and four of them are committed. The rule is now a glob
+(`data/person_graph*.json`). Write ignore rules for private data as globs from the
 start — a literal only protects the one filename you thought of.
 
-### 5a. `with_structured_output` sometimes returns a JSON string, not a list
+### 5a. ~~`with_structured_output` sometimes returns a JSON string, not a list~~ — **CLOSED 3 Sep**
 
 ```
 PeopleExtraction.people: Input should be a valid list, input_type=str
 ```
 
-Killed one `arc_godwin/m13` extraction in `run_eval` and an **entire run** of
-`run_questions`, which is why the headline table is n=2 rather than n=3. Not a fixture
-problem and not deterministic. Needs a retry or a coercing validator before the headline
-is re-run, or the same run keeps dropping out.
+Killed one `arc_godwin/m13` extraction in `run_eval` and once an **entire run** of
+`run_questions`. Not a fixture problem and not deterministic.
+
+Closed on three fronts, all now in place:
+
+1. **Coercing validators on every model-filled list field.** `decode_list` was already
+   on `PeopleExtraction.people` and `Person.notes/aliases`; it is now also on
+   `CommitmentExtraction.commitments`, `DraftBundle.drafts`, and
+   `ConsolidatedRecord.notes/met_at`. A correctly-encoded-but-stringified list is decoded
+   rather than rejected. Tested in `test_state_coercion.py`.
+2. **Retry on genuinely malformed output.** `extract_people_node` already retries 3× on
+   `ValidationError` — for output that is corrupt JSON (`met_at` after the object close),
+   not just over-encoded, coercion cannot help and only a resample can.
+3. **Per-memo isolation in both harnesses.** `run_eval` and `run_questions` each wrap a
+   memo in try/except and skip on failure, so one bad extraction costs its cases, never
+   the run. This is what the "entire run" note refers to; it can no longer happen.
 
 ### 5d. `arc_godwin`'s precision loss is the adjudicator, not the resolver
 
@@ -355,7 +435,7 @@ runs because nobody is there to answer.
 path.** On an interactive run those mentions are held and one of them buys a question.
 This is the mirror image of the `arc_acacia` merge: there the band failed and the merge
 was silent; here the band worked and the component that exists only because the human is
-absent got it wrong. Say so in the writeup — the cost of *not* asking is visible in that
+absent got it wrong. Say so in the writeup — the cost of _not_ asking is visible in that
 0.947, which cuts toward the claim rather than against it.
 
 Do not "fix" this by tightening the adjudicator prompt before the writeup. It is
@@ -389,7 +469,7 @@ out-of-graph path up and add `noise` to `_shown()`, or delete both functions.
 
 Role-only references are not extracted; plural references yield one entity; the
 "someone new" prior is a placeholder at 1.5%; the benchmark rests on one setting. See
-**Known limitations**. A Whisper mis-hear that changes the *first* token
+**Known limitations**. A Whisper mis-hear that changes the _first_ token
 (`Zhong Xuan` → `Jong Shuen`) scores 0.00 and does not match at all — this is unchanged
 by the fix and is exercised by `arc_godwin` m14.
 
@@ -399,21 +479,113 @@ by the fix and is exercised by `arc_godwin` m14.
 
 Measurement and words, not building. Nothing here needs a new feature.
 
-1. **Fix the structured-output string bug, then re-run the headline at n≥3.** The
-   30 Aug table is n=2 because one run died on it (To fix #5a). Fixing it first is the
-   cheaper order — otherwise the same run keeps dropping out and every re-run costs a
-   third of its value.
-2. **Commit the fixtures.** They are untracked; `arc_godwin.original.yaml.bak` goes once
-   they have history.
-3. **The backend.** `recall/memory_agentcore.py` is architecturally wrong and has never
-   run; deploying with `RECALL_MEMORY=agentcore` as-is would make every known person look
-   new. Read **AgentCore Memory — must fix before deploying** before starting, and test
-   against a throwaway memory resource, never the live graph.
-4. **Seed the demo data** — `uv run seed_demo.py --write`.
-5. **The writeup.** There is a real result to report, and it is now measured rather than
-   projected. Two things must be said plainly: the headline is n=2, and question
-   efficiency is coupled to `W_NAME_EXACT` rather than independent of it.
-6. **The demo script**, written and timed, then rehearsed.
+1. **The demo script**, written and timed, then rehearsed. Build it backwards from
+   the demo arc below; the money shot is the EIG of the questions it did not ask.
+2. **Seed the demo data** — `uv run seed_demo.py --write`. Cold start is real: with no
+   prior records nothing is ambiguous, so the differentiating behaviour never fires.
+3. ~~Fix the structured-output string bug (To fix #5a).~~ **Done 3 Sep** — coercing
+   validators on every model list output, plus per-memo isolation in both harnesses.
+4. **The backend, only if deploying.** `recall/memory_agentcore.py` is architecturally
+   wrong and has never run; deploying with `RECALL_MEMORY=agentcore` as-is would make
+   every known person look new. Read **AgentCore Memory — must fix before deploying**
+   first, and test against a throwaway memory resource, never the live graph.
+
+**The writeup is drafted** — plain-language, published as an artifact and exported to
+`recall-writeup.pdf`. It states both caveats plainly: question efficiency is coupled to
+`W_NAME_EXACT` rather than independent of it, and the benchmark rests on one kind of
+setting. Keep those two sentences in any version of it.
+
+---
+
+## `docs/business.md` — the sales framing, sorted into tasks
+
+`business.md` is a **positioning document, not a spec.** Read it that way before
+building anything from it: most of what it describes is already built, one item is
+genuinely valuable, several would move the benchmark, and the pitch framing contradicts
+this file. Sorted by what each one actually costs.
+
+### ~~One conflict that needs a human decision~~ — **DECIDED 2 Sep: promise-keeping**
+
+`business.md` used to close on _"Recall prevents valuable sales opportunities from being
+lost."_ **Pitch framing** in this file says never frame Recall as extracting value from
+contacts later, because the brief asks for solutions that leave people genuinely better
+off. Those were not the same story, and a judge reading the writeup after hearing the
+pitch would have noticed.
+
+**Settled the honest way: _"you keep the promises you made."_** A sales outcome and a
+decency outcome at once, and what the frozen tail already does. `business.md` now closes
+on that line and says outright that Recall is not positioned as a way to extract value
+from contacts later; the README paragraph that flagged the conflict records the same
+decision. The two documents agree, so **the conflict is closed — do not re-raise it, and
+do not reintroduce opportunity-capture language into either one.**
+
+The writeup never carried the old framing (checked: no occurrence of "sales",
+"opportunity" or "promise" in `recall-writeup.pdf`), so nothing there needed changing.
+
+### A. Already built — the task is to say so, not to build it
+
+`business.md`'s "Hackathon MVP" is seven steps and **six of them ship today**, in the
+tail this file freezes. Nothing here is a to-do:
+
+| business.md step                         | Where it already lives                                 |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Transcribe the memo                      | `nodes/transcribe.py`, Groq Whisper                    |
+| Extract person, company, role, needs     | `nodes/extract.py` → `Person`                          |
+| New lead or existing contact             | `resolve.py`, the three-zone band                      |
+| Ask a clarification question when unsure | `eig.py` + `questions.py` + `ask_node` — **the claim** |
+| Persistent relationship history          | `memory.py`, `note_log`, `times_met`                   |
+| Detect promised follow-ups               | `nodes/followups.py::commitments_node` (frozen)        |
+| Calendar reminder after confirmation     | `nodes/calendar.py`, `interrupt()` gate (frozen)       |
+| Personalised follow-up draft             | `nodes/followups.py::drafter_node` (frozen)            |
+
+The gap between `business.md` and the repo is **narrative, not code.** Do not re-derive
+any of the above; do not "extend" the frozen tail to make it look more sales-shaped.
+
+### B. Worth doing — cheap, and each one helps the defensible claim
+
+1. **A professional-setting fixture** (`eval/fixtures/arc_sales.yaml`, ~10 memos, 8–10
+   people). **The highest-value item in `business.md`,** and the only one that touches
+   the benchmark in the right direction. All three current arcs are one hall or one OG,
+   where everyone shares an event and nobody has a `company` — which is exactly the
+   caveat under **The benchmark rests on one setting**. A sales arc populates `company`
+   and `role`, so those channels finally _conflict_ rather than sitting silent, and
+   `same_first_name` stops being the only professional data point in the whole eval.
+   Validate with `check_fixtures.py`, then re-run both tables and quote the thresholds.
+   Expect the numbers to move; that is the point of writing it.
+2. **Re-skin the demo memos to the sales scenario** — `seed_demo.py`, `data/memos/`.
+   Zero code. Day 1 logs Alex from Deloitte, day 2 is the ambiguous second Alex. The
+   pipeline does not care what setting the memo is from, so this is text.
+3. **`GET /api/export`** — the store as a JSON download. `business.md` promises users can
+   export even at the free-plan limit, and that promise costs about ten lines because
+   `LocalPersonStore` is already JSON. Do it for the principle (a contact book you
+   cannot get out of is one you stop trusting), not for the plan tier.
+
+### C. Would move the benchmark — do not build before the writeup
+
+4. **"Sales opportunity" / "needs" as a field on `Person`.** This is the third time this
+   shape has come up (contact handles, relationship edges, now this) and the answer is
+   the same: adding a field changes the extraction call that also emits `name`, `notes`
+   and `company` — fields `compare()` reads — and `temperature=0` is not determinism, so
+   **both tables need re-running for a value that is already sitting in `notes` as
+   prose.** If it must exist, it is a separate post-hoc call over the stored notes,
+   exactly like `relations.py`. Never folded into `extract`.
+5. **Ranking follow-ups by urgency.** One step from the "no attendee recommendation /
+   people worth meeting scoring" non-goal, and it is scoring people either way. Cut.
+6. **Auto-sending the draft.** Explicit non-goal, and `business.md` agrees with this file
+   without noticing — every one of its flows ends in a human confirming.
+
+### D. Business-model plumbing — out of scope, and blocked on the same wall
+
+7. **Freemium quotas** (50 contacts, memos per month) and **the upgrade trigger.** Needs
+   accounts, which the repo does not have.
+8. **Team plan, shared records, lead ownership, HubSpot/Salesforce.** All of it needs
+   multi-tenancy, and the store is **structurally single-tenant**: `get_store()` is
+   process-global on one `RECALL_STORE_PATH`, which is the same wall
+   `telegram_bot.py`'s chat allowlist exists to hold. Per-user stores is a rewrite of
+   `memory.py`, not a flag. Cite as roadmap; build none of it.
+
+**If a demo minute is spent on the business model it is a minute not spent on the
+question card.** The benchmark table is still the headline.
 
 ---
 
@@ -443,7 +615,7 @@ voice memo (or typed text)
      persist        merge into record        EIG question → interrupt()
         └──────────────┴──────────────┬───────────┘
                                       ▼
-                        [frozen tail: commitments → drafts → calendar]
+         [commitments → drafts → calendar: confirm(interrupt) → write]
                                       ▼
                                    summary
 ```
@@ -460,6 +632,92 @@ voice memo (or typed text)
   list fields, so a shortened list written through it re-adds what the user just deleted.
 - **Guards belong in code, not prompts.** Where a model must be careful, make the
   pipeline not require carefulness.
+
+## Repository layout
+
+Verified against the tree on 2 Sep 2026. `uv run pytest tests/ -q` → 352 passed.
+
+```
+recall/                     the pipeline
+  __init__.py               loads .env — must happen here, not in a submodule
+  _common.py                chat_model(), UsageCallback, LEDGER, PRICING, cached_system()
+  state.py                  the one TypedDict + every structured-output model
+  graph.py                  supervisor graph: nodes, conditional edge, fan-in
+  agent.py                  AgentCore entrypoint — translates payloads, same graph
+  resolve.py                three-zone band, pure scoring, no model call        [19 tests]
+  eig.py                    entropy, posterior, EIG, the two baselines. Pure    [23 tests]
+  questions.py              questions derived mechanically from stored facts    [32 tests]
+  answer.py                 applies one answer under the SAME Bayes update      [12 tests]
+  text.py                   token matching shared by retrieval and resolution
+  memory.py                 PersonStore protocol + LocalPersonStore (JSON)
+  memory_agentcore.py       AgentCore backend — WRITTEN BLIND, NEVER RUN, BROKEN
+  contacts.py               phone/Instagram/Telegram/LinkedIn, user-typed only  [36 tests]
+  relations.py              relationship edges, derived post-hoc, display-only  [42 tests]
+  tags.py                   tags for filtering — model-derived, not lexical
+  mcp_client.py             minimal stdio MCP client, only what calendar needs
+  nodes/                    one file per graph node
+    transcribe · extract · dedupe · ask · merge · persist · summarize
+    calendar                 <- proposes, pauses to confirm, then writes
+    enrich · followups       <- the frozen tail, outside scope
+  tools/                    transcribe (Groq) · web (search) · calendar
+                            calendar: local | ics | google | mcp; .ics + gcal_link;
+                            Commitment.kind branches followup vs attending
+
+eval/                       the benchmark — the hardest part to rebuild
+  harness.py                fixture loading, the sweep, align() back-mapping
+  metrics.py                B³ and pairwise clustering scores. Pure
+  strategies.py             EIG vs random vs uncertainty + simulated answerer   [7 tests]
+  run_eval.py               resolution baseline      → the B³ table
+  run_questions.py          question efficiency      → the headline table
+  check_fixtures.py         validator — free, no model calls, exits 0
+  from_audio.py             record a memo straight into a fixture
+  fixtures/                 arc_acacia · arc_godwin · arc_ehoc (id: ehoc_c4)
+                            arc_sales · same_first_name · genuinely_ambiguous
+
+tests/                      411 tests, offline, no credentials, no spend
+  fakes.py                  scripted fake models — how the graph is tested
+  test_ics · test_telegram · test_google_oauth · test_calendar_confirm  (+ 20 more)
+
+web/                        the demo UI — no framework, no build step
+  server.py                 FastAPI: transcribe + streamed graph run + /api/*
+  index.html                record a memo and watch the run
+  people.html               everyone, as a filterable grid
+  graph.html                connections — hand-rolled force layout
+  app.css · shared.js       shared styling and the client-side haystack filter
+
+data/                       gitignored — the user's real people
+  person_graph.json         the person graph (+ .backup-* and .trash siblings)
+  relations.json            relationship edges
+  memos/ · audio/           sample input
+  demo_seed.json            committed seed cast (sales); demo_graph.json is its
+                            gitignored working copy — see Demo hosting below
+
+web/google_calendar.py      OAuth flow + encrypted token, for RECALL_CALENDAR=google
+render.yaml                 Render blueprint — free-tier demo config + paid appendix
+
+00_check_bedrock.py         must print OK before any Bedrock run
+01_run_local.py             localhost:8080, FREE — test here first
+02_deploy.py                BILLABLE from here
+03_teardown.py              run this when done
+04_call_agent.py            call the deployed runtime
+00_check_calendar.py        probes the calendar backend — free, writes nothing
+00_check_deploy.py          preflight for hosting — config only, spends nothing
+telegram_bot.py             Telegram front-end — long-poll, transport only
+run_demo.py                 CLI: one memo through the pipeline
+seed_demo.py                --write seeds the demo graph
+backfill_times_met.py       one-off migration, already applied
+
+docs/                       secondary docs, out of the root
+  business.md               the sales framing (positioning, not a spec)
+  DEMO.md                   demo-recording runbook
+  upgrade.md                the hosting how-to this session's deploy work followed
+  USE_CASES.md              post-hackathon parking lot
+recall-writeup.pdf          the writeup, kept at root as the submission artifact
+```
+
+**The fixture filename and its scenario id differ**: the file is `arc_ehoc.yaml`, the id
+inside it — the one `--scenario` takes and every table prints — is `ehoc_c4`. Both names
+are correct; neither is a typo to fix.
 
 ## Known limitations
 
@@ -531,8 +789,8 @@ Consequences worth knowing before calling it broken:
   five plausible proposals grounded to two. The dropped three were pairs whose
   notes never mention each other — the `tags.py` failure mode (predicates true
   of everyone), which here would be an assertion about two real people.
-- **An unrecorded nickname breaks grounding.** A note saying *"Marc calls her
-  Crispy"* does not ground an edge to a record named `Marcus` unless `Marc` is
+- **An unrecorded nickname breaks grounding.** A note saying _"Marc calls her
+  Crispy"_ does not ground an edge to a record named `Marcus` unless `Marc` is
   in its `aliases`. Same class as the "nickname in the wrong field" finding
   below, and the same remedy: the user merges, or draws the edge by hand.
 - **User-drawn edges are never withdrawn by a refresh** (`replace_derived`
@@ -546,7 +804,7 @@ Consequences worth knowing before calling it broken:
   people studying computer science are not classmates. They are drawn dashed,
   behind their own switch, and no refresh writes them. They carry the tag as a
   label and get their own "Shares a tag" card in the side panel — unlabelled,
-  a dashed line said only *that* two people were linked, never *why* — and both
+  a dashed line said only _that_ two people were linked, never _why_ — and both
   are kept visually and structurally apart from recorded relationships, because
   merging the two lists would quietly promote a coincidence of vocabulary into
   something the notes said.
@@ -638,9 +896,9 @@ Getting these wrong silently corrupts the benchmark rather than erroring.
   is the alias case ("Chong Jie" / "CJ"); different clusters are exclusive, so a collapse
   still costs.
 - **Three things look like "I don't know who this is" and only one is ambiguous:**
-  - *new person, described not named* → own cluster, `ambiguous: false`
-  - *known person, described not named* → their cluster, `ambiguous: false` (tests retrieval)
-  - *genuinely cannot tell between 2+ known people* → `UNRESOLVED` + `ambiguous: true`
+  - _new person, described not named_ → own cluster, `ambiguous: false`
+  - _known person, described not named_ → their cluster, `ambiguous: false` (tests retrieval)
+  - _genuinely cannot tell between 2+ known people_ → `UNRESOLVED` + `ambiguous: true`
     — **only this is EIG's job**
 - **`substantive: false` + `ambiguous: true` is incoherent.** Non-substantive mentions are
   filtered before resolution runs, so `ambiguous` is never acted on.
@@ -649,7 +907,7 @@ Getting these wrong silently corrupts the benchmark rather than erroring.
 
 ## The three guards (do not remove without a replacement)
 
-Each exists because a model *told* to be careful was observed not being careful, and each
+Each exists because a model _told_ to be careful was observed not being careful, and each
 failure was invisible in the output.
 
 1. **Passing-mention filter** (`extract`). The model sets an explicit `substantive`
@@ -685,13 +943,45 @@ failure was invisible in the output.
 
 ```bash
 uv sync --extra audio --extra web --extra aws
-uv run pytest tests/ -q          # 311 tests, offline, no credentials, no spend
+uv run pytest tests/ -q          # 411 tests, offline, no credentials, no spend
 
 uv run 00_check_bedrock.py       # must print OK before any Bedrock run
 uv run 00_check_bedrock.py --list-models [--verbose]   # probes, doesn't just list
 
 uv run web/server.py             # http://localhost:8000 — the demo UI
 uv run run_demo.py [file] [--reset]
+
+# Telegram front-end. Needs no public URL — it long-polls getUpdates.
+#   1. @BotFather -> /newbot -> TELEGRAM_BOT_TOKEN=... in .env
+#   2. uv run telegram_bot.py, message the bot; it prints the chat id
+#   3. TELEGRAM_ALLOWED_CHAT_IDS=<that id> in .env, restart
+# The allowlist is load-bearing, not politeness: get_store() is process-global
+# on one RECALL_STORE_PATH, so a second chat resolves against your contacts.
+uv run telegram_bot.py
+
+uv run 00_check_calendar.py      # probes the calendar backend, writes nothing
+
+# Google Calendar over MCP. Local JSON ledger is the default and needs nothing.
+#   1. in .env:  RECALL_CALENDAR=mcp
+#                GCAL_MCP_COMMAND=npx -y @cocal/google-calendar-mcp
+#                GCAL_MCP_TOOL=create-event
+#   2. Google Cloud: OAuth client (Desktop), Calendar API on, you as a test user
+#   3. GOOGLE_OAUTH_CREDENTIALS=/abs/path/gcp-oauth.keys.json — the SERVER's own
+#      credential, nothing to do with Bedrock. Without it the server exits during
+#      startup and `mcp_client` reports only "closed the connection"; it captures
+#      stderr and never reads it, so the actual reason is invisible. Confirmed
+#      2 Sep by probing.
+#   4. first run opens a browser once to consent; the server caches the token
+# The confirmation gate runs either way — the backend only decides where an
+# approved event lands.
+
+uv run 00_check_deploy.py        # preflight before hosting; --new-key for the token key
+# Hosted (Render): ONE service, not two. A Render disk attaches to a single
+# service, so a separate Telegram worker cannot read the OAuth token the web
+# service writes. RECALL_TELEGRAM=1 runs the poller in-process.
+#   uv run uvicorn web.server:app --host 0.0.0.0 --port $PORT
+# Free tier has NO disk and spins down: the person graph and the Google token
+# are wiped on every redeploy. A memory product that forgets is not demoable.
 
 uv run 01_run_local.py           # localhost:8080, FREE — test here first
 uv run 02_deploy.py              # BILLABLE from here
@@ -702,7 +992,7 @@ uv run 03_teardown.py            # run this when done
 
 - Personal account, IAM user + access keys. No SSO. Region `ap-southeast-1`.
 - **Anthropic and OpenAI models are blocked** — third-party marketplace subscriptions
-  gated behind an unsubmitted *Anthropic use case details* form. Symptom is
+  gated behind an unsubmitted _Anthropic use case details_ form. Symptom is
   `ValidationException: invalid model identifier`, which reads like a typo. Amazon Nova
   is first-party and works.
 - **While that gate is outstanding, Bedrock's answers are inconsistent** — the same model
@@ -725,7 +1015,7 @@ uv run 03_teardown.py            # run this when done
   source: the case set itself moves (4–6 mentions on identical fixtures). It reported a
   lucky single sample as a result.
 - **The simulated answerer was confirming facts the gold person did not hold.**
-  Found 24 Aug. `truthful_answer` matched the *phrased question* against the record at
+  Found 24 Aug. `truthful_answer` matched the _phrased question_ against the record at
   an overlap of 0.55. "Do they live at the 18th floor?" scored **0.583** against "lives
   on the 4th floor" — the verb and the noun `floor` are shared, only the value differs —
   so the simulated user on the 4th floor said **yes** to the 18th. Every strategy was
@@ -777,7 +1067,7 @@ uv run 03_teardown.py            # run this when done
   measuring the guesser, not the product's question path.
 
 - **A broken scorer corrupts a benchmark instead of failing it.** `eval/harness.py`
-  matched system output to gold mentions on `_overlap` — *any* shared token, stopwords
+  matched system output to gold mentions on `_overlap` — _any_ shared token, stopwords
   included. In a memo of descriptor references ("the tennis boy with square glasses" /
   "the tennis girl with round gold glasses") every mention matched every other, so
   `_assign`'s first-match-wins walk collapsed three correctly-extracted people onto one
@@ -789,24 +1079,24 @@ uv run 03_teardown.py            # run this when done
   scorer before the pipeline.**
 
 - **A description laundered through `aliases` comes back as a name.** `compare()` asked
-  "does this side have *any* real name?" and then compared every name×alias pair. So
+  "does this side have _any_ real name?" and then compared every name×alias pair. So
   merging "the indian girl" into Marvi stored that phrase in her aliases, and four memos
   later "the Catholic Indian" matched it at 1.00 on `indian`, took the **uncapped** name
   channel, and merged a second stranger. `W_DESCRIPTOR_MAX` exists precisely so a
   description can never auto-resolve — it holds only on first contact. The cascade was
   order-dependent: the identical mention scores −1.35 → NEW if the earlier descriptor had
   not merged first. Fixed by splitting names from descriptions **entry by entry**. Same
-  function also fed `_descriptor_match` the *record's own* labels when the mention was
+  function also fed `_descriptor_match` the _record's own_ labels when the mention was
   named, comparing a record against itself for a free `desc=1.00`.
 
 - **Arithmetic projected from the pure resolve layer has now disagreed with the real
   pipeline twice.** To fix #1 (`Hui Ning`/`Hui Wen`) and To fix #3 (the two Alexes) were
   both worked out with hand-written `Person` dicts. The second was wrong in a way that
-  inverted its conclusion: the doc assumed `company` and `role` carried *conflicting*
+  inverted its conclusion: the doc assumed `company` and `role` carried _conflicting_
   values, but the extractor leaves both `None` and puts the content in `notes` as prose.
   Silent (`-`) versus conflicting (`0.00`) is a **3.25-point swing** and decided the case.
-  The pure layer is the right place to *unit-test* a rule and the wrong place to
-  *predict* an outcome — what reaches it is whatever the LLM chose to populate. Write
+  The pure layer is the right place to _unit-test_ a rule and the wrong place to
+  _predict_ an outcome — what reaches it is whatever the LLM chose to populate. Write
   projections as "projected", and run the pipeline before believing them.
 
 - **A shared syllable is not a shared name.** `best_match` scored the single best token
@@ -818,7 +1108,7 @@ uv run 03_teardown.py            # run this when done
   the shorter name. See To fix #1 and #2.
 - **A precision test only tests the setting it was written in.** `same_first_name.yaml`
   passed for two years' worth of runs and never covered the student case, because it
-  relies on company/role *conflict* to push the score down and students have neither
+  relies on company/role _conflict_ to push the score down and students have neither
   field. A guard that passes because the data happens to supply a conflicting field is
   not a guard. See To fix #3.
 - **`notes` is `list[str]`, one atomic fact per entry** — never one jammed string.
@@ -827,7 +1117,7 @@ uv run 03_teardown.py            # run this when done
 
   **Atomicity serves the QUESTIONS, not the matching.** `resolve.compare` does
   `tokens(" ".join(notes))` — it joins everything before tokenising, so entry
-  boundaries have *zero* effect on the resolution score. What depends on them is
+  boundaries have _zero_ effect on the resolution score. What depends on them is
   `questions.py`, which reads notes per entry: one note becomes one candidate
   fact becomes one question, and a compound entry yields a compound question
   that is unanswerable yet still scores in bits and still gets asked. Plus
@@ -845,6 +1135,7 @@ uv run 03_teardown.py            # run this when done
   A regex shortcut does not work: the fact-shaped pattern in `questions.py`
   matches "was hungry" and misses "came to my room", so it mislabels in both
   directions. A real split needs the model.
+
 - **`el.hidden` does nothing against an author `display` rule, and fails silently.**
   The `hidden` attribute hides an element only through the UA rule
   `[hidden]{display:none}`, which ANY author `display` declaration outranks. The
@@ -876,7 +1167,7 @@ uv run 03_teardown.py            # run this when done
   truth; every name is a candidate with a confidence, which is what the architecture
   already does.
 - **Never trust a hotword-biased spelling.** Biasing transcription toward a known contact
-  list can make the model *insert a name that was never spoken*. If hotwords are ever
+  list can make the model _insert a name that was never spoken_. If hotwords are ever
   added, the output is still a candidate, never ground truth.
 
 ## Cost discipline
@@ -911,9 +1202,10 @@ uv run 03_teardown.py            # run this when done
   ```
 
   Rules: **invalidate, never delete** — set `valid_to`, keep the row; history is the
-  point. A person is a *cluster of mentions*, not a row that gets overwritten. Every
+  point. A person is a _cluster of mentions_, not a row that gets overwritten. Every
   attribute needs an `evidence_span` — if the model can't point at the transcript, it's
   a hallucination, drop it.
+
 - **Contradiction sweep.** Background job (Letta sleep-time pattern); sequential conflict
   (robotics → fintech, months apart) = life change, auto-update; overlapping conflict =
   one is wrong, queue for a question.
@@ -937,9 +1229,9 @@ How the service actually works (verified against the installed SDK):
 - **Events = short-term.** `create_event(memory_id, actor_id, session_id, messages)`
   stores raw `(text, role)` turns, retained `event_expiry_days` (default 90).
 - **Extracted records = long-term.** Attach **strategies** (`semantic`, `summary`,
-  `user_preference`, `episodic`, custom); AgentCore runs *its own LLM* over your events
+  `user_preference`, `episodic`, custom); AgentCore runs _its own LLM_ over your events
   **asynchronously** into path-like namespaces (`/actor/Jane/`). `retrieve_memories()`
-  searches *those*.
+  searches _those_.
 
 What the current implementation gets wrong: it writes a JSON blob via `create_event` and
 reads it back with `retrieve_memories` expecting the same JSON; attaches no strategy, so
@@ -948,7 +1240,7 @@ read-after-write within one run; and uses a namespace that doesn't match the pat
 
 **Recommended fix — durable storage, not extraction engine.** Keep our `PersonRecord`
 schema and our resolution logic; store records as events and read them back with
-`list_events` (synchronous, raw). Optionally *also* attach a semantic strategy for bonus
+`list_events` (synchronous, raw). Optionally _also_ attach a semantic strategy for bonus
 fuzzy recall, with local lexical search as fallback.
 
 Setup order: attach `bedrock-agentcore` IAM permissions → `create_memory_and_wait`
@@ -980,5 +1272,6 @@ from contacts later. The brief asks for solutions that leave people genuinely be
 - **Don't** add a framework, technique, or sub-agent unless the simpler version has
   demonstrably failed — justify the cost in a comment.
 - **Don't** flatten the graph. The conditional routing and sub-agents _are_ the score.
-- **Don't** extend the frozen tail (enrichment, drafts, calendar).
+- **Don't** extend the frozen tail (enrichment, drafts). The calendar's confirmation
+  gate was a deliberate exception on 2 Sep — see Non-goals; it does not reopen the tail.
 - **Don't** leave AgentCore running after a test session.

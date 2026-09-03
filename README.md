@@ -36,7 +36,9 @@ voice memo
                        ▼
             extract_commitments → draft_followups (sub-agent)
                        ▼
-        calendar_write → persist to memory → summary
+        calendar_write  (confirm what to add, then write)
+                       ▼
+              persist to memory → summary
 ```
 
 The **dedupe → new/known** branch and the **enricher** / **drafter** sub-agents are the
@@ -181,10 +183,68 @@ The page shows four things:
 
 Use Chrome. Microphone access needs `localhost` or HTTPS, so don't demo off a LAN IP.
 
+### Telegram (send a voice note from your phone)
+
+```bash
+uv sync --extra audio            # `--extra web` is not needed; httpx is a core dep
+uv run telegram_bot.py
+```
+
+Three steps of setup, once:
+
+1. Message [@BotFather](https://t.me/botfather), `/newbot`, copy the token into `.env`
+   as `TELEGRAM_BOT_TOKEN=`.
+2. Run the bot and message it. It refuses you and **prints your chat id**.
+3. Put that id in `.env` as `TELEGRAM_ALLOWED_CHAT_IDS=` and restart.
+
+Then hold the mic button, talk for ninety seconds, and send. The bot transcribes, echoes
+the transcript back so a misheard name is visible before any tokens are spent, runs the
+graph, and — if a mention is genuinely ambiguous — **asks its one question as a
+keyboard**, with the bits it bought and the questions it turned down printed underneath.
+Tap an answer and the run resumes where it paused.
+
+```
+❓ What do they study at NUS?
+
+about the malaysian chinese girl
+worth 0.803 bits of the 1.270 outstanding
+
+who it might be:
+  Kit Yee — 49%
+  Crispy — 47%
+
+questions it did not ask:
+  0.038 — Also from malaysian chinese independent school?
+  0.000 — Same school as you?
+
+[ computer science ] [ business analytics ] [ something else ]
+```
+
+Why a chat client when the web UI already records memos: a chat is the **natural shape
+for `interrupt()`**. The graph pauses on one question, Telegram renders it as a keyboard,
+the tap resumes the run. The browser has to fake that with a streamed response body and a
+second endpoint. It is also the only surface where the memo gets recorded where memos
+actually happen — walking out of the event, on your phone.
+
+Three things worth knowing before you demo it:
+
+- **The allowlist is load-bearing, not politeness.** `get_store()` is process-global on
+  one `RECALL_STORE_PATH`, so an unlisted chat would resolve its people against *your*
+  contacts. Per-user stores is a rewrite of [recall/memory.py](recall/memory.py), not a
+  flag, so until then the bot answers the chats you name and nobody else.
+- **A pending question does not survive a restart.** The paused run lives in an
+  `InMemorySaver`, same trade-off as the web UI. Tap a stale button and you get *"that
+  question has expired"* rather than a stack trace, but the run is gone.
+- **One pause per chat**, because the thread id *is* the chat. Send a second memo while a
+  question is open and it tells you to answer it or `/cancel`.
+
+Long polling, not a webhook — `getUpdates` needs no public HTTPS URL, no tunnel and no
+certificate, which is what you want running off a laptop on stage.
+
 ### CLI
 
 ```bash
-uv run pytest tests/ -q         # 312 tests, offline, no credentials, no spend
+uv run pytest tests/ -q         # 411 tests, offline, no credentials, no spend
 uv run 00_check_bedrock.py      # must print OK before any Bedrock run
 
 uv run run_demo.py              # built-in demo memo
@@ -231,31 +291,74 @@ uv run 03_teardown.py      # run this when done
 
 ## Layout
 
+```
+recall/          the pipeline          eval/         the benchmark
+  state.py       one TypedDict           harness.py    fixtures, sweep, align()
+  graph.py       supervisor graph        metrics.py    B³ + pairwise. Pure
+  resolve.py     three-zone band         strategies.py EIG vs the two baselines
+  eig.py         EIG + baselines         run_eval.py       → the B³ table
+  questions.py   derived questions       run_questions.py  → the headline table
+  answer.py      applying an answer      check_fixtures.py validator, free
+  text.py        token matching          from_audio.py     memo → fixture
+  memory.py      the person graph        fixtures/         5 scenarios
+  relations.py   relationship edges
+  contacts.py    handles, user-typed   web/          the demo UI, no framework
+  tags.py        filter tags             server.py     FastAPI + /api/*
+  _common.py     chat_model(), ledger    index.html    record and watch a run
+  agent.py       AgentCore entrypoint    people.html   everyone, filterable
+  mcp_client.py  stdio MCP client        graph.html    connections
+  nodes/         one file per node       app.css       shared styling
+  tools/         transcribe, web, cal    shared.js     client-side filtering
+
+telegram_bot.py  Telegram front-end — long-poll, voice note in, keyboard out
+```
+
 | Path | What it is |
 |---|---|
 | [recall/graph.py](recall/graph.py) | The supervisor graph — nodes, conditional edge, fan-in |
 | [recall/state.py](recall/state.py) | The one `TypedDict` + every structured-output model |
-| [recall/memory.py](recall/memory.py) | The person graph. `PersonStore` protocol, local + AgentCore backends |
 | [recall/resolve.py](recall/resolve.py) | The three-zone band — pure scoring, no model |
 | [recall/eig.py](recall/eig.py) | Expected information gain, the Bayes update, and the two baselines |
 | [recall/questions.py](recall/questions.py) | Candidate questions derived mechanically from stored attributes |
 | [recall/answer.py](recall/answer.py) | Applying one answer, with the same likelihood EIG scored it under |
 | [recall/text.py](recall/text.py) | Token matching shared by retrieval and resolution |
+| [recall/memory.py](recall/memory.py) | The person graph. `PersonStore` protocol, local + AgentCore backends |
 | [recall/relations.py](recall/relations.py) | Relationship edges between people — derived post-hoc, display-only |
+| [recall/contacts.py](recall/contacts.py) | Phone, Instagram, Telegram, LinkedIn. Storage and display only |
+| [recall/tags.py](recall/tags.py) | Tags for filtering — read off the notes by a model, never lexically |
+| [recall/agent.py](recall/agent.py) | AgentCore entrypoint. Translates payloads; the graph is the same one |
 | [recall/_common.py](recall/_common.py) | `chat_model()`, cost ledger, pricing table, cache helper |
-| [recall/nodes/](recall/nodes/) | One file per graph node |
+| [recall/nodes/](recall/nodes/) | One file per graph node. `enrich`/`followups`/`calendar` are the frozen tail |
 | [recall/tools/](recall/tools/) | Transcription, web search, calendar |
-| [tests/test_graph.py](tests/test_graph.py) | Graph wiring end to end, against scripted fake models |
-| [tests/test_guards.py](tests/test_guards.py) | The two filters that keep wrong data out of the person graph |
-| [tests/test_relations.py](tests/test_relations.py) | The grounding guard, and that edges stay out of resolution |
-| [tests/test_metering.py](tests/test_metering.py) | Token accounting and pricing |
 | [eval/harness.py](eval/harness.py) | Fixture loading + the resolution sweep behind the B³/pairwise numbers |
+| [eval/metrics.py](eval/metrics.py) | B³ and pairwise clustering scores. Pure functions, no model |
+| [eval/strategies.py](eval/strategies.py) | The three strategies and the simulated answerer |
 | [eval/run_questions.py](eval/run_questions.py) | EIG vs random vs uncertainty — the headline benchmark |
 | [eval/fixtures/](eval/fixtures/) | The five hand-written scenarios every number here comes from |
 | [web/server.py](web/server.py) | FastAPI transport — transcribe + streamed graph run |
 | [web/index.html](web/index.html) | Record a memo and watch the run — one file, no framework |
 | [web/people.html](web/people.html) | Everyone, as a filterable grid |
 | [web/graph.html](web/graph.html) | Connections — the relationship graph, hand-rolled force layout |
+| [telegram_bot.py](telegram_bot.py) | Telegram transport — long-polls, renders the pause as a keyboard |
+| [tests/fakes.py](tests/fakes.py) | Scripted fake models — how the graph is tested without credentials |
+| [tests/test_graph.py](tests/test_graph.py) | Graph wiring end to end, against those fakes |
+| [tests/test_guards.py](tests/test_guards.py) | The filters that keep wrong data out of the person graph |
+| [tests/test_relations.py](tests/test_relations.py) | The grounding guard, and that edges stay out of resolution |
+
+Numbered scripts run the AWS lifecycle: `00_check_bedrock.py` (must print OK first),
+`01_run_local.py` (free), `02_deploy.py` (billable), `03_teardown.py`, `04_call_agent.py`.
+`run_demo.py` puts one memo through the pipeline from the CLI; `seed_demo.py --write`
+seeds the demo graph; `telegram_bot.py` is the phone front-end.
+
+**Three front-ends, one pipeline.** `web/server.py`, `telegram_bot.py` and `run_demo.py`
+all import the same graph and do nothing but translate payloads. If a behaviour differs
+between them, the difference is `configurable.interactive` — with it the graph holds
+ambiguous mentions and pauses for a human; without it the adjudicator settles them and
+the question is a read-out. None of the three may grow a second copy of the pipeline.
+
+**One naming trap:** the fixture file is `arc_ehoc.yaml` but the scenario id inside it —
+what `--scenario` takes and what every table below prints — is `ehoc_c4`. Both are
+correct.
 
 ## Resolving identity
 
@@ -349,8 +452,8 @@ missed recognition, which is the right direction to fail in: a wrong merge silen
 destroys a real record, a missed one is visible and fixable. **State the claim at the
 scenario level, not globally.** It was briefly false: before the channel fix, a
 description stored in a record's `aliases` came back as name evidence and merged two
-different people in `arc_acacia`. `arc_godwin` still sits at 0.947, so it holds a wrong
-merge that has not been diagnosed.
+different people in `arc_acacia`. `arc_godwin` sits at 0.947, and that loss has since been
+diagnosed: it is `_adjudicate()`, not the band — see To fix below.
 
 ### Questions per resolution
 
@@ -406,6 +509,192 @@ version of this benchmark reported a tie for exactly that reason.
 a person, not fitted — quote them with any result. n is small. The claim these numbers
 support is "EIG beats a strategy that ignores reliability", not a general superiority.
 
+
+## Putting it on your calendar
+
+A memo that says *"told Wei Lin I'd send the Kestrel repo"* contains a promise, and
+`extract_commitments` picks it up. What happens next is the one place the pipeline
+touches something outside itself, so it asks first.
+
+**It proposes, you approve, then it writes.** On an interactive run `calendar_node`
+builds the events, stops on `interrupt()` — the same pause the clarifying question uses,
+not a second mechanism — and shows you exactly what it wants to add. Tick what you want.
+Nothing reaches the calendar until you answer, and an event you decline is recorded as
+`declined` rather than dropped, so "nothing appeared on my calendar" is answerable from
+the run instead of a mystery.
+
+The ordering is load-bearing rather than stylistic. `interrupt()` re-executes the node
+from the top on resume, so anything above it runs twice — which for a calendar write
+means a declined event lands anyway. `propose_event()` is therefore pure and
+`write_proposed()` is the only thing that touches a calendar;
+`test_interactive_pauses_and_writes_nothing_before_the_answer` is the tripwire. What the
+confirmation shows is the built event, not a paraphrase of it, so approving the title you
+read is approving the one that lands.
+
+**An unrecognised reply approves nothing.** Defaulting to "write everything" would mean a
+malformed answer silently puts events on a real calendar, which is what the gate exists to
+prevent. Declining is visible and costs one re-run; the other way round is invisible.
+
+Non-interactive runs — the CLI, the eval harness, the tests — write without stopping,
+exactly as before. The switch is `configurable.interactive`, never the presence of a
+checkpointer, so the benchmark cannot deadlock waiting for a person who is not there.
+
+### Three backends, and only one of them works for other people
+
+`RECALL_CALENDAR` picks where an approved event lands. The confirmation gate runs either
+way — the backend only decides the destination.
+
+| | Setup for a new user | Reaches |
+|---|---|---|
+| `local` *(default)* | none | a JSON file. A demo ledger, not a calendar |
+| **`ics`** | **none** | **Google, Apple, Outlook — everything** |
+| `google` | one-time consent in a browser | the connected account. For the hosted build |
+| `mcp` | a Google Cloud project **each** | one machine, yours |
+
+**`ics` is the one to reach for.** Each approved item is written as an iCalendar file, and
+both surfaces offer two ways to take it: a one-tap **Add to Google Calendar** link and the
+`.ics` file itself. The link is there because a chat app opening a `.ics` is unreliable —
+it often previews the file as text with no add-to-calendar prompt — so one tap on the link
+opens Google's own event screen with a **Save** button, while the file stays for whoever
+imports into Apple Calendar or Outlook. Either way we propose and the human commits, the
+same bargain as the drafts. No credentials, no API, no account, nothing to authorise. The
+link is built server-side by `gcal_link()` in [recall/tools/calendar.py](recall/tools/calendar.py),
+so the web card and the Telegram message can't drift.
+
+```bash
+RECALL_CALENDAR=ics uv run run_demo.py data/memos/sales_day1.txt
+```
+
+**The calendar records two kinds of thing.** A *follow-up* you owe someone ("send the deck
+by Friday" → a transparent reminder that does not block your day) and an *event you said
+you'd attend* ("going to the Welcome Night on the 18th with Crispy and Kit Yee" → one
+opaque, all-day entry that does). The distinction is a `kind` field the commitment
+extractor sets; the calendar branches the title and the free/busy state on it, and the
+drafter skips *attending* entries because there is nothing to send about your own plans.
+One event with several companions collapses to one entry, not one per person.
+
+Four details in [`ics_text`](recall/tools/calendar.py) that are the difference between a
+file that works and one that silently doesn't:
+
+- **`DTEND` is exclusive** — an all-day event on the 11th ends on the 12th. Same date for
+  both and Google renders it, Apple renders it, Outlook drops it.
+- **Commas are escaped.** A comma is a field separator, so *"send the deck, the pricing,
+  and a demo"* would arrive as an event called *"send the deck"*, with no error anywhere.
+- **CRLF line endings, folded at 75 octets** on character boundaries — bytes are the
+  limit, characters are the unit, and names are exactly where that bites.
+- **The UID is the idempotency key**, so re-importing the same file updates the event
+  instead of duplicating it — the ledger's guarantee, enforced by the calendar client.
+
+`mcp` stays as the "I have Google credentials on this laptop" option. It cannot be handed
+to anyone else: the `gcp-oauth.keys.json` is *your* Cloud project, tokens cache to one
+path on one machine, and the server is a local subprocess. The multi-user version needs
+one OAuth client that you own plus per-user consent, and Calendar is a **sensitive scope**
+— unverified apps are capped at ~100 test users behind a warning screen until Google
+reviews them. Roadmap, not hackathon.
+
+### Hosting it (Render)
+
+`render.yaml` is a blueprint — commit it, then **New → Blueprint** in Render. Check the
+config first; it costs nothing and reads no secrets:
+
+```bash
+uv run 00_check_deploy.py            # blocks on anything fatal
+uv run 00_check_deploy.py --new-key  # generates RECALL_TOKEN_KEY
+```
+
+**One service, not two.** `upgrade.md` proposes a web service plus a Telegram worker; a
+Render disk attaches to exactly **one** service, so a separate worker could not read the
+OAuth token the web service writes at the end of consent. `RECALL_TELEGRAM=1` runs the
+poller in a daemon thread inside the web process — shared disk, shared memory for the
+pending question, and nothing lost for a single-tenant deployment.
+
+**The free tier cannot host this.** Persistent disks need a paid instance, and a free
+service spins down after ~15 minutes idle. Without a disk, every redeploy and every idle
+period wipes `person_graph.json` — everyone becomes a stranger — and `google_token.json`,
+so you redo the Google consent flow on stage. A relationship-memory product that forgets
+on redeploy is not demoable.
+
+**It is single-tenant, and the Telegram allowlist is the only thing enforcing that.**
+`get_store()` is process-global on one `RECALL_STORE_PATH` and takes no user argument.
+`upgrade.md` scopes *calendar connections* per Telegram user but says nothing about the
+graph — so hosted open, a stranger's memo would resolve against your contacts and two
+people named Alex would merge. `00_check_deploy.py` refuses to pass with an empty
+allowlist for exactly that reason.
+
+Order of operations, because two of these have to be done twice:
+
+1. Deploy. Copy the Render URL.
+2. Set `PUBLIC_BACKEND_URL` and `GOOGLE_REDIRECT_URI` to it, add the callback to the
+   Google OAuth client's authorised redirect URIs, restart.
+3. `GET /healthz` — it reports the backend, whether OAuth is configured, whether a
+   calendar is connected, and whether the poller is running. No secrets.
+4. Message the bot `/connect_calendar`, consent, then send a memo.
+
+`/healthz` deliberately reports what is *configured* rather than just `ok`: a health check
+that passes while the model id is wrong and the calendar is unreachable hides the two
+things that actually break a deploy.
+
+### Testing the MCP backend
+
+`00_check_calendar.py` probes it and writes nothing. Four things break independently and
+it reports each one alone: the server not starting, starting but not speaking MCP,
+speaking MCP but having no tool by the configured name, and — the quiet one — having the
+tool but wanting different argument names than `_write_mcp` sends.
+
+```bash
+uv run 00_check_calendar.py
+```
+
+It deliberately reimplements the MCP handshake rather than importing
+[recall/mcp_client.py](recall/mcp_client.py): a diagnostic that shares code with the thing
+it diagnoses fails identically and tells you nothing.
+
+The first thing it will catch is that **the MCP server needs its own Google credential**,
+unrelated to anything else in `.env`:
+
+```bash
+GOOGLE_OAUTH_CREDENTIALS=/abs/path/to/gcp-oauth.keys.json
+```
+
+Without it the server exits during startup, and `mcp_client` reports only *"MCP server
+closed the connection"* — it captures stderr and never reads it, so the real reason never
+reaches you. The probe prints that stderr.
+
+Two things to know before concluding it's broken:
+
+- **A second identical write returns `DUPLICATE` without contacting MCP at all.** The
+  idempotency check runs against the local ledger *before* the call, so re-running the
+  same memo tells you nothing about whether the calendar works. Change the promise text
+  or delete `data/calendar.json` between attempts.
+- **A failed write never raises.** It comes back as `status: error`, gets recorded, and
+  the run finishes looking successful. Read the summary rather than trusting the exit
+  code.
+
+A clean probe proves the protocol, the tool name and the argument names. It does not
+prove OAuth is authorised or that the event lands on the calendar you expect — for that,
+do one real write against a scratch ledger and go look at your calendar:
+
+```bash
+RECALL_CALENDAR_PATH=/tmp/cal-test.json uv run run_demo.py
+```
+
+### Two backends
+
+```bash
+RECALL_CALENDAR=local     # default: append to data/calendar.json. Free, offline
+RECALL_CALENDAR=mcp       # Google Calendar through an MCP server
+GCAL_MCP_COMMAND="npx -y @cocal/google-calendar-mcp"
+GCAL_MCP_TOOL=create-event
+```
+
+Google Calendar needs a one-time OAuth setup on your side: a Desktop OAuth client in
+Google Cloud, the Calendar API enabled, your own account added as a test user. The first
+run opens a browser to consent and the server caches the token. Until that is done, leave
+`RECALL_CALENDAR=local` — the gate behaves identically, the events just land in a JSON
+file, which is also what you want on stage.
+
+Both backends share the idempotency key, derived from the commitment text, so re-running
+the same memo during a demo updates nothing instead of stacking duplicates.
 
 ## The relationship graph
 
@@ -488,8 +777,9 @@ the notes said.
    fixture, not in the code.
 3. **`with_structured_output` sometimes returns a JSON string, not a list.**
    `PeopleExtraction.people` arrived as `str` and raised `ValidationError`, killing one
-   memo in `run_eval` and an entire run of `run_questions` — which is why the headline
-   table is n=2. Not a fixture problem; it needs a retry or a coercing validator.
+   memo in `run_eval` and once an entire run of `run_questions`. The 31 Aug headline
+   reached n=3 in spite of it, so it no longer blocks the table — but it still costs a
+   memo per sweep. Not a fixture problem; it needs a retry or a coercing validator.
 4. **`arc_godwin`'s precision loss is the adjudicator, not the resolver.** `jia_en` and
    `jia_ying` share a record, but all four of their mentions scored **AMBIGUOUS**
    (1.27–2.19) — nothing auto-resolved. With four `Jia*` people in one orientation group,
@@ -498,22 +788,69 @@ the notes said.
    the band on non-interactive runs because nobody is there to answer. So this number
    measures the fallback guesser, not the path the product actually takes — interactively
    those mentions are held and one buys a question.
-5. ~~**Fixtures are not in version control.**~~ Fixed — `.gitignore` carried a blanket
-   `*.yaml` that ignored every file in `eval/fixtures/`. The negation is in; the fixtures
-   still need their first commit.
-6. **The code default model is one a personal account cannot call.** `_common.py` defaults
+5. **The code default model is one a personal account cannot call.** `_common.py` defaults
    to a `global.anthropic.*` id, which is the marketplace-gated path. It works only
    because `.env` overrides it, and `.env` is not in the repo — so a fresh clone fails
    with `ValidationException: invalid model identifier`, which reads like a typo.
 
 ### To do
 
-1. **Re-run the headline at n≥3.** The 30 Aug table is n=2 because one run died on the
-   structured-output bug above. Fix that first, or the same run will keep dropping out.
-2. **The AgentCore Memory backend.** `recall/memory_agentcore.py` was written blind and
-   has never run; as written it would make every known person look new. Test against a
-   throwaway memory resource, never the live graph.
-3. **Seed the demo data**, write and time the demo script, then the writeup.
+1. **Write and time the demo script**, then rehearse it. This is the main gap.
+2. **Seed the demo data** — `uv run seed_demo.py --write`. With no prior records nothing
+   is ambiguous, so the behaviour worth showing never fires.
+3. **The AgentCore Memory backend**, only if deploying. `recall/memory_agentcore.py` was
+   written blind and has never run; as written it would make every known person look new.
+   Test against a throwaway memory resource, never the live graph.
+
+The writeup is drafted — plain-language, exported to `recall-writeup.pdf`.
+
+### The sales framing (`business.md`)
+
+[business.md](docs/business.md) pitches Recall as a sales-productivity product. It is a
+**positioning document, not a spec** — most of what it describes already ships, one item
+is genuinely worth building, and a few would cost more than they return.
+
+**Six of its seven MVP steps are already built**, in the tail this repo otherwise leaves
+frozen: transcribe, extract company and role, decide new-or-known, ask when unsure,
+persist the history, detect the promise, gate the calendar write, draft the follow-up.
+The gap between that document and this repo is narrative, not code.
+
+Worth doing:
+
+1. **A professional-setting fixture** (`eval/fixtures/arc_sales.yaml`). The highest-value
+   item in the document, and the only one that improves the benchmark. Every current arc
+   is one hall or one orientation group — everyone shares an event, nobody has a company,
+   and the `company`/`role` channels sit silent instead of *conflicting*. That is exactly
+   the caveat under [Known limitations](#known-limitations), and a sales arc is how you
+   attack it rather than restate it. Expect both tables to move.
+2. **Re-skin the demo memos** to the sales scenario. Zero code — the pipeline does not
+   care what setting a memo comes from.
+3. **`GET /api/export`** — the person graph as a download. About ten lines, since the
+   store is already JSON, and a contact book you cannot get out of is one you stop
+   trusting.
+
+Deliberately not doing, with the reason:
+
+- **"Opportunity" or "needs" as a field on `Person`.** Third time this shape has come up
+  after contact handles and relationship edges, and the answer has not changed: a new
+  field changes the same extraction call that emits `name`, `notes` and `company`, and
+  `temperature=0` is not reproducible, so both benchmark tables need re-running — for
+  content that is already in `notes` as prose. If it must exist, it is a separate
+  post-hoc pass like [recall/relations.py](recall/relations.py), never folded into
+  `extract`.
+- **Ranking follow-ups by urgency.** One step from scoring which people are worth your
+  time, which is a non-goal here.
+- **Freemium quotas, team workspaces, HubSpot/Salesforce.** All need multi-tenancy, and
+  the store is structurally single-tenant: `get_store()` is process-global on one
+  `RECALL_STORE_PATH` — the same wall the Telegram allowlist exists to hold. Roadmap, not
+  hackathon.
+
+One thing in `business.md` needed a decision rather than a commit: it used to close on
+*"prevents valuable sales opportunities from being lost"*, and this project's own framing
+rule is never to sell Recall as extracting value from contacts later. Settled 2 Sep in
+favour of **"you keep the promises you made"** — a sales outcome and a decent one at the
+same time, and what the frozen tail already does. `business.md` now closes on that line,
+so the two documents no longer disagree.
 
 ### Known limitations
 
@@ -521,9 +858,9 @@ the notes said.
 and plural-mention expansion is out of scope. Role-only references with no content
 ("bumped into the male OGL, said hi") extract nobody. A Whisper mis-hear that changes the
 *first* token of a name (`Zhong Xuan` → `Jong Shuen`) scores 0.00 and does not match at
-all. And both arcs come from the same kind of setting — one hall, one orientation group —
-where everyone shares an event and nobody has a company, so thresholds tuned here may not
-generalise to a professional graph.
+all. And all three arcs come from the same kind of setting — one hall, one orientation
+group — where everyone shares an event and nobody has a company, so thresholds tuned here
+may not generalise to a professional graph.
 
 Relationship edges are sparse by construction: one is drawn only when a stored note names
 the other person outright, so a relationship the memos never recorded is not shown. A
@@ -534,8 +871,8 @@ merge the records, or draw the edge by hand.
 
 ## The three guards
 
-Both exist because a model *told* to be careful is still sometimes not careful, and both
-failure modes are invisible in the output.
+All three exist because a model *told* to be careful is still sometimes not careful, and
+each failure mode is invisible in the output.
 
 **Passing-mention filter.** *"Ran into Daniel again, nothing new, just said hi"* is not a
 contact record. The model must set an explicit `substantive` boolean — does the memo

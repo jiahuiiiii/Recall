@@ -164,12 +164,44 @@ class ConsolidatedRecord(BaseModel):
         )
     )
 
+    @field_validator("notes", "met_at", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: object) -> object:
+        # Same guard as Person: with_structured_output intermittently returns a
+        # list field as a JSON *string*. Ungated it raises mid-consolidation and
+        # the whole merge is lost. See decode_list and To fix #5a.
+        return as_list(decode_list(v))
+
 
 class Commitment(BaseModel):
-    """Something the speaker said they would do."""
+    """Something the speaker said they would do, or somewhere they said they'd be.
 
-    person_name: str = Field(description="Who the commitment is owed to.")
-    what: str = Field(description="The action promised, as a short imperative phrase.")
+    Two kinds in one model rather than two models, because both end up as the
+    same thing -- a dated entry on a calendar -- and splitting them would mean
+    two extraction calls to read one sentence. `kind` is what the calendar
+    branches on; everything downstream of it stays one code path.
+    """
+
+    kind: Literal["followup", "attending"] = Field(
+        default="followup",
+        description=(
+            "'followup' when the speaker owes someone an action. 'attending' when "
+            "the speaker said they are going to a named, dated event. Default to "
+            "'followup' when it reads like a promise."
+        ),
+    )
+    person_name: str = Field(
+        description=(
+            "Who the commitment is owed to. For an 'attending' entry, who the "
+            "speaker is going with -- empty string if they named nobody."
+        )
+    )
+    what: str = Field(
+        description=(
+            "For 'followup', the action promised, as a short imperative phrase. "
+            "For 'attending', the name of the event as the speaker said it."
+        )
+    )
     due: str | None = Field(
         default=None,
         description=(
@@ -185,6 +217,11 @@ class Commitment(BaseModel):
 class CommitmentExtraction(BaseModel):
     commitments: list[Commitment] = Field(default_factory=list)
 
+    @field_validator("commitments", mode="before")
+    @classmethod
+    def _coerce_commitments(cls, v: object) -> object:
+        return decode_list(v)
+
 
 class Draft(BaseModel):
     """A follow-up message ready for the speaker to send."""
@@ -199,6 +236,11 @@ class Draft(BaseModel):
 
 class DraftBundle(BaseModel):
     drafts: list[Draft] = Field(default_factory=list)
+
+    @field_validator("drafts", mode="before")
+    @classmethod
+    def _coerce_drafts(cls, v: object) -> object:
+        return decode_list(v)
 
 
 # --------------------------------------------------------------------------
@@ -268,7 +310,10 @@ class CalendarEvent(TypedDict, total=False):
     date: str | None
     person_name: str
     idempotency_key: str
-    status: Literal["created", "duplicate", "skipped", "error"]
+    # "declined" = the human was shown this event and said no. Recorded rather
+    # than dropped: "nothing appeared on my calendar" must be answerable from
+    # the run itself.
+    status: Literal["created", "duplicate", "skipped", "declined", "error"]
     detail: str
 
 

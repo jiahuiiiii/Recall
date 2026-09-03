@@ -483,3 +483,34 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
   .pcard{padding:13px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- calendar confirmation ------------------------------------------------
+   Reuses .card.ask, because it is the same kind of moment as the clarifying
+   question: the run is stopped and waiting on a person. Only the list of
+   proposed events is new. */
+.evts{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.evt{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;cursor:pointer;
+  border:1px solid transparent;border-radius:3px;transition:background .12s,border-color .12s}
+.evt:hover{background:var(--panel2);border-color:var(--line)}
+.evt:focus-within{border-color:var(--gold)}
+.evtbox{margin:2px 0 0;accent-color:var(--gold);width:14px;height:14px;flex:none;cursor:pointer}
+.evtmain{display:flex;flex-direction:column;gap:2px;min-width:0}
+.evttitle{font-size:13px;color:var(--ink);line-height:1.35}
+.evt input:not(:checked) ~ .evtmain .evttitle{color:var(--muted);text-decoration:line-through}
+.evtmeta{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.02em}
+
+/* "Add to calendar" on a follow-up. A link, not a button: it downloads a file
+   the user's own calendar app opens, which is a navigation, not an action we
+   take on their behalf. */
+.todos .ics {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+.todos .ics:hover, .todos .ics:focus-visible { opacity: 0.75; }
+
+/* Secondary "import the file" link next to the primary Google button. Muted so
+   the one-tap path reads as the default and the file as the fallback. */
+.todos .ics-file { color: var(--muted); font-size: 0.85em; }

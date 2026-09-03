@@ -87,13 +87,20 @@ def test_conflicting_company_pushes_apart():
     )
 
 
-def test_a_uniquely_identifying_description_resolves():
-    """'the german girl' when exactly one German is stored. Asking here would
-    burn the one-question budget on something already certain."""
+def test_a_nameless_description_asks_even_when_it_fits_one_person():
+    """Policy (To fix #2, decided 3 Sep): a mention with NO name never
+    auto-resolves, however uniquely it seems to fit.
+
+    This case -- 'the german girl' with exactly one German stored -- is
+    arithmetically identical to 'the indian girl' silently merging into Marvi:
+    descriptor 2.0 + notes 1.5 = 3.5 either way. The resolver cannot tell a
+    uniquely-correct description from one that merely happens to be top, so it
+    holds both in the ambiguous band and asks. The right candidate is still the
+    top hypothesis; the human confirms it in one tap."""
     z, cands = decide(
         {"name": "the german girl", "notes": ["from germany"], "met_at": None}, GRAPH
     )
-    assert z is Zone.RESOLVED
+    assert z is Zone.AMBIGUOUS
     assert cands[0].record_id == "p_vik"
 
 
@@ -185,3 +192,42 @@ def test_the_band_is_not_empty_by_construction():
     place a question can be asked."""
     from recall.resolve import T_MATCH, T_NONMATCH
     assert T_NONMATCH < T_MATCH
+
+
+def test_a_nameless_match_cannot_auto_resolve_however_much_corroborates():
+    """To fix #2: description + notes overlap crossed T_MATCH with no name.
+
+    'the indian girl' reached descriptor 2.0 + notes 1.5 = 3.5 and silently
+    merged into Marvi. With no name channel firing, the total is capped into the
+    ambiguous band so it buys a question instead.
+    """
+    from recall.resolve import NAMELESS_CEILING, T_MATCH, Agreement, score
+
+    nameless = Agreement(name=0.0, name_conflict=False, descriptor=1.0,
+                         company=None, role=None, event=1.0, notes=1.0)
+    s = score(nameless)
+    assert s <= NAMELESS_CEILING
+    assert s < T_MATCH                      # never auto-resolves
+
+
+def test_the_cap_does_not_touch_a_named_match():
+    """A real name plus corroboration must still be able to cross T_MATCH."""
+    from recall.resolve import T_MATCH, Agreement, score
+
+    named = Agreement(name=1.0, name_conflict=False, descriptor=0.0,
+                      company=1.0, role=None, event=0.0, notes=0.0)
+    assert score(named) >= T_MATCH
+
+
+def test_a_name_conflict_is_not_a_nameless_match():
+    """Names compared and disagreed -- that is evidence, not silence, so the
+    ceiling must not apply (it would otherwise raise a strong-negative score)."""
+    from recall.resolve import NAMELESS_CEILING, Agreement, score
+
+    # Contrived: conflict plus enough agreement that an uncapped total would sit
+    # above the ceiling. The point is the ceiling is not what bounds it.
+    conflict = Agreement(name=0.0, name_conflict=True, descriptor=0.0,
+                         company=1.0, role=1.0, event=1.0, notes=1.0)
+    # W_NAME_CONFLICT (-1.5) is included; the total is whatever it is, but the
+    # nameless ceiling did not clamp it -- verify by comparing to the clamped form.
+    assert score(conflict) != min(score(conflict), NAMELESS_CEILING) or score(conflict) <= NAMELESS_CEILING

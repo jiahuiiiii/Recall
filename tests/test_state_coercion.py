@@ -60,3 +60,37 @@ def test_list_fields_take_json_strings_without_exploding():
         {"name": "X", "notes": "she is nice", "aliases": [], "substantive": True}
     )
     assert bare.notes == ["she is nice"]
+
+
+def test_commitments_survive_a_json_string_from_structured_output():
+    """To fix #5a, same failure as PeopleExtraction: with_structured_output
+    intermittently returns the list field as a JSON string. Ungated it raises
+    and the memo's commitments -- and its calendar events -- are lost."""
+    import json
+
+    from recall.state import CommitmentExtraction
+
+    payload = json.dumps([{"kind": "attending", "person_name": "Crispy",
+                           "what": "Welcome Night", "due": "2026-09-18"}])
+    ce = CommitmentExtraction(commitments=payload)
+    assert len(ce.commitments) == 1
+    assert ce.commitments[0].kind == "attending"
+
+
+def test_drafts_survive_a_json_string_from_structured_output():
+    import json
+
+    from recall.state import DraftBundle
+
+    db = DraftBundle(drafts=json.dumps([{"person_name": "A", "body": "hi"}]))
+    assert len(db.drafts) == 1
+
+
+def test_consolidated_record_survives_a_json_string_and_a_bare_string():
+    import json
+
+    from recall.state import ConsolidatedRecord
+
+    cr = ConsolidatedRecord(notes=json.dumps(["a", "b"]), met_at="the mixer")
+    assert cr.notes == ["a", "b"]
+    assert cr.met_at == ["the mixer"]        # bare string -> one-element list
