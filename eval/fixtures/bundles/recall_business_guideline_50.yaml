@@ -1,0 +1,1270 @@
+id: recall_business_guideline_50
+description: Five unseen business arcs written to the Writing the Sales Arc fixture guidelines; 50 memos total.
+scenarios:
+- id: arc_consulting
+  description: Consulting and project-delivery notes spanning client sponsors, data leads, and changing project roles.
+  memos:
+  - id: m1
+    transcript: 'Post-workshop note. Michelle Yeo from KPMG, transformation lead, is sponsoring the
+
+      claims project. She wants the current-state map by Monday, only the three biggest
+
+      bottlenecks. Akash Mehta from their data team wants the sample schema before that so he
+
+      can check fields, Friday is enough. I said I''ll email both separately. Michelle also
+
+      said one branch manager called Kenji may join later, but I haven''t met him.
+
+      '
+    mentions:
+    - cluster: michelle_yeo
+      as: Michelle Yeo
+      substantive: true
+      ambiguous: false
+    - cluster: akash_mehta
+      as: Akash Mehta
+      substantive: true
+      ambiguous: false
+    - cluster: kenji_other
+      as: Kenji
+      substantive: false
+      ambiguous: false
+  - id: m2
+    transcript: 'Another client today. Met Michelle Liu from EY, customer strategy, different Michelle.
+
+      Her retail client wants a workshop on lost customer context when account managers rotate.
+
+      No fixed date, probably October. Tomás Silva, independent design researcher, may facilitate.
+
+      He wants the interview guide sometime next week if the client confirms him. Michelle said
+
+      keep one Saturday option because sales leads travel.
+
+      '
+    mentions:
+    - cluster: michelle_liu
+      as: Michelle Liu
+      substantive: true
+      ambiguous: false
+    - cluster: tomas_silva
+      as: Tomás Silva
+      substantive: true
+      ambiguous: false
+  - id: m3
+    transcript: 'The KPMG transformation lead called. Monday deadline moved to Sunday evening because the
+
+      steering pack closes Monday morning. She wants one slide before-and-after, appendix later.
+
+      Akash said schema is basically fine, just phone-number formatting. I promised to correct
+
+      the sample tonight. Michelle Yeo Sunday, Akash nothing else after the clean file.
+
+      '
+    mentions:
+    - cluster: michelle_yeo
+      as: The KPMG transformation lead
+      substantive: true
+      ambiguous: false
+    - cluster: akash_mehta
+      as: Akash
+      substantive: true
+      ambiguous: false
+  - id: m4
+    transcript: 'Client-site corridor note. Met Farah Noor, operations manager at BrightMart. Half their
+
+      customer complaints get handed over through WhatsApp screenshots and nobody can tell who
+
+      promised what. Wants a pilot example after quarter close. Her regional COO, Kenji Sato,
+
+      came out of the lift and she introduced us, but we only exchanged cards, no business talk.
+
+      I told Farah I''d send a one-page complaint-handover example next week.
+
+      '
+    mentions:
+    - cluster: farah_noor
+      as: Farah Noor
+      substantive: true
+      ambiguous: false
+    - cluster: kenji_sato
+      as: Kenji Sato
+      substantive: false
+      ambiguous: false
+  - id: m5
+    transcript: 'EY Michelle sent a voice note asking for ''the relationship example'' by Thursday. Problem
+
+      is KPMG Michelle also asked yesterday about a before-and-after relationship view. No company
+
+      in the message. I can''t honestly tell which Michelle, so check the number first. Thursday
+
+      deadline is clear. Separate thing, Tomás said he is free next Tuesday if EY confirms.
+
+      '
+    mentions:
+    - cluster: UNRESOLVED
+      as: Michelle
+      substantive: true
+      ambiguous: true
+    - cluster: tomas_silva
+      as: Tomás
+      substantive: true
+      ambiguous: false
+  - id: m6
+    transcript: 'Farah from BrightMart called with more detail. Discovery can be October second or third,
+
+      morning, and she wants customer service plus store ops. The regional COO will join only
+
+      the last fifteen minutes. Need one example where the same angry customer contacts two
+
+      channels under slightly different names. I said I''ll send Farah two time options tomorrow
+
+      and Kenji Sato a short context note once she confirms.
+
+      '
+    mentions:
+    - cluster: farah_noor
+      as: Farah from BrightMart
+      substantive: true
+      ambiguous: false
+    - cluster: kenji_sato
+      as: The regional COO
+      substantive: true
+      ambiguous: false
+  - id: m7
+    transcript: 'Tomás confirmed he''ll facilitate the EY workshop, remote only. Michelle Liu wants him to
+
+      handle user journey while I show product. They know each other from a telco project.
+
+      Workshop still no date. Tomás asked for existing interview notes before Friday, but I need
+
+      client permission first, so don''t send yet. Michelle said she''ll get approval tomorrow.
+
+      '
+    mentions:
+    - cluster: tomas_silva
+      as: Tomás
+      substantive: true
+      ambiguous: false
+    - cluster: michelle_liu
+      as: Michelle Liu
+      substantive: true
+      ambiguous: false
+  - id: m8
+    transcript: 'Akash update. He resigned from KPMG and joins LedgerFox next month as head of data. Same
+
+      personal number. For KPMG he is still helping until Friday, so schema questions go to work
+
+      email until then. Michelle Yeo said his replacement is Inez Pereira. I met Inez briefly on
+
+      the call; she wants the data dictionary by next Tuesday. I promised a rough version Monday.
+
+      '
+    mentions:
+    - cluster: akash_mehta
+      as: Akash
+      substantive: true
+      ambiguous: false
+    - cluster: michelle_yeo
+      as: Michelle Yeo
+      substantive: true
+      ambiguous: false
+    - cluster: inez_pereira
+      as: Inez Pereira
+      substantive: true
+      ambiguous: false
+  - id: m9
+    transcript: 'Noisy lobby note. The new KPMG data lead wants the cleaned sample and data dictionary by
+
+      Monday now because onboarding moved forward. Inez said rough is fine. Michelle Yeo wants
+
+      one failed approval in the sample, not all perfect data. Farah separately confirmed
+
+      BrightMart October third, nine thirty. I said I''ll send invite tomorrow morning.
+
+      '
+    mentions:
+    - cluster: inez_pereira
+      as: The new KPMG data lead
+      substantive: true
+      ambiguous: false
+    - cluster: michelle_yeo
+      as: Michelle Yeo
+      substantive: true
+      ambiguous: false
+    - cluster: farah_noor
+      as: Farah
+      substantive: true
+      ambiguous: false
+  - id: m10
+    transcript: 'Final note. BrightMart regional COO Kenji is joining October third at ten fifteen. Farah
+
+      wants the complaint example by the day before. EY Michelle still hasn''t fixed workshop
+
+      date, but Tomás has approval to see interview notes, so send them Friday. KPMG Michelle
+
+      wants Inez''s dictionary Monday. Akash starts LedgerFox next month; after Friday don''t copy
+
+      him into KPMG threads anymore.
+
+      '
+    mentions:
+    - cluster: kenji_sato
+      as: Kenji
+      substantive: true
+      ambiguous: false
+    - cluster: farah_noor
+      as: Farah
+      substantive: true
+      ambiguous: false
+    - cluster: michelle_liu
+      as: EY Michelle
+      substantive: true
+      ambiguous: false
+    - cluster: tomas_silva
+      as: Tomás
+      substantive: true
+      ambiguous: false
+    - cluster: michelle_yeo
+      as: KPMG Michelle
+      substantive: true
+      ambiguous: false
+    - cluster: inez_pereira
+      as: Inez
+      substantive: true
+      ambiguous: false
+    - cluster: akash_mehta
+      as: Akash
+      substantive: true
+      ambiguous: false
+- id: arc_enterprise_sales
+  description: Enterprise-sales account notes covering champions, procurement, legal, and partner follow-ups.
+  memos:
+  - id: m1
+    transcript: 'Insurance roundtable just finished. Natalie Koh from Prudential, customer ops director,
+
+      said adviser handover is the pain. She wants a five-minute mobile demo next Wednesday,
+
+      afternoon if possible, and I said I''d send two time options tomorrow. Omar Farooq from
+
+      SAP partner solutions sat beside her. He thinks there may be a co-sell angle and asked
+
+      for one customer example by next week, no full deck.
+
+      '
+    mentions:
+    - cluster: natalie_koh
+      as: Natalie Koh
+      substantive: true
+      ambiguous: false
+    - cluster: omar_farooq
+      as: Omar Farooq
+      substantive: true
+      ambiguous: false
+  - id: m2
+    transcript: 'Lunch at UOB. Met Natalie Goh from transformation, Goh with G, different Natalie.
+
+      She wants to know whether someone can correct a bad person match and still see the old
+
+      value. Screenshots next week are enough. Kelvin Tay, their head of procurement, joined
+
+      for ten minutes but said he only comes in after security, so nothing for him yet.
+
+      Sophia Wu from UOB risk was beside him and asked whether the demo can use fake customer
+
+      names; I said yes. Jason Teh from legal was copied on the invite but never showed up.
+
+      '
+    mentions:
+    - cluster: natalie_goh
+      as: Natalie Goh
+      substantive: true
+      ambiguous: false
+    - cluster: kelvin_tay
+      as: their head of procurement
+      substantive: true
+      ambiguous: false
+    - cluster: sophia_wu
+      as: Sophia Wu
+      substantive: true
+      ambiguous: false
+    - cluster: jason_teh
+      as: Jason Teh
+      substantive: false
+      ambiguous: false
+  - id: m3
+    transcript: 'Prudential Natalie called. Demo is Wednesday two, not just afternoon. She wants one
+
+      adviser leaving, another taking over, then searching the customer from a vague clue
+
+      like ''the dentist from Tampines''. I said I''ll send the final link Tuesday night.
+
+      Her boss Elise Martin may join, but Elise hasn''t confirmed, so don''t build extra slides.
+
+      '
+    mentions:
+    - cluster: natalie_koh
+      as: Prudential Natalie
+      substantive: true
+      ambiguous: false
+    - cluster: elise_martin
+      as: Elise Martin
+      substantive: false
+      ambiguous: false
+  - id: m4
+    transcript: 'The SAP partner guy asked if we can meet Friday morning. He has one retail client where
+
+      three teams keep duplicate contact notes and wants to see who in the account knows which
+
+      buyer. I said yes, but don''t promise CRM integration. Omar also knows Elise Martin from
+
+      an old project and can intro us if she misses Wednesday. I promised him a one-page
+
+      relationship example by Thursday.
+
+      '
+    mentions:
+    - cluster: omar_farooq
+      as: The SAP partner guy
+      substantive: true
+      ambiguous: false
+    - cluster: elise_martin
+      as: Elise Martin
+      substantive: true
+      ambiguous: false
+  - id: m5
+    transcript: 'UOB follow-up. The transformation Natalie wants the correction screenshots by Tuesday
+
+      now because governance review moved forward. One bad match, one manual correction, then
+
+      activity log. The procurement head was copied but said nothing. Jason Teh finally called,
+
+      legal reviewer, and asked where user consent is stored. I said I''d send a two-paragraph
+
+      answer by Friday. Don''t schedule pilot dates yet.
+
+      '
+    mentions:
+    - cluster: natalie_goh
+      as: The transformation Natalie
+      substantive: true
+      ambiguous: false
+    - cluster: kelvin_tay
+      as: The procurement head
+      substantive: false
+      ambiguous: false
+    - cluster: jason_teh
+      as: Jason Teh
+      substantive: true
+      ambiguous: false
+  - id: m6
+    transcript: 'Weird one. Natalie asked for a revised demo tomorrow morning. I genuinely don''t know
+
+      whether it was Prudential Natalie or UOB Natalie. She said show the handover and the
+
+      correction, which now fits both. Need to check calendar and call history before changing
+
+      anything. Tomorrow morning is definite, person isn''t. Luca Bianchi from Salesforce sent
+
+      me a note separately, wants a screenshot of the relationship search this week.
+
+      '
+    mentions:
+    - cluster: UNRESOLVED
+      as: Natalie
+      substantive: true
+      ambiguous: true
+    - cluster: luca_bianchi
+      as: Luca Bianchi
+      substantive: true
+      ambiguous: false
+  - id: m7
+    transcript: 'First proper call with Elise Martin, Prudential regional distribution COO. She liked the
+
+      handover demo and wants a six-week pilot outline for Singapore plus optional Hong Kong by
+
+      the twenty-fifth. Natalie Koh stays day-to-day owner. Omar said he can help with the SAP
+
+      side if procurement gets stuck. I said I''ll send Elise a rough scope next Monday and
+
+      Natalie the user-count template tomorrow.
+
+      '
+    mentions:
+    - cluster: elise_martin
+      as: Elise Martin
+      substantive: true
+      ambiguous: false
+    - cluster: natalie_koh
+      as: Natalie Koh
+      substantive: true
+      ambiguous: false
+    - cluster: omar_farooq
+      as: Omar
+      substantive: true
+      ambiguous: false
+  - id: m8
+    transcript: 'Kelvin finally has something. UOB security cleared the concept, so their head of procurement needs
+
+      the vendor form, billing address and cyber-insurance certificate by
+
+      Friday. Jason wants the consent answer before he signs anything. Natalie Goh said once
+
+      those two are done, send her two pilot slots next week. Sophia from risk wants to join the
+
+      first half hour and said fake names are still fine. I said okay, vendor pack first, legal
+
+      answer second, dates after.
+
+      '
+    mentions:
+    - cluster: kelvin_tay
+      as: their head of procurement
+      substantive: true
+      ambiguous: false
+    - cluster: jason_teh
+      as: Jason
+      substantive: true
+      ambiguous: false
+    - cluster: natalie_goh
+      as: Natalie Goh
+      substantive: true
+      ambiguous: false
+    - cluster: sophia_wu
+      as: Sophia from risk
+      substantive: true
+      ambiguous: false
+  - id: m9
+    transcript: 'Conference coffee. Luca from Salesforce thinks Omar''s retail story may fit one of his bank
+
+      accounts, but he only wants the graph screenshot, not voice capture. He asked for it by
+
+      Monday. Omar laughed that Luca is technically a competitor but they still work together
+
+      on some customers. Also small update, Omar is leaving SAP next month for ServiceNow,
+
+      alliances director. Same phone. For the current co-sell thread, keep using SAP until he
+
+      actually moves.
+
+      '
+    mentions:
+    - cluster: luca_bianchi
+      as: Luca from Salesforce
+      substantive: true
+      ambiguous: false
+    - cluster: omar_farooq
+      as: Omar
+      substantive: true
+      ambiguous: false
+  - id: m10
+    transcript: 'Friday wrap. Prudential pilot slipped to next month because Elise is travelling. Natalie Koh said
+
+      hold the final proposal until she sends Hong Kong user count. UOB is the opposite,
+
+      Natalie Goh wants Tuesday three or Thursday four for pilot kickoff. Kelvin says vendor form
+
+      is complete. Luca''s screenshot still due Monday. Omar starts ServiceNow next month, so
+
+      update his company after the SAP retail intro closes.
+
+      '
+    mentions:
+    - cluster: elise_martin
+      as: Elise
+      substantive: true
+      ambiguous: false
+    - cluster: natalie_koh
+      as: Natalie Koh
+      substantive: true
+      ambiguous: false
+    - cluster: natalie_goh
+      as: Natalie Goh
+      substantive: true
+      ambiguous: false
+    - cluster: kelvin_tay
+      as: Kelvin
+      substantive: true
+      ambiguous: false
+    - cluster: luca_bianchi
+      as: Luca
+      substantive: true
+      ambiguous: false
+    - cluster: omar_farooq
+      as: Omar
+      substantive: true
+      ambiguous: false
+- id: arc_founder_investor
+  description: Post-event founder and investor follow-ups across several weeks.
+  memos:
+  - id: m1
+    transcript: 'Just came out of the seed panel at MBS, super noisy. Talked to Maya Chen from
+
+      Vertex Ventures, investment principal, mostly B2B software. She said our retention
+
+      slide is too fluffy and asked me to send the Q2 and Q3 cohort chart by Friday.
+
+      Don''t send the full deck, just the chart and one sentence on June. Then Ravi Menon,
+
+      family office guy, came over. He wants to know whether we already have paying
+
+      customers in Malaysia. I said I''d send him a redacted customer list next week,
+
+      after I check what we can disclose. Maya email, Ravi email also.
+
+      '
+    mentions:
+    - cluster: maya_chen
+      as: Maya Chen
+      substantive: true
+      ambiguous: false
+    - cluster: ravi_menon
+      as: Ravi Menon
+      substantive: true
+      ambiguous: false
+  - id: m2
+    transcript: 'Antler coffee thing. Met Maya Lim, programme lead there, different Maya. She wants
+
+      a founder office-hours call sometime next week, mostly go-to-market, no fundraising
+
+      pitch. Julian Park from LogiQ joined after. Product founder, warehouse software.
+
+      He said one of his customers may need our API and asked me to WhatsApp the docs
+
+      tomorrow. Maya Lim said just send a calendar link. Oh Teresa Wong was near the lift,
+
+      we only waved, didn''t actually talk.
+
+      '
+    mentions:
+    - cluster: maya_lim
+      as: Maya Lim
+      substantive: true
+      ambiguous: false
+    - cluster: julian_park
+      as: Julian Park
+      substantive: true
+      ambiguous: false
+    - cluster: teresa_wong
+      as: Teresa Wong
+      substantive: false
+      ambiguous: false
+  - id: m3
+    transcript: 'Quick taxi note. The Vertex Maya replied, she doesn''t need the whole cohort file
+
+      anymore. Just Q2 and Q3, still by Friday noon, PDF not spreadsheet. She also said
+
+      her partner Daniel Wu might join the next call. I haven''t met Daniel yet so don''t
+
+      create some whole contact history for him. Ravi called too, the customer names are
+
+      okay if I remove revenue numbers. I promised the redacted version tomorrow morning.
+
+      '
+    mentions:
+    - cluster: maya_chen
+      as: The Vertex Maya
+      substantive: true
+      ambiguous: false
+    - cluster: daniel_wu
+      as: Daniel Wu
+      substantive: false
+      ambiguous: false
+    - cluster: ravi_menon
+      as: Ravi
+      substantive: true
+      ambiguous: false
+  - id: m4
+    transcript: 'Lunch with the family office contact. Ravi said he actually knows Julian Park well,
+
+      invested in Julian''s previous company, and if our Malaysia reference looks sensible
+
+      he can intro us to his operating partner after the twenty-second. He wants two lines,
+
+      not a deck. Julian also texted saying the API docs worked; he wants a short integration
+
+      call next week, maybe Tuesday afternoon. I said I''ll send two slots tomorrow.
+
+      '
+    mentions:
+    - cluster: ravi_menon
+      as: family office contact
+      substantive: true
+      ambiguous: false
+    - cluster: julian_park
+      as: Julian Park
+      substantive: true
+      ambiguous: false
+  - id: m5
+    transcript: 'Corporate venture mixer. Met Priya Nair from AWS, solutions architect, mostly
+
+      manufacturing accounts. She thinks Bosch Ventures might care about our use case and
+
+      said she''ll introduce me to Sofia Almeida if I send a one-page factory example by
+
+      Monday. Sofia herself was there later, investment manager at Bosch Ventures. She said
+
+      predictive maintenance, not generic workflow, and next Wednesday is okay for the note.
+
+      Priya wants WhatsApp, Sofia wants PDF by email.
+
+      '
+    mentions:
+    - cluster: priya_nair
+      as: Priya Nair
+      substantive: true
+      ambiguous: false
+    - cluster: sofia_almeida
+      as: Sofia Almeida
+      substantive: true
+      ambiguous: false
+  - id: m6
+    transcript: 'The Antler programme lead called while I was walking. She moved office hours to
+
+      Thursday three, still only thirty minutes. She also said Julian is pitching at their
+
+      demo night and I should come because two logistics investors will be there. I said
+
+      okay, send me the guest link. Julian messaged that he can do Tuesday four for
+
+      integration. Need to reply tonight.
+
+      '
+    mentions:
+    - cluster: maya_lim
+      as: The Antler programme lead
+      substantive: true
+      ambiguous: false
+    - cluster: julian_park
+      as: Julian
+      substantive: true
+      ambiguous: false
+  - id: m7
+    transcript: 'Priya called after lunch. I totally missed this, she left AWS last month and joined
+
+      VectorCloud as customer engineering lead. Same number. So update company before I
+
+      message her. She can still make the Bosch intro because that''s personal, not through
+
+      AWS. She wants the factory one-pager before Friday now. Sofia said next Wednesday
+
+      still works and she may bring their industrial partner. Also saw Teresa downstairs,
+
+      just hello again, nothing to add.
+
+      '
+    mentions:
+    - cluster: priya_nair
+      as: Priya
+      substantive: true
+      ambiguous: false
+    - cluster: sofia_almeida
+      as: Sofia
+      substantive: true
+      ambiguous: false
+    - cluster: teresa_wong
+      as: Teresa
+      substantive: false
+      ambiguous: false
+  - id: m8
+    transcript: 'Messy one. One of the Mayas asked me for a revised slide before Tuesday morning.
+
+      I honestly don''t know which Maya. She said something about founders and retention,
+
+      which fits Antler Maya and Vertex Maya equally badly. Need to check the call history,
+
+      don''t guess. Separate thing: the Bosch investor wants the factory note to include one
+
+      customer handover example, and I said I''ll add it by Monday night.
+
+      '
+    mentions:
+    - cluster: UNRESOLVED
+      as: One of the Mayas
+      substantive: true
+      ambiguous: true
+    - cluster: sofia_almeida
+      as: the Bosch investor
+      substantive: true
+      ambiguous: false
+  - id: m9
+    transcript: 'Finally met Daniel Wu properly at breakfast. Angel investor, ex-SaaS founder, mainly
+
+      Southeast Asia. He wants our Indonesia assumptions this weekend, plain bullets, no
+
+      deck. The Vertex Maya introduced us and said Daniel is the one to ask about regional
+
+      hiring. Ravi was also there and reminded me his operating-partner intro can happen
+
+      after the twenty-second if I send the two-line summary first. I''ll do Daniel Saturday,
+
+      Ravi Sunday.
+
+      '
+    mentions:
+    - cluster: daniel_wu
+      as: Daniel Wu
+      substantive: true
+      ambiguous: false
+    - cluster: maya_chen
+      as: The Vertex Maya
+      substantive: true
+      ambiguous: false
+    - cluster: ravi_menon
+      as: Ravi
+      substantive: true
+      ambiguous: false
+  - id: m10
+    transcript: 'Last update. Maya Chen is leaving Vertex at month end and joining Northstar Capital
+
+      as a partner. Same personal email, she said use that from now on. Friday''s retention
+
+      call is still happening, just not as a Vertex follow-up. Julian also said LogiQ got
+
+      acquired and he''ll move into Meridian Systems next month as product director, same
+
+      mobile. He wants the integration note after he starts, so hold it for now. Daniel''s
+
+      Indonesia bullets still due this weekend.
+
+      '
+    mentions:
+    - cluster: maya_chen
+      as: Maya Chen
+      substantive: true
+      ambiguous: false
+    - cluster: julian_park
+      as: Julian
+      substantive: true
+      ambiguous: false
+    - cluster: daniel_wu
+      as: Daniel
+      substantive: true
+      ambiguous: false
+- id: arc_partnership_events
+  description: Partnership and event-network notes stressing relationship memory, introductions, competitors, and loose references.
+  memos:
+  - id: m1
+    transcript: 'First night of the regional tech summit. Met Lucas Weber from Horizon Ventures, German
+
+      investor, mostly climate and industrial software. He said tomorrow''s breakfast has a
+
+      founder called Aisha Rahman I should meet because she''s looking for Malaysia distribution.
+
+      Lucas used to sit on her board and said he''ll intro us before nine if I find him. I haven''t
+
+      met Aisha yet. Joanne Lee from my old internship walked past, just hello, nothing else.
+
+      '
+    mentions:
+    - cluster: lucas_weber
+      as: Lucas Weber
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha Rahman
+      substantive: true
+      ambiguous: false
+    - cluster: joanne_lee
+      as: Joanne Lee
+      substantive: false
+      ambiguous: false
+  - id: m2
+    transcript: 'Breakfast worked. Met Aisha Rahman, founder of GreenGrid, energy monitoring. She wants
+
+      Malaysia channel partners this year, especially facilities companies. I told her I know
+
+      Harish Nair from EcoServe partnerships but need his permission before sharing anything.
+
+      She wants a warm intro next week if possible. Lucas also said Aisha and Chen Wei are direct
+
+      competitors in two markets, so don''t throw them into the same intro blindly.
+
+      '
+    mentions:
+    - cluster: aisha_rahman
+      as: Aisha Rahman
+      substantive: true
+      ambiguous: false
+    - cluster: harish_nair
+      as: Harish Nair
+      substantive: true
+      ambiguous: false
+    - cluster: lucas_weber
+      as: Lucas
+      substantive: true
+      ambiguous: false
+    - cluster: chen_wei
+      as: Chen Wei
+      substantive: true
+      ambiguous: false
+  - id: m3
+    transcript: 'Afternoon booth note. Finally saw Harish Nair from EcoServe. He is open to meeting Aisha
+
+      but next week is bad because they''re closing a tender. Earliest after the twenty-second.
+
+      He said send two lines on GreenGrid by Friday, then he''ll decide whether to bring his
+
+      country head. Harish also knows Lucas Weber from a supplier deal last year.
+
+      '
+    mentions:
+    - cluster: harish_nair
+      as: Harish Nair
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+    - cluster: lucas_weber
+      as: Lucas Weber
+      substantive: true
+      ambiguous: false
+  - id: m4
+    transcript: 'Networking dinner. Met Chen Wei, founder of VoltTrace. Now I see why Lucas said competitor.
+
+      Also energy monitoring, but industrial sites. Chen wants Singapore logistics customers and
+
+      asked if I know anybody at PSA or DHL. I said I''ll check and come back next week. Don''t
+
+      mention Aisha''s Malaysia plan to him. Priya Das from a sponsor table said hello when leaving,
+
+      no actual conversation.
+
+      '
+    mentions:
+    - cluster: chen_wei
+      as: Chen Wei
+      substantive: true
+      ambiguous: false
+    - cluster: lucas_weber
+      as: Lucas
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+    - cluster: priya_das
+      as: Priya Das
+      substantive: false
+      ambiguous: false
+  - id: m5
+    transcript: 'The German investor guy told me there is a closed-door dinner tomorrow with Aisha, Chen
+
+      and a few corporate people. He said I should speak to Aisha before the dinner because
+
+      seating her next to Chen without context could be awkward. He can seat me near Harish if
+
+      Harish comes. I promised Lucas I''ll send one line on who I most need to meet by tomorrow
+
+      lunch. Need to prep Aisha''s Malaysia angle before six.
+
+      '
+    mentions:
+    - cluster: lucas_weber
+      as: The German investor guy
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+    - cluster: chen_wei
+      as: Chen
+      substantive: true
+      ambiguous: false
+    - cluster: harish_nair
+      as: Harish
+      substantive: true
+      ambiguous: false
+  - id: m6
+    transcript: 'Met two Joannes tonight, fantastic. Joanne Lee, old internship contact, now AlphaWorks
+
+      corporate innovation. We actually talked this time; she wants startup-scouting examples
+
+      next month. Joanne Lim from EnterpriseSG handles market-access programmes and said Aisha
+
+      at GreenGrid may fit one if their Malaysia entity plan is clear. I said I''ll send Joanne Lim
+
+      the company summary next week and Joanne Lee three sample startups by Friday.
+
+      '
+    mentions:
+    - cluster: joanne_lee
+      as: Joanne Lee
+      substantive: true
+      ambiguous: false
+    - cluster: joanne_lim
+      as: Joanne Lim
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+  - id: m7
+    transcript: 'One of the Joannes messaged saying send the startup list before our Tuesday review.
+
+      I cannot tell which Joanne because I saved both without company names. AlphaWorks Joanne
+
+      talked startup scouting, EnterpriseSG Joanne also talked programme startups, so useless
+
+      clue. Check the actual chat, don''t guess. Separately, the EcoServe partnerships guy said the
+
+      tender closes Friday and he can look at Aisha''s two-liner Monday.
+
+      '
+    mentions:
+    - cluster: UNRESOLVED
+      as: One of the Joannes
+      substantive: true
+      ambiguous: true
+    - cluster: harish_nair
+      as: the EcoServe partnerships guy
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+  - id: m8
+    transcript: 'Dinner follow-up. Aisha and Harish finally met, good conversation. Harish said he''ll
+
+      introduce her to EcoServe Malaysia country head after the tender closes. Aisha promised
+
+      him a two-page deployment summary by next Friday. I said I''ll remind her if nothing moves.
+
+      Chen Wei was across the table, we nodded only, no business discussion tonight.
+
+      '
+    mentions:
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+    - cluster: harish_nair
+      as: Harish
+      substantive: true
+      ambiguous: false
+    - cluster: chen_wei
+      as: Chen Wei
+      substantive: false
+      ambiguous: false
+  - id: m9
+    transcript: 'Event-planning note for tomorrow. The AlphaWorks innovation person said their head of
+
+      ventures, Marcus Neo, will be at demo day around four. I haven''t met Marcus yet. Joanne Lee
+
+      thinks he may care about Aisha''s industrial customers, but AlphaWorks already works with
+
+      VoltTrace, so I should understand whether Chen sees them as exclusive first. I promised
+
+      Joanne I''d check with Chen before tomorrow lunch. Don''t blindly make the intro.
+
+      '
+    mentions:
+    - cluster: joanne_lee
+      as: The AlphaWorks innovation person
+      substantive: true
+      ambiguous: false
+    - cluster: marcus_neo
+      as: Marcus Neo
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+    - cluster: chen_wei
+      as: Chen
+      substantive: true
+      ambiguous: false
+  - id: m10
+    transcript: 'Last summit note. Lucas is leaving Horizon Ventures and moving back to Berlin to start his
+
+      own fund in November. Same LinkedIn, new email later. He said keep sending industrial
+
+      software founders with Southeast Asia traction. Joanne Lim confirmed the Tuesday morning
+
+      programme review, so that mystery Joanne message was probably her, but don''t rewrite
+
+      history until I check. Aisha already sent Harish the deployment summary, so no reminder
+
+      needed. Chen said AlphaWorks is non-exclusive, which makes the Marcus intro safer.
+
+      '
+    mentions:
+    - cluster: lucas_weber
+      as: Lucas
+      substantive: true
+      ambiguous: false
+    - cluster: joanne_lim
+      as: Joanne Lim
+      substantive: true
+      ambiguous: false
+    - cluster: aisha_rahman
+      as: Aisha
+      substantive: true
+      ambiguous: false
+    - cluster: harish_nair
+      as: Harish
+      substantive: true
+      ambiguous: false
+    - cluster: chen_wei
+      as: Chen
+      substantive: true
+      ambiguous: false
+    - cluster: marcus_neo
+      as: Marcus
+      substantive: true
+      ambiguous: false
+- id: arc_recruiting
+  description: Recruiting and talent-network voice notes across candidate and client follow-ups.
+  memos:
+  - id: m1
+    transcript: 'Recruiting breakfast just ended. Met Alex Morgan from Stripe, backend engineer, six
+
+      years experience. Not actively looking but curious about infra roles in Singapore.
+
+      He said don''t send a JD yet, just salary range and team size by Friday. Priyanka Shah
+
+      from ByteDance ML research was at the same table. She asked whether the client sponsors
+
+      EP and if there''s a take-home test. I said I''d check and WhatsApp her next week.
+
+      '
+    mentions:
+    - cluster: alex_morgan
+      as: Alex Morgan
+      substantive: true
+      ambiguous: false
+    - cluster: priyanka_shah
+      as: Priyanka Shah
+      substantive: true
+      ambiguous: false
+  - id: m2
+    transcript: 'Banking tech meetup. Met Alex Tan from Grab, product manager, payments side, different
+
+      Alex. He''s not job hunting. He said his former teammate Mei Xuan Ong is graduating in
+
+      May and wants product analytics, not pure data science. I haven''t met Mei Xuan yet.
+
+      Alex said send him a three-line role summary sometime this week and he''ll forward it.
+
+      Kevin Low was near the coffee machine, we just waved.
+
+      '
+    mentions:
+    - cluster: alex_tan
+      as: Alex Tan
+      substantive: true
+      ambiguous: false
+    - cluster: mei_xuan_ong
+      as: Mei Xuan Ong
+      substantive: false
+      ambiguous: false
+    - cluster: kevin_low
+      as: Kevin Low
+      substantive: false
+      ambiguous: false
+  - id: m3
+    transcript: 'Priyanka called during lunch. Surprise, she left ByteDance two weeks ago, now at
+
+      HelixAI as senior scientist. Same phone. She''s actually more open to moving because the
+
+      new role is platform-heavy. Wants the staff-ML JD tonight and interview steps by Monday.
+
+      Need to update company first so I don''t send some awkward ByteDance message.
+
+      '
+    mentions:
+    - cluster: priyanka_shah
+      as: Priyanka
+      substantive: true
+      ambiguous: false
+  - id: m4
+    transcript: 'Campus fair. Finally met Mei Xuan, Alex Tan''s former teammate. She did analytics for a
+
+      student fintech project and a summer at SeaMoney. Wants data-product roles, graduation
+
+      May. I told her I''d send two openings after I check which ones take fresh grads,
+
+      probably tomorrow. Gabriel Wong from our client HR team came by too. He needs a shortlist
+
+      by next Friday, one backend and one product profile.
+
+      '
+    mentions:
+    - cluster: mei_xuan_ong
+      as: Mei Xuan
+      substantive: true
+      ambiguous: false
+    - cluster: alex_tan
+      as: Alex Tan
+      substantive: true
+      ambiguous: false
+    - cluster: gabriel_wong
+      as: Gabriel Wong
+      substantive: true
+      ambiguous: false
+  - id: m5
+    transcript: 'The Stripe engineer called. Alex can do Thursday after six thirty but only exploratory,
+
+      no coding screen yet. Notice period is three months, not two, fix that. The client HR lead also
+
+      said backend can be remote two days a week. I said I''ll send Alex that detail
+
+      tomorrow and Gabriel the shortlist Friday noon. Priyanka probably doesn''t fit this
+
+      particular role, too research-heavy.
+
+      '
+    mentions:
+    - cluster: alex_morgan
+      as: The Stripe engineer
+      substantive: true
+      ambiguous: false
+    - cluster: gabriel_wong
+      as: The client HR lead
+      substantive: true
+      ambiguous: false
+    - cluster: priyanka_shah
+      as: Priyanka
+      substantive: true
+      ambiguous: false
+  - id: m6
+    transcript: 'Networking night. Met Sam Lee from Canva, engineering manager, and Samuel Lim from Wise,
+
+      product lead, everybody calls him Sam too, great. Canva Sam may hire two backend people
+
+      next quarter and said I can send strong profiles this week. Wise Sam is quietly thinking
+
+      about leaving and wants B2B product roles, no CV shared yet. I promised Samuel a salary
+
+      benchmark next week. Need to label these two properly before I confuse them.
+
+      '
+    mentions:
+    - cluster: sam_lee
+      as: Sam Lee
+      substantive: true
+      ambiguous: false
+    - cluster: samuel_lim
+      as: Samuel Lim
+      substantive: true
+      ambiguous: false
+  - id: m7
+    transcript: 'The Canva manager texted asking for two backend profiles by Monday. Alex Morgan could fit
+
+      one if he''s okay with Canva, so I should ask him before forwarding anything. Gabriel also
+
+      wants Samuel Lim for the product slot, but Samuel hasn''t agreed to share his CV. I''ll
+
+      message Samuel tomorrow morning. Mei Xuan''s fresh-grad roles can go tonight.
+
+      '
+    mentions:
+    - cluster: sam_lee
+      as: The Canva manager
+      substantive: true
+      ambiguous: false
+    - cluster: alex_morgan
+      as: Alex Morgan
+      substantive: true
+      ambiguous: false
+    - cluster: gabriel_wong
+      as: Gabriel
+      substantive: true
+      ambiguous: false
+    - cluster: samuel_lim
+      as: Samuel Lim
+      substantive: true
+      ambiguous: false
+    - cluster: mei_xuan_ong
+      as: Mei Xuan
+      substantive: true
+      ambiguous: false
+  - id: m8
+    transcript: 'Messy notification. Alex asked me for compensation numbers before Tuesday. Which Alex?
+
+      I really can''t tell from the lock screen. Stripe Alex asked salary before, Grab Alex
+
+      asked about roles for his friend, and both are in LinkedIn. Need to open the actual chat
+
+      before sending confidential numbers. Separate thing, Priyanka wants to pause her search
+
+      until after bonus season, so stop chasing her for now.
+
+      '
+    mentions:
+    - cluster: UNRESOLVED
+      as: Alex
+      substantive: true
+      ambiguous: true
+    - cluster: priyanka_shah
+      as: Priyanka
+      substantive: true
+      ambiguous: false
+  - id: m9
+    transcript: 'Coffee with the Wise product guy. Samuel said yes, okay to share his profile with Gabriel,
+
+      but only for B2B roles and no consumer apps. He wants me to send the role summary first,
+
+      then CV after he approves. Sam Lee from Canva also replied, Monday deadline stays.
+
+      Alex Morgan said he''s open to Canva if the team owns infra, so I promised the team brief
+
+      tomorrow.
+
+      '
+    mentions:
+    - cluster: samuel_lim
+      as: the Wise product guy
+      substantive: true
+      ambiguous: false
+    - cluster: gabriel_wong
+      as: Gabriel
+      substantive: true
+      ambiguous: false
+    - cluster: sam_lee
+      as: Sam Lee
+      substantive: true
+      ambiguous: false
+    - cluster: alex_morgan
+      as: Alex Morgan
+      substantive: true
+      ambiguous: false
+  - id: m10
+    transcript: 'Friday wrap. Priyanka changed jobs again, she''s joining Nisha Rao''s healthtech company
+
+      PulseGrid next month as ML platform lead. Same WhatsApp. Nisha is the data-platform head
+
+      there and said they may hire a senior backend person after funding closes. She asked for
+
+      Alex Morgan''s public LinkedIn only, no CV, sometime next week. Gabriel''s shortlist is done.
+
+      Mei Xuan has first interview Thursday afternoon, send her prep notes the day before.
+
+      '
+    mentions:
+    - cluster: priyanka_shah
+      as: Priyanka
+      substantive: true
+      ambiguous: false
+    - cluster: nisha_rao
+      as: Nisha Rao
+      substantive: true
+      ambiguous: false
+    - cluster: alex_morgan
+      as: Alex Morgan
+      substantive: true
+      ambiguous: false
+    - cluster: gabriel_wong
+      as: Gabriel
+      substantive: true
+      ambiguous: false
+    - cluster: mei_xuan_ong
+      as: Mei Xuan
+      substantive: true
+      ambiguous: false
