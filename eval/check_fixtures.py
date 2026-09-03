@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from eval.harness import load_scenarios  # noqa: E402
+from eval.harness import load_all_scenarios  # noqa: E402
 
 TARGET_MEMOS = 20
 TARGET_AMBIGUOUS = 8
@@ -35,7 +35,7 @@ def is_placeholder(memo) -> bool:
 
 
 def main() -> int:
-    scenarios = load_scenarios()
+    scenarios = load_all_scenarios()
     if not scenarios:
         print("no fixtures found in eval/fixtures/")
         return 1

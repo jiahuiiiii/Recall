@@ -40,13 +40,24 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--scenario", default=None, help="run only this scenario id")
+    ap.add_argument(
+        "--fixture",
+        type=Path,
+        default=None,
+        help="run one YAML fixture or bundle instead of the default sweep; "
+             "combine with --scenario to run a single arc out of a bundle",
+    )
     args = ap.parse_args()
 
-    scenarios = load_scenarios()
+    fixture_path = args.fixture
+    if fixture_path and not fixture_path.is_absolute():
+        fixture_path = Path.cwd() / fixture_path
+    scenarios = load_scenarios(fixture_path) if fixture_path else load_scenarios()
     if args.scenario:
         scenarios = [s for s in scenarios if s.id == args.scenario]
     if not scenarios:
-        print("no scenarios found in eval/fixtures/")
+        where = str(fixture_path) if fixture_path else "eval/fixtures/"
+        print(f"no scenarios found in {where}")
         return 1
 
     from recall._common import HAIKU, LEDGER

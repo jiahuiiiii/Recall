@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from recall.nodes.enrich import _verify
-from recall.state import PeopleExtraction
+from recall.state import PeopleExtraction, Person
 from tests.fakes import PASSING_MENTION, WEI_LIN, fake_chat_model
 
 
@@ -27,6 +27,47 @@ def test_passing_mentions_are_filtered_out(monkeypatch):
 
     assert [p["name"] for p in out["people"]] == ["Wei Lin"]
     assert "Skipped 1 passing mention(s): Daniel" in out["messages"][0].content
+
+
+def test_substantive_role_aliases_reach_dedupe(monkeypatch):
+    """A callback by role is a recognition input, not disposable prose.
+
+    The recruiting arc uses references such as "the Stripe engineer" after
+    Alex Morgan was first recorded. Keeping that exact phrase as an alias is
+    what lets alignment and retrieval give the resolver a chance to recognise
+    him; dropping it makes the mention invisible before resolution begins.
+    """
+    import recall.nodes.extract as extract
+
+    extracted = PeopleExtraction(people=[
+        Person(
+            name="Alex Morgan",
+            aliases=["the Stripe engineer"],
+            notes=["Can do Thursday after six thirty"],
+            substantive=True,
+        ),
+        Person(
+            name="Gabriel Wong",
+            aliases=["the client HR lead"],
+            notes=["Backend can be remote two days a week"],
+            substantive=True,
+        ),
+    ])
+    monkeypatch.setattr(extract, "chat_model", fake_chat_model({PeopleExtraction: extracted}))
+
+    out = extract.extract_people_node({"transcript": "a recruiting callback"})
+
+    assert [p["name"] for p in out["people"]] == ["Alex Morgan", "Gabriel Wong"]
+    assert out["people"][0]["aliases"] == ["the Stripe engineer"]
+    assert out["people"][1]["aliases"] == ["the client HR lead"]
+
+
+def test_extraction_instructions_make_role_aliases_mandatory():
+    """Keep the role-reference requirement visible as the extraction prompt evolves."""
+    from recall.nodes.extract import SYSTEM
+
+    assert "role or descriptive reference as an alias" in SYSTEM
+    assert "Stripe engineer" in SYSTEM
 
 
 def test_enricher_skips_people_with_nothing_to_disambiguate_on(monkeypatch):

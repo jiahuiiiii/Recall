@@ -74,6 +74,63 @@ def decode_list(value: object) -> object:
     return decoded if isinstance(decoded, list) else [decoded]
 
 
+def salvage_object_list(value: object) -> tuple[list[dict], str]:
+    """Recover the complete objects at the head of a malformed JSON array.
+
+    Nova occasionally emits a valid `people` object followed by a broken
+    fragment -- `met_at` after its own object was already closed. A normal
+    decode rightly rejects the whole string, and re-asking is the FIRST remedy;
+    this is the last one, for when every resample came back corrupt too.
+    Throwing a real contact away at that point is worse than keeping it.
+
+    Deliberately conservative: it decodes one object at a time with the standard
+    decoder and stops at the first thing it cannot read, rather than guessing at
+    a broken object or resyncing past it -- a heuristic resync can pick a brace
+    out of the middle of a broken string and manufacture a person nobody
+    mentioned. So a complete object AFTER a mid-array break is lost, which is
+    exactly why the abandoned text is returned rather than dropped on the floor:
+    a partial extraction that reads like a clean one is the failure this whole
+    path exists to avoid.
+
+    Returns the complete objects and the text it could not parse. The text is
+    empty when the array closed properly and only trailing noise followed, since
+    nothing was lost in that case. An empty object list means nothing was
+    salvageable and the caller should let the original failure stand.
+    """
+    if not isinstance(value, str):
+        return [], ""
+    text = value.strip()
+    if not text.startswith("["):
+        return [], text
+
+    decoder = json.JSONDecoder()
+    items: list[dict] = []
+    abandoned = ""
+    position = 1
+    while position < len(text):
+        while position < len(text) and text[position].isspace():
+            position += 1
+        if position >= len(text):
+            break
+        if text[position] == "]":
+            break  # the array closed; whatever follows cost us no one
+        if text[position] == ",":
+            position += 1
+            continue
+        start = position
+        try:
+            item, position = decoder.raw_decode(text, start)
+        except json.JSONDecodeError:
+            abandoned = text[start:]
+            break
+        if not isinstance(item, dict):
+            abandoned = text[start:]  # a bare value is not a person
+            break
+        items.append(item)
+
+    return items, abandoned
+
+
 class Person(BaseModel):
     """One human mentioned in the memo."""
 

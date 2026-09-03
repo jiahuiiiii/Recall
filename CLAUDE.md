@@ -53,7 +53,7 @@ If asked to add a feature, default to no. Five minutes of demo cannot show bread
 
 ## Current status
 
-**The full pipeline works and the headline benchmark exists.** 411 tests, all offline.
+**The full pipeline works and the headline benchmark exists.** 418 tests, all offline.
 Runs from the CLI, the web UI, or Telegram.
 
 ```
@@ -242,8 +242,12 @@ held across all 11 scenarios.
 
 ### Fixtures
 
-114 memos, 234 mentions, 83 recurring people across eleven scenarios. `uv run
-eval/check_fixtures.py` exits 0.
+**The default sweep is the eleven scenarios below: 114 memos, 234 mentions, 83 recurring
+people.** The five-arc business bundle is a further 50 memos and lives in
+`eval/fixtures/bundles/`, deliberately OUT of the default glob so the published tables
+stay reproducible by the bare `run_eval.py` / `run_questions.py` commands printed beside
+them — reach it with `--fixture`. `uv run eval/check_fixtures.py` validates all sixteen
+(164 memos, 384 mentions, 119 recurring) and exits 0.
 
 | Scenario              | memos | people | what it carries                                                                                                                                                       |
 | --------------------- | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -448,9 +452,23 @@ Closed on three fronts, all now in place:
    `CommitmentExtraction.commitments`, `DraftBundle.drafts`, and
    `ConsolidatedRecord.notes/met_at`. A correctly-encoded-but-stringified list is decoded
    rather than rejected. Tested in `test_state_coercion.py`.
-2. **Retry on genuinely malformed output.** `extract_people_node` already retries 3× on
-   `ValidationError` — for output that is corrupt JSON (`met_at` after the object close),
-   not just over-encoded, coercion cannot help and only a resample can.
+2. **Retry first; salvage only once every attempt has failed, and say so.**
+   `extract_people_node` re-asks 3× with an explicit structured-output repair request —
+   a resample recovers the WHOLE memo, where a salvage recovers only its head, so
+   salvaging early would trade recall for one saved model call in exactly the case the
+   retry exists for. Only when all three come back corrupt does `salvage_object_list`
+   scan the string with Python's JSON decoder one object at a time and keep the complete
+   dictionaries ahead of the break; they still go through `Person` validation, and a
+   broken FIRST object is not guessed at and raises.
+
+   **It stops at the break and does not resync past it** — a heuristic resync can lift a
+   brace out of a broken string and manufacture a person nobody mentioned — so a complete
+   object *after* a mid-array break is lost. That loss is reported: the function returns
+   the abandoned text alongside the objects, and the node appends `Salvaged N person(s)
+   … abandoned M unparseable characters` to its summary message. A partial extraction
+   that reads like a clean one is the failure this path exists to avoid; it is the same
+   reason the passing-mention filter is code with an explicit boolean rather than a
+   silently-obedient model.
 3. **Per-memo isolation in both harnesses.** `run_eval` and `run_questions` each wrap a
    memo in try/except and skip on failure, so one bad extraction costs its cases, never
    the run. This is what the "entire run" note refers to; it can no longer happen.
@@ -513,9 +531,8 @@ called from inside the node) is untouched.
 
 ### 6. Already documented, unchanged
 
-Role-only references are not extracted; plural references yield one entity; the
-"someone new" prior is a placeholder at 1.5%; the benchmark rests on one setting. See
-**Known limitations**. A Whisper mis-hear that changes the _first_ token
+Plural references yield one entity; the "someone new" prior is a placeholder at 1.5%; the
+benchmark rests on one setting. See **Known limitations**. A Whisper mis-hear that changes the _first_ token
 (`Zhong Xuan` → `Jong Shuen`) scores 0.00 and does not match at all — this is unchanged
 by the fix and is exercised by `arc_godwin` m14.
 
@@ -717,12 +734,14 @@ eval/                       the benchmark — the hardest part to rebuild
   run_questions.py          question efficiency      → the headline table
   check_fixtures.py         validator — free, no model calls, exits 0
   from_audio.py             record a memo straight into a fixture
-  fixtures/                 10 scenarios: arc_acacia · arc_godwin · arc_ehoc (ehoc_c4)
-                            arc_sales · account_notes · client_followups
-                            conference_notes · partner_notes · site_visit_notes
-                            same_first_name · genuinely_ambiguous
+  fixtures/                 the default sweep — 11 scenarios: arc_acacia · arc_godwin
+                            arc_ehoc (ehoc_c4) · arc_sales · account_notes
+                            client_followups · conference_notes · partner_notes
+                            site_visit_notes · same_first_name · genuinely_ambiguous
+    bundles/                opt-in via --fixture, NOT in the default glob:
+                            recall_business_guideline_50 (5 arcs, 50 memos)
 
-tests/                      411 tests, offline, no credentials, no spend
+tests/                      418 tests, offline, no credentials, no spend
   fakes.py                  scripted fake models — how the graph is tested
   test_ics · test_telegram · test_google_oauth · test_calendar_confirm  (+ 20 more)
 
@@ -859,6 +878,70 @@ Consequences worth knowing before calling it broken:
 
 ### Role-only and descriptor-only references are not extracted
 
+**Role aliases strengthened 3 Sep; extraction remains probabilistic.** The extraction
+prompt now requires each definite role or description to be kept as an alias when a
+person is also named (for example, `Alex Morgan` + `the Stripe engineer`), and the
+offline suite pins that output in `tests/test_guards.py`. A targeted
+`arc_recruiting`, `repeats=3` re-run moved coverage from **0.790 to 0.840** and the
+substantive score from **0.870 to 0.959**. B3 recall only moved **0.523 to 0.545**
+(B3 F1 **0.687 ±0.032 to 0.704 ±0.039**), so this is evidence the extraction hole
+narrowed, not a reportable general improvement: each run has only ten memos and two
+post-fix repeats lost `m10` to malformed structured output after all retries.
+
+The remaining recall loss is the non-interactive fallback: shortened names and job
+changes land in the ambiguity band, then the LLM often selects "someone new" instead
+of the prior record. Do not lower the threshold to improve this number; it would undo
+the protection against the two different Alexes.
+
+The separate interactive-style question sweep (`arc_recruiting`, `repeats=3`) did now
+surface **[14, 11, 11]** scorable cases per run, including the role aliases above. EIG
+used **1.223 ±0.045** questions per resolution versus uncertainty **1.385 ±0.091** and
+random **1.392 ±0.136**; its one-question rate was 64% versus 61% and 52%. However, the
+overall spread (0.27) exceeds the observed gap, and two `m10` extractions failed again,
+so report this as **inconclusive**. It is a useful regression signal, not a headline.
+
+#### Post-fix business-fixture resolution sweep — 3 Sep, `repeats=3`
+
+`uv run eval/run_eval.py --fixture eval/fixtures/bundles/recall_business_guideline_50.yaml`
+now runs the five-scenario YAML bundle directly. The fixture has **50 memos** in five
+independent, ten-memo professional arcs; its result is a post-fix regression measurement,
+not a replacement for the existing 11-scenario headline table.
+
+| scenario | B3 F1 | B3 P | B3 R | pair F1 | substantive | coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `arc_consulting` | 0.846 ±0.107 | 1.000 | 0.745 | 0.795 | 0.955 | 0.827 |
+| `arc_enterprise_sales` | 0.905 ±0.000 | 1.000 | 0.827 | 0.881 | 0.920 | 0.923 |
+| `arc_founder_investor` | 0.884 ±0.060 | 1.000 | 0.796 | 0.823 | 0.935 | 0.905 |
+| `arc_partnership_events` | 0.839 ±0.018 | 0.971 | 0.739 | 0.760 | 0.943 | 0.919 |
+| `arc_recruiting` | 0.849 ±0.045 | 1.000 | 0.739 | 0.753 | 0.964 | 0.963 |
+
+**B3 F1 across the 15 scenario/repeat measurements: 0.865 ±0.117** (min 0.704, max
+0.937). Four arcs held 1.000 precision; the `arc_partnership_events` loss is a
+non-interactive adjudicator outcome, not an automatic resolver merge. The runtime band
+flagged 241 mentions against five labelled ambiguities, and two malformed extractions
+(`arc_consulting/m10`, `arc_founder_investor/m10`) were isolated rather than taking down
+their repeats. The suite proves the post-fix pipeline runs on professional arcs; it does
+not replace the existing 11-scenario resolution baseline.
+
+#### Post-fix business-fixture question sweep — 4 Sep, `repeats=3`
+
+`uv run eval/run_questions.py --fixture eval/fixtures/bundles/recall_business_guideline_50.yaml`
+collected **[64, 63, 64]** scorable ambiguous cases across the three full pipeline runs
+(191 total). No memos dropped during this sweep; 36 of the first run's 64 selected
+questions were multi-valued.
+
+| strategy | questions / resolution | resolved in ≤1 question |
+| --- | ---: | ---: |
+| EIG | **1.069 ±0.041** (min 1.016, max 1.097) | **74%** |
+| uncertainty | 1.261 ±0.076 (min 1.188, max 1.339) | 71% |
+| random | 1.353 ±0.097 (min 1.226, max 1.419) | 60% |
+
+EIG is first and its displayed range clears both baselines. However, `_verdict()` uses
+the **largest** strategy spread (0.19, from random) against the EIG-to-baseline mean
+gap and therefore printed **inconclusive**. Preserve both statements: the observed
+ordering and ranges are encouraging, while the harness's conservative, pre-existing
+verdict does not authorize a stronger new claim without more repeats.
+
 "I bumped into the male OGL... said hi... he said hi back" extracts **nobody** — not even
 a non-substantive entry, which the prompt explicitly asks for. Two things overlap here:
 the memo genuinely is presence-and-greeting (so `substantive: false` is the correct
@@ -992,7 +1075,7 @@ failure was invisible in the output.
 
 ```bash
 uv sync --extra audio --extra web --extra aws
-uv run pytest tests/ -q          # 411 tests, offline, no credentials, no spend
+uv run pytest tests/ -q          # 418 tests, offline, no credentials, no spend
 
 uv run 00_check_bedrock.py       # must print OK before any Bedrock run
 uv run 00_check_bedrock.py --list-models [--verbose]   # probes, doesn't just list

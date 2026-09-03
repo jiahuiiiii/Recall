@@ -21,6 +21,13 @@ import yaml
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+# Bundles live one level down, and that is load-bearing rather than tidiness:
+# `load_scenarios()` globs FIXTURES non-recursively, so a bundle dropped in the
+# top level would silently join the default sweep and every published table
+# would stop being reproducible by the command printed next to it. A bundle is
+# opt-in via `--fixture`; `load_all_scenarios()` sees both, for validation.
+BUNDLES = FIXTURES / "bundles"
+
 
 @dataclass
 class Mention:
@@ -73,68 +80,137 @@ class Scenario:
         return {m.key for memo in self.memos for m in memo.mentions if m.ambiguous}
 
 
+def _parse_scenario(raw: dict, where: str) -> Scenario:
+    """One scenario dict -> a Scenario, with the checks that stop a malformed
+    fixture from scoring meaninglessly rather than failing."""
+    for i, entry in enumerate(raw.get("memos") or []):
+        if entry is None:
+            raise ValueError(
+                f"{where}: memo entry #{i + 1} is empty — a stray '-' with nothing "
+                f"under it. Delete the line or finish the memo."
+            )
+        if not entry.get("id"):
+            raise ValueError(f"{where}: memo entry #{i + 1} has no `id:`")
+        if entry.get("transcript") is None:
+            raise ValueError(f"{where}/{entry['id']}: no `transcript:`")
+        for j, m in enumerate(entry.get("mentions") or []):
+            if m is None:
+                raise ValueError(
+                    f"{where}/{entry['id']}: mention #{j + 1} is empty"
+                )
+            missing = [k for k in ("cluster", "as") if not m.get(k)]
+            if missing:
+                raise ValueError(
+                    f"{where}/{entry['id']}: mention #{j + 1} is missing {missing}"
+                )
+            # A typo'd boolean -- `falso`, `ture`, `False ` -- parses as a
+            # STRING, and every non-empty string is truthy. `ambiguous: falso`
+            # silently means true, and `substantive: ture` silently keeps a
+            # mention that should have been filtered. Both corrupt the
+            # benchmark rather than failing.
+            for flag in ("substantive", "ambiguous"):
+                if flag in m and not isinstance(m[flag], bool):
+                    raise ValueError(
+                        f"{where}/{entry['id']}: mention #{j + 1} has "
+                        f"{flag}: {m[flag]!r} — must be true or false, "
+                        f"not a string. Check the spelling."
+                    )
+
+    if not raw.get("id"):
+        raise ValueError(f"{where}: scenario has no `id:`")
+    # `is None` rather than `not in`: `memos:` with nothing under it parses as a
+    # null and would reach the loop below as a bare TypeError -- the exact
+    # unhelpful failure these checks exist to replace.
+    if raw.get("memos") is None:
+        raise ValueError(
+            f"{where}: scenario {raw['id']!r} has no `memos:`. A file holds either "
+            f"one scenario with `memos:`, or several under `scenarios:`."
+        )
+
+    memos = [
+        Memo(
+            id=str(m["id"]).strip(),
+            transcript=m["transcript"].strip(),
+            mentions=[
+                Mention(
+                    memo_id=str(m["id"]).strip(),
+                    # Stripped on load. A trailing space in `as:` produces a
+                    # mention key nothing can match, and the mention then
+                    # scores as a miss for a reason invisible in the YAML.
+                    cluster=str(x["cluster"]).strip(),
+                    as_written=str(x["as"]).strip(),
+                    substantive=bool(x.get("substantive", True)),
+                    ambiguous=bool(x.get("ambiguous", False)),
+                )
+                for x in (m.get("mentions") or [])
+            ],
+        )
+        for m in raw["memos"]
+    ]
+    return Scenario(id=str(raw["id"]).strip(), description=raw.get("description", ""), memos=memos)
+
+
 def load_scenarios(path: Path | None = None) -> list[Scenario]:
+    """Load every fixture file.
+
+    A file is either ONE scenario (`id:` + `memos:` at the top level) or a
+    BUNDLE of them (`scenarios:` — a list of the same shape). Bundles exist so a
+    set written in one sitting stays in one file; nothing downstream can tell
+    the difference, because both produce a flat list of Scenario and every
+    `--scenario` id is the inner one.
+    """
     out: list[Scenario] = []
-    for f in sorted((path or FIXTURES).glob("*.yaml")):
+    source = path or FIXTURES
+    files = [source] if source.is_file() else sorted(source.glob("*.yaml"))
+    for f in files:
         raw = yaml.safe_load(f.read_text()) or {}
 
-        # A half-written entry -- a bare "-" with nothing under it -- parses as a
-        # null list item and then blows up deep inside the loader with an
-        # unhelpful TypeError. Say which file and which entry instead.
-        for i, entry in enumerate(raw.get("memos") or []):
-            if entry is None:
+        if "scenarios" in raw:
+            if "memos" in raw:
                 raise ValueError(
-                    f"{f.name}: memo entry #{i + 1} is empty — a stray '-' with nothing "
-                    f"under it. Delete the line or finish the memo."
+                    f"{f.name}: has both `scenarios:` and a top-level `memos:`. "
+                    f"The top-level memos would be silently dropped — pick one shape."
                 )
-            if not entry.get("id"):
-                raise ValueError(f"{f.name}: memo entry #{i + 1} has no `id:`")
-            if entry.get("transcript") is None:
-                raise ValueError(f"{f.name}/{entry['id']}: no `transcript:`")
-            for j, m in enumerate(entry.get("mentions") or []):
-                if m is None:
-                    raise ValueError(
-                        f"{f.name}/{entry['id']}: mention #{j + 1} is empty"
-                    )
-                missing = [k for k in ("cluster", "as") if not m.get(k)]
-                if missing:
-                    raise ValueError(
-                        f"{f.name}/{entry['id']}: mention #{j + 1} is missing {missing}"
-                    )
-                # A typo'd boolean -- `falso`, `ture`, `False ` -- parses as a
-                # STRING, and every non-empty string is truthy. `ambiguous: falso`
-                # silently means true, and `substantive: ture` silently keeps a
-                # mention that should have been filtered. Both corrupt the
-                # benchmark rather than failing.
-                for flag in ("substantive", "ambiguous"):
-                    if flag in m and not isinstance(m[flag], bool):
-                        raise ValueError(
-                            f"{f.name}/{entry['id']}: mention #{j + 1} has "
-                            f"{flag}: {m[flag]!r} — must be true or false, "
-                            f"not a string. Check the spelling."
-                        )
+            entries = raw["scenarios"] or []
+            if not isinstance(entries, list):
+                raise ValueError(f"{f.name}: `scenarios:` must be a list")
+            for i, s in enumerate(entries):
+                if s is None:
+                    raise ValueError(f"{f.name}: scenario entry #{i + 1} is empty")
+                out.append(_parse_scenario(s, f"{f.name}[{s.get('id') or i + 1}]"))
+        else:
+            out.append(_parse_scenario(raw, f.name))
 
-        memos = [
-            Memo(
-                id=str(m["id"]).strip(),
-                transcript=m["transcript"].strip(),
-                mentions=[
-                    Mention(
-                        memo_id=str(m["id"]).strip(),
-                        # Stripped on load. A trailing space in `as:` produces a
-                        # mention key nothing can match, and the mention then
-                        # scores as a miss for a reason invisible in the YAML.
-                        cluster=str(x["cluster"]).strip(),
-                        as_written=str(x["as"]).strip(),
-                        substantive=bool(x.get("substantive", True)),
-                        ambiguous=bool(x.get("ambiguous", False)),
-                    )
-                    for x in (m.get("mentions") or [])
-                ],
-            )
-            for m in raw["memos"]
-        ]
-        out.append(Scenario(id=raw["id"], description=raw.get("description", ""), memos=memos))
+    reject_duplicate_ids(out)
+    return out
+
+
+def reject_duplicate_ids(scenarios: list[Scenario]) -> None:
+    """Two scenarios claiming one id silently halve it across two runs.
+
+    Both then score every cross-memo recognition as a miss, which reads as a
+    resolver regression rather than as the fixture collision it is.
+    """
+    seen: dict[str, int] = {}
+    for s in scenarios:
+        seen[s.id] = seen.get(s.id, 0) + 1
+    dupes = sorted(k for k, v in seen.items() if v > 1)
+    if dupes:
+        raise ValueError(f"duplicate scenario id(s) across fixtures: {dupes}")
+
+
+def load_all_scenarios() -> list[Scenario]:
+    """Every fixture that exists, headline set AND bundles.
+
+    For validation, not for scoring: a bundle is deliberately outside the
+    default sweep (see BUNDLES), but nothing should be able to reach the
+    benchmark without check_fixtures.py having looked at it first.
+    """
+    out = load_scenarios()
+    if BUNDLES.is_dir():
+        for f in sorted(BUNDLES.glob("*.yaml")):
+            out += load_scenarios(f)
+    reject_duplicate_ids(out)  # a bundle id colliding with the headline set
     return out
 
 

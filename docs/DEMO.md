@@ -12,6 +12,30 @@ gains nothing the camera can see except a URL bar.
 interactive paths actually *pause and ask the clarifying question*. The CLI
 auto-adjudicates, so it cannot show the one thing the demo exists to show.
 
+## Fast path: the three-beat web demo
+
+Run this from the repository root:
+
+```bash
+uv run demo.py
+```
+
+It starts the web app with a fresh throwaway graph and prints three files to paste in
+order:
+
+1. `data/memos/day1.txt` — creates the first contact records.
+2. `data/memos/demo_day2.txt` — recognises Wei Lin and adds two Jungle partners.
+3. `data/memos/demo_ask.txt` — pauses on the ambiguous Jungle-partner reference.
+
+For the third memo, show the chosen question, its information-gain value, and the
+rejected alternatives before answering. The reference is ambiguous three ways on
+purpose — Priya from day 1, plus Rachel Sim and Nadia Osman. Two candidates would
+make every discriminating question worth identical bits, so all three strategies
+would agree and the selection would have nothing to show.
+
+The script never writes to the normal person graph; closing the web server ends this
+disposable demo session.
+
 ---
 
 ## Before anything: one rule
