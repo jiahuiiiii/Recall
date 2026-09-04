@@ -53,17 +53,19 @@ A rough note, typed entry, or voice memo passes through six stages:
 
 ```mermaid
 flowchart LR
-    A["Messy note<br/>or voice memo"] --> B["Extract<br/>people + context"]
+    A["Messy note<br/>or voice memo"] --> B["Extract people,<br/>context + commitments"]
     B --> C["Compare against<br/>person graph"]
-    C --> D{"How confident<br/>is the match?"}
+    C --> D{"Match confidence"}
     D -->|"Clearly new"| E["Create person"]
     D -->|"Clearly known"| F["Update existing person"]
     D -->|"Ambiguous"| G["Human in the loop:<br/>ask one question"]
     G --> H["User answers"]
     H --> I["Resolve identity"]
     I --> F
-    E --> J["Continue workflow"]
+    E --> J["Draft follow-ups<br/>and commitments"]
     F --> J
+    J --> K["Human confirms"]
+    K --> L["Add selected commitments<br/>to calendar"]
 ```
 
 The human is not an emergency fallback. Human input is a deliberate control point in the workflow.
