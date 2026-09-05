@@ -35,6 +35,7 @@
    near-black ground there is no headroom for the highlight, every panel
    flattens, and the page reads as murk with a few coloured words in it. */
 :root{
+  color-scheme:dark;
   --bg:#122120; --panel:#1A2E2C; --panel2:#223A37; --sunk:#0D1918;
   --line:#2E4744; --line2:#3F5C58;
   --ink:#F3FAF8; --ink2:#DAE9E6; --muted:#97B2AE;
@@ -60,24 +61,30 @@
   --sink:inset 4px 4px 9px var(--neu-lo),inset -3px -3px 8px var(--neu-hi);
   --sink-sm:inset 2px 2px 5px var(--neu-lo),inset -2px -2px 5px var(--neu-hi);
 }
-@media (prefers-color-scheme: light){
-  :root{
-    /* A warm near-neutral, not the old cream: four saturated colours need a
-       ground that does not compete with them. The panel is a shade off the
-       ground rather than pure white -- a white card on white is a card,
-       whereas the same hue at slightly different lightness is a surface. */
-    --bg:#F7F4F0; --panel:#FDFBF8; --panel2:#F0EBE4; --sunk:#E9E2D9;
-    --line:#E2DAD0; --line2:#CFC3B6;
-    --ink:#1E2423; --ink2:#3E4746; --muted:#7B7671;
-    /* Text-safe stand-ins. The tints they pair with are the brand colours
-       themselves, thinned: --gold-dim is the yellow, --clay-dim the pink. */
-    --gold:#BE5510; --gold-dim:#FDF1C8; --gold-ink:#3A1608;
-    --clay:#B54860; --clay-dim:#FFE2E7;
-    --sage:#067F7F; --sage-dim:#D5EFEE;
-    --rec:#E04F1C;
-    --neu-lo:rgba(158,146,133,.40); --neu-hi:rgba(255,255,255,.95);
-    --scrim:rgba(46,60,58,.32);
-  }
+/* Light lives on the attribute, not on a media query. `<html data-theme>` is
+   the one source of truth: a one-line script in each page's <head> stamps it
+   from the stored choice, or from the OS preference when nothing has been
+   chosen, BEFORE the stylesheet applies -- so there is no flash, and the toggle
+   (shared.js) and the OS setting can never disagree about which set is live.
+   Keeping a `prefers-color-scheme` copy as a fallback would mean two copies of
+   these tokens, and two copies drift on the first edit that forgets one. */
+:root[data-theme="light"]{
+  color-scheme:light;
+  /* A warm near-neutral, not the old cream: four saturated colours need a
+     ground that does not compete with them. The panel is a shade off the
+     ground rather than pure white -- a white card on white is a card,
+     whereas the same hue at slightly different lightness is a surface. */
+  --bg:#F7F4F0; --panel:#FDFBF8; --panel2:#F0EBE4; --sunk:#E9E2D9;
+  --line:#E2DAD0; --line2:#CFC3B6;
+  --ink:#1E2423; --ink2:#3E4746; --muted:#7B7671;
+  /* Text-safe stand-ins. The tints they pair with are the brand colours
+     themselves, thinned: --gold-dim is the yellow, --clay-dim the pink. */
+  --gold:#BE5510; --gold-dim:#FDF1C8; --gold-ink:#3A1608;
+  --clay:#B54860; --clay-dim:#FFE2E7;
+  --sage:#067F7F; --sage-dim:#D5EFEE;
+  --rec:#E04F1C;
+  --neu-lo:rgba(158,146,133,.40); --neu-hi:rgba(255,255,255,.95);
+  --scrim:rgba(46,60,58,.32);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -92,6 +99,19 @@ button{font-family:inherit}
        margin:0;line-height:1}
 .brand em{font-style:normal;color:var(--gold)}
 .tag{color:var(--muted);font-size:14.5px;margin:0}
+/* Theme toggle. Sits at the far end of the masthead on every page and reads as
+   a small raised chip, the same object as a legend pill: it is a setting, not
+   an action on the memo, so it must not compete with the orange buttons. The
+   label names the mode you would switch TO -- a toggle that shows its current
+   state reads as a status and gets clicked to "confirm" it. */
+.theme{margin-left:auto;align-self:center;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:var(--panel2);
+  border:1px solid var(--line2);border-radius:999px;padding:7px 12px;cursor:pointer;
+  box-shadow:var(--raise-sm);white-space:nowrap;
+  transition:color .12s,border-color .12s,box-shadow .1s}
+.theme:hover{color:var(--gold);border-color:var(--gold)}
+.theme:active{box-shadow:var(--sink-sm)}
+.theme:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 330px;
        gap:26px;align-items:start}
 

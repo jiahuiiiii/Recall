@@ -5,6 +5,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>/* Theme before first paint; the choice itself lives in shared.js. */
+try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <link rel="stylesheet" href="/app.css">
 <style>
 /* Page-specific. The sidebar shows five recent people in 286px; this page has
@@ -38,7 +40,8 @@
   <div class="top">
     <h1>Every<span>one</span></h1>
     <p>Everyone Recall remembers. Filter, sort, and open a record.</p>
-  </div>
+    <button id="theme" class="theme" type="button" aria-label="Switch theme">☀ Light mode</button>
+</div>
   <div class="block">
     <p class="lab">The person graph
       <span id="pcount" style="letter-spacing:0;text-transform:none"></span>

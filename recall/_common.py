@@ -21,10 +21,14 @@ from typing import Any
 
 # .env is loaded in recall/__init__.py, which runs before any submodule.
 
-# Haiku 4.5 is the project default. RECALL_MODEL_ID overrides it, which is how
-# accounts that cannot subscribe to third-party (Anthropic) models on Bedrock
-# run the pipeline on a first-party model instead -- see README.
-_DEFAULT_HAIKU = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+# Sonnet 4.6 through the US cross-region profile is the code default because it
+# is what the hackathon (judges') account can call, and that account's policy
+# allows Bedrock only in the US regions. RECALL_MODEL_ID overrides it -- a
+# personal account usually runs Nova instead, since Anthropic models sit behind
+# a marketplace form there (see README). The published benchmark tables were
+# measured on `global.amazon.nova-2-lite-v1:0`. The variable keeps its
+# historical name; everything reads HAIKU.
+_DEFAULT_HAIKU = "us.anthropic.claude-sonnet-4-6"
 _DEFAULT_SONNET = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 HAIKU = os.environ.get("RECALL_MODEL_ID", _DEFAULT_HAIKU)
@@ -33,8 +37,11 @@ SONNET = os.environ.get("RECALL_SONNET_MODEL_ID", _DEFAULT_SONNET)
 # Bedrock follows the CLI default region, not the SSO region (and on a personal
 # account, whatever `aws configure` wrote into ~/.aws/config). Setting it in one
 # place and defaulting loudly is what stops the "works for me, 404s for you" bug.
+# us-east-1 matches the default model above: the judges' account denies every
+# model in ap-southeast-1, so a fresh clone with no .env has to land somewhere
+# that works.
 DEFAULT_REGION = os.environ.get("AWS_REGION") or os.environ.get(
-    "AWS_DEFAULT_REGION", "ap-southeast-1"
+    "AWS_DEFAULT_REGION", "us-east-1"
 )
 
 # USD per million tokens: (input, output, cache_write, cache_read).

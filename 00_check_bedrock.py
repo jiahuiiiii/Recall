@@ -8,8 +8,9 @@ Checks the four things that actually break, in the order they break:
   4. a real inference call returns tokens
 
 On failure it prints the specific fix for the credential style in use, and on a
-model failure it lists the Claude ids this account CAN call so the fix is a
-copy-paste rather than a console hunt.
+model failure `--list-models` probes the Claude and Nova ids this account CAN
+call -- in this region, then the US regions if an organisation policy denies
+everything here -- so the fix is a copy-paste rather than a console hunt.
 """
 
 from __future__ import annotations
@@ -30,7 +31,10 @@ def _credential_style() -> str:
     from pathlib import Path
 
     if os.environ.get("AWS_ACCESS_KEY_ID"):
-        return "env"
+        # Temporary keys pasted from the SSO access portal carry a session
+        # token and expire in hours; long-lived IAM keys do not. The fix for an
+        # expired one is "paste a fresh set", not "your keys are wrong".
+        return "session" if os.environ.get("AWS_SESSION_TOKEN") else "env"
 
     config = Path.home() / ".aws" / "config"
     creds = Path.home() / ".aws" / "credentials"
@@ -49,6 +53,13 @@ def _credential_fix(style: str) -> str:
     flag = f" --profile {profile}" if profile else ""
     if style == "sso":
         return f"aws sso login{flag}      # SSO sessions expire every 8-12h"
+    if style == "session":
+        return (
+            "These are temporary keys (AWS_SESSION_TOKEN is set) and they expire\n"
+            "  after a few hours. Sign in to the AWS access portal, open 'Command\n"
+            "  line or programmatic access', and paste a fresh AWS_ACCESS_KEY_ID /\n"
+            "  AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN into .env."
+        )
     if style in {"keys", "env"}:
         return (
             "Your access keys are present but rejected -- they are wrong, deleted,\n"
@@ -64,8 +75,15 @@ def _credential_fix(style: str) -> str:
     )
 
 
-def _list_claude_ids(region: str) -> list[str]:
-    """Claude ids this account can SEE. Not the same as ids it can call.
+# The two model families the pipeline is known to run on. Nova is listed
+# alongside Claude because on a personal account it is usually the ONLY thing
+# callable, and a probe that never tries it reports "nothing works" to a user
+# whose account is fine.
+_FAMILIES = ("anthropic", "nova")
+
+
+def _list_model_ids(region: str) -> list[str]:
+    """Claude and Nova ids this account can SEE. Not the same as ids it can call.
 
     Inference profiles and foundation models are separate APIs and either one
     can be the thing that works, so both get listed.
@@ -78,14 +96,18 @@ def _list_claude_ids(region: str) -> list[str]:
     try:
         for p in bedrock.list_inference_profiles()["inferenceProfileSummaries"]:
             pid = p.get("inferenceProfileId", "")
-            if "anthropic" in pid and p.get("status", "ACTIVE") == "ACTIVE":
+            if any(f in pid for f in _FAMILIES) and p.get("status", "ACTIVE") == "ACTIVE":
                 ids.append(pid)
     except Exception:  # noqa: BLE001 - not every region exposes this API
         pass
 
     try:
-        for m in bedrock.list_foundation_models(byProvider="anthropic")["modelSummaries"]:
+        for m in bedrock.list_foundation_models()["modelSummaries"]:
             mid = m.get("modelId", "")
+            if not any(f in mid for f in _FAMILIES):
+                continue
+            if "TEXT" not in (m.get("outputModalities") or []):
+                continue  # speech models (nova-sonic) fail converse() for a different reason
             if "ON_DEMAND" in (m.get("inferenceTypesSupported") or []):
                 ids.append(mid)
     except Exception:  # noqa: BLE001
@@ -100,10 +122,19 @@ GATE_UNAVAILABLE = "not_available"
 GATE_LEGACY = "legacy"
 GATE_THROTTLED = "throttled"
 GATE_DENIED = "access_denied"
+GATE_SCP = "scp_deny"
 GATE_OTHER = "other"
+
+# Where to look when the configured region denies everything. An organisation
+# SCP is usually scoped by region, and the hackathon account's allows only the
+# US regions -- measured 5 Sep: all 28 ids in ap-southeast-1 denied, us-east-1
+# and us-west-2 fine.
+_FALLBACK_REGIONS = ("us-east-1", "us-west-2")
 
 
 def _classify(message: str) -> str:
+    if "service control policy" in message:
+        return GATE_SCP
     if "use case details have not been submitted" in message:
         return GATE_USE_CASE
     if "marked by provider as Legacy" in message:
@@ -149,27 +180,53 @@ def _probe(region: str, model_id: str, attempts: int = 2) -> tuple[bool, str, st
     return True, "", "callable"
 
 
-# Cheapest-capable first. Haiku 4.5 is the project default; the rest are
-# fallbacks for accounts where it is gated, in descending order of suitability
-# for structured extraction and tool use.
+# The code default first, then fallbacks in descending order of suitability
+# for structured extraction and tool use. Nova 2 Lite sits high because it is
+# the model the benchmark tables were measured on and the usual answer on a
+# personal account.
 _PREFERENCE = [
+    "sonnet-4-6",
     "haiku-4-5",
     "sonnet-4-5",
-    "claude-3-5-sonnet-20241022",
-    "sonnet-4",
+    "nova-2-lite",
+    "opus-4-6",
+    "nova-lite",
     "claude-3-5-sonnet",
+    "nova-pro",
 ]
 
 
-def _recommend(callable_ids: list[str]) -> str | None:
-    for want in _PREFERENCE:
+def _probe_region(region: str, ids: list[str]) -> tuple[list[str], list[tuple[str, str, str]]]:
+    """Probe every id in one region; print as it goes so a slow sweep is visibly alive."""
+    print(f"Probing {len(ids)} model ids in {region}, 2 calls each...\n")
+    callable_ids: list[str] = []
+    blocked: list[tuple[str, str, str]] = []
+    for mid in ids:
+        ok, gate, detail = _probe(region, mid)
+        if ok:
+            callable_ids.append(mid)
+            print(f"  [ok]      {mid}")
+        else:
+            blocked.append((mid, gate, detail))
+            print(f"  [blocked] {mid}  ({gate})")
+    return callable_ids, blocked
+
+
+def _recommend(callable_ids: list[str]) -> tuple[str | None, int]:
+    """Best callable id and its rank in `_PREFERENCE` (len(_PREFERENCE) = unlisted).
+
+    The rank is returned so two regions can be compared: a region whose only
+    callable model is one this project has never run on should lose to a
+    region that offers the default, even if the first one was probed first.
+    """
+    for rank, want in enumerate(_PREFERENCE):
         matches = [i for i in callable_ids if want in i]
         if matches:
             # Prefer a regional profile over a bare model id -- bare ids have
             # tighter per-region throughput.
             profiles = [i for i in matches if "." in i.split("anthropic")[0]]
-            return (profiles or matches)[0]
-    return callable_ids[0] if callable_ids else None
+            return (profiles or matches)[0], rank
+    return (callable_ids[0] if callable_ids else None), len(_PREFERENCE)
 
 
 def main() -> int:
@@ -188,27 +245,44 @@ def main() -> int:
             print(f"Fix: {_credential_fix(style)}")
             return 1
 
-        ids = _list_claude_ids(DEFAULT_REGION)
+        ids = _list_model_ids(DEFAULT_REGION)
         if not ids:
-            print(f"Credentials are fine, but no Claude models are visible in {DEFAULT_REGION}.")
+            print(f"Credentials are fine, but no Claude or Nova models are visible in {DEFAULT_REGION}.")
             print("Enable them: Bedrock console -> Model access -> Modify model access.")
-            print("If Haiku 4.5 is not offered there, try AWS_REGION=us-east-1.")
+            print(f"If nothing is offered there, try AWS_REGION={_FALLBACK_REGIONS[0]}.")
             return 1
 
         # Probe rather than trust the listing. Each probe is a 1-token call --
         # the whole sweep costs a fraction of a cent and is the only thing that
         # actually answers "which id can I use".
-        print(f"Probing {len(ids)} Claude ids in {DEFAULT_REGION}, 2 calls each...\n")
-        callable_ids: list[str] = []
-        blocked: list[tuple[str, str, str]] = []
-        for mid in ids:
-            ok, gate, detail = _probe(DEFAULT_REGION, mid)
-            if ok:
-                callable_ids.append(mid)
-                print(f"  [ok]      {mid}")
-            else:
-                blocked.append((mid, gate, detail))
-                print(f"  [blocked] {mid}  ({gate})")
+        region = DEFAULT_REGION
+        callable_ids, blocked = _probe_region(region, ids)
+        best, rank = _recommend(callable_ids)
+
+        # An SCP that denies most things is almost always scoped by region, so a
+        # region that is mostly denied -- or that offers nothing this project has
+        # run on -- is not the end of the search. Bedrock's per-id answers are
+        # also not stable (a legacy id passed two probes here and failed the
+        # same two twenty minutes earlier), so one stray [ok] must not stop the
+        # fallback either. Try the US regions and keep whichever ranks best.
+        scp_count = sum(1 for _, g, _ in blocked if g == GATE_SCP)
+        if scp_count >= max(1, len(ids) // 2) or rank >= len(_PREFERENCE):
+            print(f"\n{scp_count} of {len(ids)} ids in {DEFAULT_REGION} are denied by an "
+                  "organisation policy; checking the US regions as well.")
+            for alt in _FALLBACK_REGIONS:
+                if alt == DEFAULT_REGION:
+                    continue
+                alt_ids = _list_model_ids(alt)
+                if not alt_ids:
+                    continue
+                print()
+                alt_ok, alt_blocked = _probe_region(alt, alt_ids)
+                alt_best, alt_rank = _recommend(alt_ok)
+                if alt_best and alt_rank < rank:
+                    region, callable_ids, blocked = alt, alt_ok, alt_blocked
+                    best, rank = alt_best, alt_rank
+                    if rank == 0:
+                        break
 
         if blocked and "--verbose" in sys.argv:
             print("\nWhy the blocked ones are blocked:")
@@ -226,7 +300,7 @@ def main() -> int:
                 "  Fix: Bedrock console -> Model access -> Modify model access.\n"
                 "       Fill in the Anthropic use case details (company, website,\n"
                 "       industry, what you are building), submit, then enable\n"
-                "       Claude Haiku 4.5. Approval is usually quick.\n\n"
+                "       the Claude model you want. Approval is usually quick.\n\n"
                 "  This is the whole problem. Do not work around it by picking a\n"
                 "  different model -- while the form is outstanding, Bedrock's answer\n"
                 "  is inconsistent and an id that probes fine can fail mid-run."
@@ -237,15 +311,21 @@ def main() -> int:
             print("\nNothing is callable. See the reasons with --verbose.")
             return 1
 
-        print(f"\n{len(callable_ids)} callable.")
-        best = _recommend(callable_ids)
+        print(f"\n{len(callable_ids)} callable in {region}.")
         if best:
-            print(f"\nPut this in .env:\n  RECALL_MODEL_ID={best}")
-        if not any("haiku-4-5" in i for i in callable_ids):
+            print("\nPut this in .env:")
+            if region != DEFAULT_REGION:
+                print(f"  AWS_REGION={region}")
+            print(f"  RECALL_MODEL_ID={best}")
+        if HAIKU not in callable_ids:
             print(
-                "\nNote: Haiku 4.5 is not callable here. It is the project default and\n"
-                "the cheapest option, so it is worth unblocking in the Bedrock console.\n"
-                "The id above works meanwhile, at a higher token price."
+                f"\nNote: the configured default ({HAIKU}) is not callable here.\n"
+                "The id above works meanwhile."
+            )
+        if not any("nova-2-lite" in i for i in callable_ids):
+            print(
+                "\nNote: Nova 2 Lite is not callable here. The published benchmark tables\n"
+                "were measured on it, so they cannot be reproduced exactly from this account."
             )
         return 0
 
@@ -308,10 +388,33 @@ def main() -> int:
 
 def _explain_model_failure(err: str) -> None:
     print()
+    if "service control policy" in err:
+        # Not something the user can enable in a console: an organisation-level
+        # policy. On the hackathon account it is scoped two ways -- by region
+        # (only the US regions) and by profile prefix (`global.` denied even
+        # there, `us.` allowed) -- and the two need different fixes.
+        if DEFAULT_REGION in _FALLBACK_REGIONS:
+            print(
+                f"  An organisation policy (SCP) denies this model id in {DEFAULT_REGION}.\n"
+                "  The region is fine; the id is not -- `global.` cross-region profiles\n"
+                "  are denied on this account while `us.` ones are allowed. Fix, in .env:\n"
+                "    RECALL_MODEL_ID=us.anthropic.claude-sonnet-4-6    # or us.amazon.nova-2-lite-v1:0\n"
+                "  Then re-run this check."
+            )
+        else:
+            print(
+                f"  An organisation policy (SCP) forbids Bedrock model calls in {DEFAULT_REGION}.\n"
+                "  Nothing in the console can change that; the region can. The hackathon\n"
+                "  account allows only the US regions. Fix, in .env:\n"
+                f"    AWS_REGION={_FALLBACK_REGIONS[0]}\n"
+                "    RECALL_MODEL_ID=us.anthropic.claude-sonnet-4-6    # or us.amazon.nova-2-lite-v1:0\n"
+                "  Then re-run this check."
+            )
+        return
     if "AccessDenied" in err or "not authorized" in err:
         print(
             f"  Model access is per-model, per-region, and off by default.\n"
-            f"  Fix: Bedrock console -> Model access -> Enable Claude Haiku 4.5\n"
+            f"  Fix: Bedrock console -> Model access -> enable {HAIKU}\n"
             f"       in region {DEFAULT_REGION}, then wait for status 'Access granted'."
         )
     elif "use case details have not been submitted" in err:
@@ -335,16 +438,16 @@ def _explain_model_failure(err: str) -> None:
     else:
         print("  Inference failed for a reason other than access or model id.")
 
-    ids = _list_claude_ids(DEFAULT_REGION)
+    ids = _list_model_ids(DEFAULT_REGION)
     if ids:
         print("\n  Run this to find an id that actually works:")
         print("    uv run 00_check_bedrock.py --list-models")
     else:
         print(
-            f"\n  No Claude models are enabled in {DEFAULT_REGION}.\n"
+            f"\n  No Claude or Nova models are enabled in {DEFAULT_REGION}.\n"
             f"  Enable them: Bedrock console -> Model access -> Modify model access.\n"
-            f"  If Haiku 4.5 is not offered there, try region us-east-1 instead:\n"
-            f"    AWS_REGION=us-east-1 in .env"
+            f"  If nothing is offered there, try region {_FALLBACK_REGIONS[0]} instead:\n"
+            f"    AWS_REGION={_FALLBACK_REGIONS[0]} in .env"
         )
 
 

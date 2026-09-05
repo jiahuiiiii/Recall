@@ -569,6 +569,29 @@ def test_the_graph_overlay_cannot_swallow_a_click():
     assert "pointer-events:none" in empty_rule
 
 
+def test_the_theme_toggle_is_on_every_page_and_stamped_before_first_paint():
+    """Dark/light is a stored choice, keyed off `<html data-theme>`.
+
+    Three things have to hold together or the toggle silently half-works:
+    every page carries the button; every page stamps the attribute in <head>
+    BEFORE the stylesheet link, or a stored light choice flashes dark on load;
+    and the stylesheet keys the light tokens off the attribute with no
+    `prefers-color-scheme` copy left behind -- two copies of the token set
+    drift on the first edit that forgets one, and the OS query would fight a
+    stored choice.
+    """
+    web = Path(__file__).resolve().parent.parent / "web"
+    css = (web / "app.css").read_text()
+    assert ':root[data-theme="light"]{' in css
+    assert "@media (prefers-color-scheme" not in css
+    for name in ("index.html", "people.html", "graph.html"):
+        page = (web / name).read_text()
+        assert 'id="theme"' in page, name
+        stamp = page.index('dataset.theme=localStorage.getItem("recall-theme")')
+        assert stamp < page.index('href="/app.css"'), f"{name}: stamp must precede the stylesheet"
+    assert 'localStorage.getItem(THEME_KEY)' in (web / "shared.js").read_text()
+
+
 class _ConfirmingGraph:
     """A graph that pauses at `calendar` to confirm which events to write.
 

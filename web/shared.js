@@ -4,6 +4,44 @@
    second copy of the tag vocabulary or the subtitle rule would drift the moment
    one page was edited and the other was not. */
 
+/* ---------- theme ----------
+   The stylesheet keys everything off `<html data-theme>`; a one-line script in
+   each page's <head> stamps it before first paint. This is the rest: the
+   button, the stored choice, and following the OS while nothing is chosen.
+   Storage is a convenience, not state the app depends on -- a browser that
+   refuses it simply follows the OS every visit. */
+const THEME_KEY = "recall-theme";
+const lightQuery = matchMedia("(prefers-color-scheme: light)");
+
+function storedTheme(){ try { return localStorage.getItem(THEME_KEY); } catch { return null; } }
+
+function applyTheme(theme){
+  document.documentElement.dataset.theme = theme;
+  const b = document.getElementById("theme");
+  if (!b) return;
+  const next = theme === "light" ? "dark" : "light";
+  b.textContent = next === "light" ? "☀ Light mode" : "☾ Dark mode";
+  b.setAttribute("aria-label", "Switch to " + next + " mode");
+  b.title = "Switch to " + next + " mode";
+}
+
+function toggleTheme(){
+  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* follow the OS next visit */ }
+  applyTheme(next);
+}
+
+function armThemeToggle(){
+  applyTheme(document.documentElement.dataset.theme || (lightQuery.matches ? "light" : "dark"));
+  const b = document.getElementById("theme");
+  if (b) b.addEventListener("click", toggleTheme);
+  // The OS switching at dusk should still be honoured -- until the person has
+  // said otherwise. A stored choice wins over the OS, never the reverse.
+  lightQuery.addEventListener("change", e => { if (!storedTheme()) applyTheme(e.matches ? "light" : "dark"); });
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", armThemeToggle);
+else armThemeToggle();
+
 function esc(s){ return String(s??"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 /* `esc` is enough for text content, not for an attribute a user can type
    into: a quote in a contact field would close `value="` and the rest of the

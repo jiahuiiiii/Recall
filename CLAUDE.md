@@ -501,15 +501,14 @@ absent got it wrong. Say so in the writeup — the cost of _not_ asking is visib
 Do not "fix" this by tightening the adjudicator prompt before the writeup. It is
 currently the cleanest evidence that the ambiguous band is identifying the right cases.
 
-### 5b. The code default model is one this account cannot call
+### ~~5b. The code default model is one this account cannot call~~ — **CLOSED 5 Sep**
 
-`_common.py` defaults `HAIKU` to `global.anthropic.claude-haiku-4-5-...`, which is
-exactly the gated path described under **This account's AWS situation**. It only works
-because `.env` sets `RECALL_MODEL_ID=global.amazon.nova-2-lite-v1:0`, and `.env` is
-gitignored — so a fresh clone, a teammate, or the AgentCore runtime without that env var
-gets `ValidationException: invalid model identifier` and reads it as a typo. `.env.example`
-now sets the Nova id uncommented; changing the code default is the remaining half and is
-a behaviour change, so it is left as a decision rather than done quietly.
+`_common.py` defaulted `HAIKU` to `global.anthropic.claude-haiku-4-5-...` in
+`ap-southeast-1`, callable on neither account. Decided with the judges' path: the code
+default is now `us.anthropic.claude-sonnet-4-6` and `DEFAULT_REGION` falls back to
+`us-east-1`, matching `.env.example`, so a fresh clone with no `.env` lands on something
+the hackathon account can call. The personal-account `.env` overrides both, so nothing
+changed there. The variable is still named `HAIKU`; everything reads it.
 
 Related, smaller: `SONNET` / `_DEFAULT_SONNET` are defined and never used anywhere, and
 `cached_system()` asks `supports_cache_point(HAIKU)` — the module default — rather than
@@ -1059,8 +1058,10 @@ failure was invisible in the output.
 - **`uv`, never bare pip.** `uv sync`, `uv run <script>`.
 - **Models via `chat_model()` from `_common`** — never a hardcoded client.
   `RECALL_MODEL_ID` overrides without touching code.
-- **Model:** currently `global.amazon.nova-2-lite-v1:0`. Anthropic is blocked on this
-  account (below). Nova Pro is ~13x the price and measurably no better here.
+- **Model:** benchmarks and the personal-account `.env` use
+  `global.amazon.nova-2-lite-v1:0`; the judges' path (hackathon account, `us-east-1`)
+  uses `us.anthropic.claude-sonnet-4-6`, with `us.amazon.nova-2-lite-v1:0` one commented
+  line away. Nova Pro is ~13x the price and measurably no better here.
 - **Structured output via `with_structured_output(PydanticModel)`**, never "reply in JSON".
 - **`temperature=0` for extraction/resolution/routing.** Sampling is for the drafter only.
 - **Tool docstrings are the prompt.**
@@ -1122,7 +1123,32 @@ uv run 03_teardown.py            # run this when done
 
 ## This account's AWS situation (read before debugging model errors)
 
-- Personal account, IAM user + access keys. No SSO. Region `ap-southeast-1`.
+**Two accounts, measured 5 Sep 2026.** The judges run the project locally on the
+hackathon account, so that path is the one `.env.example`, the README and the code
+defaults now describe (decided 5 Sep: `AWS_REGION=us-east-1`,
+`RECALL_MODEL_ID=us.anthropic.claude-sonnet-4-6`).
+
+- **Hackathon SSO account (`441008218937`).** Temporary keys from the access portal
+  (`AWS_ACCESS_KEY_ID`/`SECRET`/`SESSION_TOKEN`), expire in hours. An **organisation
+  SCP denies every model in `ap-southeast-1`** — all 28 visible ids, Nova included —
+  and denies even `ListInferenceProfiles` in the non-US regions. **`us-east-1`** is
+  open: `us.amazon.nova-2-lite-v1:0`, Nova Lite/Micro/Pro, `us.anthropic.claude-sonnet-4-6`,
+  `us.anthropic.claude-opus-4-6-v1` — those passed every probe. **Haiku 4.5, Sonnet 4.5
+  and Opus 4.5 answered inconsistently in `us-east-1`** (absent on one sweep, callable on
+  the next hour's; always callable in `us-west-2`), so do not build the judges' path on
+  them. `00_check_bedrock.py` now recognises the SCP message and `--list-models` falls
+  back to the US regions by itself.
+- **Personal account (`206677902269`).** IAM user + access keys, no SSO, region
+  `ap-southeast-1`, `global.amazon.nova-2-lite-v1:0` — the model every benchmark table
+  was measured on. The rest of this section is about this account.
+- **Sonnet 4.6 is not Nova, and the demo memos show it.** One CLI run of the three
+  `demo.py` memos on Sonnet 4.6: it filled Priya's `company` with
+  `"Antler or Jungle (uncertain)"`, which put Rachel Sim in the band against Priya on
+  day 2 and the non-interactive adjudicator **merged Rachel into Priya**; and it named
+  the day-3 mention `<UNKNOWN>` instead of "Jungle partner". Nova produced the clean
+  4-way case. The prompts were tuned on Nova; **rehearse on whichever model the demo
+  will actually run on**, and switch `.env` to Nova (`us.amazon.nova-2-lite-v1:0`) if
+  the Sonnet behaviour repeats.
 - **Anthropic and OpenAI models are blocked** — third-party marketplace subscriptions
   gated behind an unsubmitted _Anthropic use case details_ form. Symptom is
   `ValidationException: invalid model identifier`, which reads like a typo. Amazon Nova
