@@ -21,7 +21,7 @@ people already recorded. It takes one of three paths:
 | --- | --- |
 | Strong evidence for one person | Recognises and updates that person |
 | Too little evidence | Records someone new |
-| The identity is still uncertain | Asks one clarifying question |
+| The identity is still uncertain | Asks one clarifying question to decide which known person it is—or whether it is someone new |
 
 The question is selected with expected information gain (EIG): Recall chooses the
 question expected to reduce uncertainty the most, rather than asking a language model
@@ -40,7 +40,8 @@ voice memo
   → extract people
   → resolve against the person graph ──┬── known → merge into that record
         │                               ├── new   → enrich when enough context is available
-        │                               └── ambiguous → ask one EIG-selected question
+        │                               └── ambiguous → ask one EIG-selected question ──┬── known → merge
+        │                                                                             └── new   → enrich
         ▼
   merge the branches → extract commitments → draft follow-ups
                      → confirm calendar items → store new contacts → show a summary
