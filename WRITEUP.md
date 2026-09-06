@@ -49,7 +49,7 @@ A rough note, typed entry, or voice memo passes through six stages:
 3. Automatically resolve clear matches and clear new people.
 4. Hold genuinely ambiguous matches instead of forcing a decision.
 5. Ask one question selected for maximum expected information gain.
-6. Apply the answer, update the correct record, and continue.
+6. Apply the answer, then either update the correct record or create someone new, and continue.
 
 ```mermaid
 flowchart LR
@@ -58,10 +58,10 @@ flowchart LR
     C --> D{"Match confidence"}
     D -->|"Clearly new"| E["Create person"]
     D -->|"Clearly known"| F["Update existing person"]
-    D -->|"Ambiguous"| G["Human in the loop:<br/>ask one question"]
-    G --> H["User answers"]
-    H --> I["Resolve identity"]
-    I --> F
+    D -->|"Ambiguous"| G["Ask one EIG-selected<br/>question"]
+    G --> H{"The answer indicates"}
+    H -->|"Known candidate"| F
+    H -->|"Someone new"| E
     E --> J["Draft follow-ups<br/>and commitments"]
     F --> J
     J --> K["Human confirms"]
@@ -70,7 +70,7 @@ flowchart LR
 
 The human is not an emergency fallback. Human input is a deliberate control point in the workflow.
 
-Recall handles routine cases automatically, but pauses when the cost of being wrong is greater than the cost of asking. The user’s answer determines which person record is updated. This keeps the system useful without allowing it to silently create false memories.
+Recall handles routine cases automatically, but pauses when the cost of being wrong is greater than the cost of asking. The user’s answer determines which existing person record is updated, or whether a new person should be created. This keeps the system useful without allowing it to silently create false memories.
 
 ## The business use case
 
@@ -110,7 +110,7 @@ The system does not ask a model to improvise a question. It evaluates candidate 
 
 ```mermaid
 flowchart TD
-    A["Ambiguous mention"] --> B["Candidate identities"]
+    A["Ambiguous mention"] --> B["Known candidates<br/>+ someone new"]
     B --> C["Generate possible questions"]
     C --> D["Estimate possible answers"]
     D --> E["Calculate expected uncertainty<br/>after each answer"]
