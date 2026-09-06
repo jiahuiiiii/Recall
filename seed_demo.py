@@ -13,7 +13,7 @@ over. You need at least two people the resolver can confuse.
 
 These records are built to be confusable on purpose -- same school, same firm,
 same course or sector -- because that is what makes a loose reference like "the
-malaysian girl" or "the partner from Jungle" land in the ambiguous band instead
+malaysian girl" or "the partner from Canopy" land in the ambiguous band instead
 of resolving cleanly.
 
 Two scenarios, because the setting decides which channels `resolve.compare` can
@@ -66,61 +66,39 @@ HALL = [
                "on my hackathon team"]},
 ]
 
-# The cast of data/memos/day1.txt and day2.txt, as if those two memos had already
-# been recorded, plus ONE person who was not in them: Rachel.
-#
-# Rachel is the whole point. day1 records Priya as a partner at "some early stage
-# fund, Antler maybe? Or Jungle" -- the speaker genuinely did not know. Seeding a
-# second partner who really is at Jungle makes "the partner from Jungle" a
-# question the graph cannot answer from what it was told, which is the honest
-# version of business.md's second Alex: the ambiguity is in the record because it
-# was in the conversation, not because the fixture was rigged.
+# A fictional professional cast for the judge demo. The three partners share
+# company, role, event, and deck interest; only their investment focus differs.
+# That makes focus the unique highest-information question instead of an
+# arbitrary tie between equally useful probes. Fictional company and explicit
+# enrichment opt-out keep a rehearsal from attaching a real person's biography.
 SALES = [
     {"name": "Wei Lin",
      "company": "GIC",
      "role": "quant infrastructure lead",
-     "met_at": ["the SuperAI mixer at Marina Bay Sands", "the AI Engineer meetup at Funan"],
-     "notes": ["about six years at GIC",
-               "their feature store is held together with cron jobs",
-               "hiring for a mid to senior quant infra role",
-               "asked how we handle backfills in Kestrel",
-               "wants two or three candidate names by Friday"]},
-    {"name": "Arjun Menon",
-     "company": "Sea Group",
-     "role": "recommendations engineer",
-     "met_at": ["the SuperAI mixer at Marina Bay Sands"],
-     "notes": ["about three years in",
-               "gave the talk on embedding drift",
-               "argues you do not need a vector DB at their scale",
-               "introduced to Marcus, who has the same problem at Grab"]},
-    {"name": "Priya",
-     "role": "partner at an early stage fund",
-     "met_at": ["the SuperAI mixer at Marina Bay Sands"],
-     "notes": ["did not catch her last name",
-               "at Antler or Jungle, I was not sure which",
-               "asked if we were raising",
-               "wants the deck next week once it is cleaned up",
-               "based in Singapore but travels to Jakarta a lot"]},
-    {"name": "Rachel Sim",
-     "company": "Jungle Ventures",
+     "met_at": ["the infrastructure roundtable"],
+     "notes": ["works on feature-store reliability",
+               "asked how Kestrel handles backfills"]},
+    {"name": "Priya Nair",
+     "company": "Canopy Ventures",
      "role": "partner",
-     "met_at": ["the founders dinner at Tanjong Pagar"],
-     "notes": ["leads their seed practice",
-               "asked if we were raising",
-               "wants to see the deck when it is ready",
-               "does not invest outside Southeast Asia"]},
-    {"name": "Chen Yu Xin",
-     "company": "Tessellate",
-     "role": "founding engineer",
-     "met_at": ["the AI Engineer meetup at Funan"],
-     "notes": ["seed stage, document extraction for logistics",
-               "ex-Shopee",
-               "threw out their LLM-as-judge setup because it rewarded verbosity",
-               "wants the eval paper we were reading"]},
-    {"name": "Marcus",
-     "company": "Grab",
-     "met_at": ["the AI Engineer meetup at Funan"],
-     "notes": ["dealing with the same recommendations problem as Arjun"]},
+     "met_at": ["the Canopy founder dinner"],
+     "notes": ["covers climate technology in Singapore",
+               "asked how the raise was going",
+               "wants the updated Recall deck when it is ready"]},
+    {"name": "Rachel Tan",
+     "company": "Canopy Ventures",
+     "role": "partner",
+     "met_at": ["the Canopy founder dinner"],
+     "notes": ["covers seed-stage companies in Singapore",
+               "asked how the raise was going",
+               "wants the updated Recall deck when it is ready"]},
+    {"name": "Nadia Osman",
+     "company": "Canopy Ventures",
+     "role": "partner",
+     "met_at": ["the Canopy founder dinner"],
+     "notes": ["covers enterprise software in Singapore",
+               "asked how the raise was going",
+               "wants the updated Recall deck when it is ready"]},
 ]
 
 SCENARIOS = {
@@ -133,11 +111,10 @@ SCENARIOS = {
     ),
     "sales": (
         SALES,
-        ("Ran into the partner from Jungle again at the founders thing. She asked "
+        ("Ran into the partner from Canopy again at the founder dinner. She asked "
          "how the raise is going and wants the updated deck by end of month."),
-        ("Priya was recorded as being at Antler OR Jungle, and Rachel Sim really is\n"
-         "at Jungle, so the mention fits both. Merging it into either one silently is\n"
-         "how a duplicate lead gets made -- the agent asks instead."),
+        ("Priya, Rachel and Nadia are all Canopy partners. Their focus differs, so\n"
+         "the agent uniquely prefers 'What do they cover in Singapore?'"),
     ),
 }
 
@@ -179,7 +156,7 @@ def main(argv: list[str]) -> int:
         print(f"Or seed the real one with:  uv run {Path(__file__).name} "
               f"--scenario {args.scenario} --write\n")
 
-    print("Then run a memo that names neither of them, e.g.\n")
+    print("Then run a memo that names none of the confusable people, e.g.\n")
     print(f"  {suggested}\n")
     print(why)
     return 0

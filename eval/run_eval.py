@@ -17,8 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from eval.harness import fresh_store_path, load_scenarios, run_scenario  # noqa: E402
-from eval.metrics import b_cubed, binary, pairwise, summarise  # noqa: E402
+from eval.harness import fresh_store_path, load_scenarios, run_scenario
+from eval.metrics import b_cubed, binary, pairwise, summarise
 
 
 def _with_misses(gold: dict[str, str], pred: dict[str, str]) -> dict[str, str]:

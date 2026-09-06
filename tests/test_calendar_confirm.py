@@ -17,6 +17,7 @@ import json
 import pytest
 
 from recall.nodes.calendar import approved_indices, calendar_node
+from recall.nodes.followups import _canonicalize_answered_person
 from recall.tools.calendar import propose_event
 
 COMMITMENTS = [
@@ -72,6 +73,23 @@ def test_an_unrecognised_reply_approves_nothing():
 
 def test_out_of_range_indices_are_dropped_not_clamped():
     assert approved_indices("0,7,-1", 2) == {0}
+
+
+def test_answered_mention_uses_the_contact_name_in_followups():
+    commitments = [{
+        "kind": "followup",
+        "person_name": "the partner from Canopy",
+        "what": "send updated deck",
+    }]
+    resolution = {
+        "mention": "Canopy partner",
+        "name": "Rachel Tan",
+        "record_id": "p_demo_rachel",
+    }
+    assert (
+        _canonicalize_answered_person(commitments, resolution)[0]["person_name"]
+        == "Rachel Tan"
+    )
 
 
 # ---- non-interactive: unchanged -------------------------------------------

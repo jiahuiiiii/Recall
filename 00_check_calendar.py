@@ -133,13 +133,28 @@ def main() -> int:
     print(f"\nbackend      RECALL_CALENDAR={backend}")
     print(f"ledger       {ledger}  ({'exists' if ledger.exists() else 'not created yet'})\n")
 
-    if backend != "mcp":
+    if backend == "local":
         say(OK, "local JSON ledger — offline, free, nothing to test.")
         print("\n     To test the MCP path, set in .env:")
         print("       RECALL_CALENDAR=mcp")
         print("       GCAL_MCP_COMMAND=npx -y @cocal/google-calendar-mcp")
         print("       GCAL_MCP_TOOL=create-event")
         return 0
+
+    if backend == "ics":
+        directory = Path(os.environ.get("RECALL_ICS_DIR", "data/ics"))
+        say(OK, f"portable .ics backend — files will be written under {directory}")
+        print("     No account or OAuth setup is required; format behavior is covered by tests.")
+        return 0
+
+    if backend == "google":
+        say(INFO, "Google OAuth backend is configured through the web app.")
+        print("     Run `uv run 00_check_deploy.py` to verify its client and redirect settings.")
+        return 0
+
+    if backend != "mcp":
+        say(BAD, f"unknown calendar backend: {backend!r}")
+        return 1
 
     command = os.environ.get("GCAL_MCP_COMMAND")
     if not command:

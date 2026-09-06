@@ -23,7 +23,7 @@ def main() -> int:
     app = BedrockAgentCoreApp()
 
     @app.entrypoint
-    def invoke(payload):  # noqa: ANN001, ANN202
+    def invoke(payload):
         return handle(payload)
 
     print("Recall on http://localhost:8080  (POST /invocations)  -- free, no AWS spend")

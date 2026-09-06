@@ -106,7 +106,7 @@ def propose_event(
     resume. The key is derived from `due` rather than the resolved date, so a
     run that spans midnight still produces the same key it showed you.
     """
-    when = due or (date.today() + timedelta(days=3)).isoformat()
+    when = due or (datetime.now().astimezone().date() + timedelta(days=3)).isoformat()
     # A promise and a party are both a dated entry, and that is where the
     # similarity stops. "Follow up with Crispy: Acacia Welcome Night" is not
     # what the speaker said, and a reminder that marks you busy all day is worse

@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from recall.tools.transcribe import transcribe  # noqa: E402
+from recall.tools.transcribe import transcribe
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -74,7 +74,7 @@ def main() -> int:
 def _memo_numbers(body: str) -> list[str]:
     import re
 
-    return re.findall(r"^\s*-\s*id:\s*m(\d+)\s*$", body, re.M)
+    return re.findall(r"^\s*-\s*id:\s*m(\d+)\s*$", body, re.MULTILINE)
 
 
 if __name__ == "__main__":

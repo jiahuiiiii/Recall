@@ -40,10 +40,7 @@ def _wire(monkeypatch, scripted, enrichments=None):
     """
     import langgraph.prebuilt
 
-    import recall.nodes.dedupe as dedupe
-    import recall.nodes.enrich as enrich
-    import recall.nodes.extract as extract
-    import recall.nodes.followups as followups
+    from recall.nodes import dedupe, enrich, extract, followups
 
     factory = fake_chat_model(scripted)
     for module in (extract, dedupe, followups, enrich):
@@ -208,7 +205,12 @@ def test_a_declined_ambiguous_match_is_treated_as_new(sandbox, monkeypatch):
 
 def test_calendar_writes_are_idempotent(sandbox, monkeypatch):
     """Re-running the same memo must not stack duplicate reminders."""
-    from recall.state import CommitmentExtraction, DraftBundle, MatchDecision, PeopleExtraction
+    from recall.state import (
+        CommitmentExtraction,
+        DraftBundle,
+        MatchDecision,
+        PeopleExtraction,
+    )
 
     scripted = {
         PeopleExtraction: DAY1_PEOPLE,

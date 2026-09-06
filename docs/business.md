@@ -154,3 +154,97 @@ It starts with remembering people, then helps users understand their relationshi
 The long-term vision is:
 
 > Every meaningful business conversation becomes remembered, understood, and followed up at the right time.
+
+---
+
+# How this document maps to the repo
+
+_Moved out of `CLAUDE.md` so it loads with the document it is about._
+
+`business.md` is a **positioning document, not a spec.** Read it that way before
+building anything from it: most of what it describes is already built, one item is
+genuinely valuable, several would move the benchmark, and the pitch framing contradicts
+this file. Sorted by what each one actually costs.
+
+### ~~One conflict that needs a human decision~~ — **DECIDED 2 Sep: promise-keeping**
+
+`business.md` used to close on _"Recall prevents valuable sales opportunities from being
+lost."_ **Pitch framing** in this file says never frame Recall as extracting value from
+contacts later, because the brief asks for solutions that leave people genuinely better
+off. Those were not the same story, and a judge reading the writeup after hearing the
+pitch would have noticed.
+
+**Settled the honest way: _"you keep the promises you made."_** A sales outcome and a
+decency outcome at once, and what the frozen tail already does. `business.md` now closes
+on that line and says outright that Recall is not positioned as a way to extract value
+from contacts later; the README paragraph that flagged the conflict records the same
+decision. The two documents agree, so **the conflict is closed — do not re-raise it, and
+do not reintroduce opportunity-capture language into either one.**
+
+The writeup never carried the old framing (checked: no occurrence of "sales",
+"opportunity" or "promise" in `recall-writeup.pdf`), so nothing there needed changing.
+
+### A. Already built — the task is to say so, not to build it
+
+`business.md`'s "Hackathon MVP" is seven steps and **six of them ship today**, in the
+tail this file freezes. Nothing here is a to-do:
+
+| business.md step                         | Where it already lives                                 |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Transcribe the memo                      | `nodes/transcribe.py`, Groq Whisper                    |
+| Extract person, company, role, needs     | `nodes/extract.py` → `Person`                          |
+| New lead or existing contact             | `resolve.py`, the three-zone band                      |
+| Ask a clarification question when unsure | `eig.py` + `questions.py` + `ask_node` — **the claim** |
+| Persistent relationship history          | `memory.py`, `note_log`, `times_met`                   |
+| Detect promised follow-ups               | `nodes/followups.py::commitments_node` (frozen)        |
+| Calendar reminder after confirmation     | `nodes/calendar.py`, `interrupt()` gate (frozen)       |
+| Personalised follow-up draft             | `nodes/followups.py::drafter_node` (frozen)            |
+
+The gap between `business.md` and the repo is **narrative, not code.** Do not re-derive
+any of the above; do not "extend" the frozen tail to make it look more sales-shaped.
+
+### B. Worth doing — cheap, and each one helps the defensible claim
+
+1. **A professional-setting fixture** (`eval/fixtures/arc_sales.yaml`, ~10 memos, 8–10
+   people). **The highest-value item in `business.md`,** and the only one that touches
+   the benchmark in the right direction. All three current arcs are one hall or one OG,
+   where everyone shares an event and nobody has a `company` — which is exactly the
+   caveat under **The benchmark rests on one setting**. A sales arc populates `company`
+   and `role`, so those channels finally _conflict_ rather than sitting silent, and
+   `same_first_name` stops being the only professional data point in the whole eval.
+   Validate with `check_fixtures.py`, then re-run both tables and quote the thresholds.
+   Expect the numbers to move; that is the point of writing it.
+2. **Re-skin the demo memos to the sales scenario** — `seed_demo.py`, `data/memos/`.
+   Zero code. Day 1 logs Alex from Deloitte, day 2 is the ambiguous second Alex. The
+   pipeline does not care what setting the memo is from, so this is text.
+3. **`GET /api/export`** — the store as a JSON download. `business.md` promises users can
+   export even at the free-plan limit, and that promise costs about ten lines because
+   `LocalPersonStore` is already JSON. Do it for the principle (a contact book you
+   cannot get out of is one you stop trusting), not for the plan tier.
+
+### C. Would move the benchmark — do not build before the writeup
+
+4. **"Sales opportunity" / "needs" as a field on `Person`.** This is the third time this
+   shape has come up (contact handles, relationship edges, now this) and the answer is
+   the same: adding a field changes the extraction call that also emits `name`, `notes`
+   and `company` — fields `compare()` reads — and `temperature=0` is not determinism, so
+   **both tables need re-running for a value that is already sitting in `notes` as
+   prose.** If it must exist, it is a separate post-hoc call over the stored notes,
+   exactly like `relations.py`. Never folded into `extract`.
+5. **Ranking follow-ups by urgency.** One step from the "no attendee recommendation /
+   people worth meeting scoring" non-goal, and it is scoring people either way. Cut.
+6. **Auto-sending the draft.** Explicit non-goal, and `business.md` agrees with this file
+   without noticing — every one of its flows ends in a human confirming.
+
+### D. Business-model plumbing — out of scope, and blocked on the same wall
+
+7. **Freemium quotas** (50 contacts, memos per month) and **the upgrade trigger.** Needs
+   accounts, which the repo does not have.
+8. **Team plan, shared records, lead ownership, HubSpot/Salesforce.** All of it needs
+   multi-tenancy, and the store is **structurally single-tenant**: `get_store()` is
+   process-global on one `RECALL_STORE_PATH`, which is the same wall
+   `telegram_bot.py`'s chat allowlist exists to hold. Per-user stores is a rewrite of
+   `memory.py`, not a flag. Cite as roadmap; build none of it.
+
+**If a demo minute is spent on the business model it is a minute not spent on the
+question card.** The benchmark table is still the headline.

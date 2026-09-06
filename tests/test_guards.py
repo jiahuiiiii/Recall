@@ -16,7 +16,7 @@ from tests.fakes import PASSING_MENTION, WEI_LIN, fake_chat_model
 
 def test_passing_mentions_are_filtered_out(monkeypatch):
     """Daniel was seen and greeted. He is not a contact record."""
-    import recall.nodes.extract as extract
+    from recall.nodes import extract
 
     monkeypatch.setattr(
         extract,
@@ -37,7 +37,7 @@ def test_substantive_role_aliases_reach_dedupe(monkeypatch):
     what lets alignment and retrieval give the resolver a chance to recognise
     him; dropping it makes the mention invisible before resolution begins.
     """
-    import recall.nodes.extract as extract
+    from recall.nodes import extract
 
     extracted = PeopleExtraction(people=[
         Person(
@@ -74,7 +74,7 @@ def test_enricher_skips_people_with_nothing_to_disambiguate_on(monkeypatch):
     """A bare first name matches thousands of people; searching is worse than not."""
     import langgraph.prebuilt
 
-    import recall.nodes.enrich as enrich
+    from recall.nodes import enrich
     from tests.fakes import FakeEnricherAgent
 
     called = []
@@ -89,6 +89,26 @@ def test_enricher_skips_people_with_nothing_to_disambiguate_on(monkeypatch):
 
     assert out["enrichments"]["Marcus"].startswith("NO RELIABLE")
     assert called == [], "the sub-agent should not have been invoked at all"
+
+
+def test_demo_can_skip_public_enrichment_for_synthetic_people(monkeypatch):
+    """A fictional name must not be matched to a real biography during a demo."""
+    import langgraph.prebuilt
+
+    from recall.nodes.enrich import enrich_node
+
+    monkeypatch.setenv("RECALL_SKIP_ENRICHMENT", "1")
+    monkeypatch.setattr(
+        langgraph.prebuilt,
+        "create_react_agent",
+        lambda *args, **kwargs: pytest.fail("public enrichment should not start"),
+    )
+    out = enrich_node({
+        "new_people": [{"name": "Rachel Tan", "company": "Canopy Ventures"}]
+    })
+
+    assert out["enrichments"]["Rachel Tan"].startswith("NO RELIABLE")
+    assert "skipped" in out["messages"][0].content.lower()
 
 
 PERSON = {"name": "Wei Lin", "company": "GIC", "role": "quant infrastructure lead", "met_at": "SuperAI mixer"}
@@ -144,8 +164,8 @@ def test_filler_words_do_not_create_a_bogus_match():
 # consolidation is permanent and silent.
 # --------------------------------------------------------------------------
 
-from recall.nodes.merge import _safe_consolidation  # noqa: E402
-from recall.state import ConsolidatedRecord  # noqa: E402
+from recall.nodes.merge import _safe_consolidation
+from recall.state import ConsolidatedRecord
 
 NOTES = [
     "Very smart and very nice",
@@ -204,7 +224,7 @@ def test_places_fall_back_to_the_original_when_the_model_drops_them_all():
 
 def test_short_records_are_left_alone_without_a_model_call(monkeypatch):
     """Two notes is not worth a Bedrock call."""
-    import recall.nodes.merge as merge
+    from recall.nodes import merge
 
     monkeypatch.setattr(
         merge, "chat_model", lambda **kw: pytest.fail("should not call the model")
@@ -216,7 +236,7 @@ def test_short_records_are_left_alone_without_a_model_call(monkeypatch):
 # as_list: the boundary normaliser.
 # --------------------------------------------------------------------------
 
-from recall.state import as_list  # noqa: E402
+from recall.state import as_list
 
 
 def test_a_bare_string_becomes_one_entry_not_one_per_character():

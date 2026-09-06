@@ -19,10 +19,11 @@ import os
 import sys
 import tempfile
 import threading
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Request, UploadFile
@@ -40,15 +41,15 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from recall._common import LEDGER  # noqa: E402
-from recall.contacts import CHANNELS, as_contacts, links, unknown_channels  # noqa: E402
-from recall.graph import build_graph  # noqa: E402
-from recall.memory import get_store  # noqa: E402
-from recall.relations import KINDS, get_relation_store  # noqa: E402
-from recall.relations import LABELS as REL_LABELS  # noqa: E402
-from recall.state import as_list  # noqa: E402
-from recall.tools.calendar import backend_name, gcal_link, ics_path  # noqa: E402
-from recall.tools.transcribe import transcribe  # noqa: E402
+from recall._common import LEDGER
+from recall.contacts import CHANNELS, as_contacts, links, unknown_channels
+from recall.graph import build_graph
+from recall.memory import get_store
+from recall.relations import KINDS, get_relation_store
+from recall.relations import LABELS as REL_LABELS
+from recall.state import as_list
+from recall.tools.calendar import backend_name, gcal_link, ics_path
+from recall.tools.transcribe import transcribe
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="Recall")
@@ -140,7 +141,7 @@ def shared_js() -> FileResponse:
 
 
 @app.post("/api/transcribe")
-async def api_transcribe(audio: UploadFile = File(...)) -> JSONResponse:
+async def api_transcribe(audio: UploadFile = File(...)) -> JSONResponse:  # noqa: B008
     """Audio blob in, transcript out. Errors come back as text, never a 500."""
     raw = await audio.read()
     if not raw:
@@ -351,7 +352,7 @@ def api_export() -> JSONResponse:
         {
             "format": "recall.person_graph",
             "version": 1,
-            "exported_at": date.today().isoformat(),
+            "exported_at": datetime.now().astimezone().date().isoformat(),
             "counts": {"people": len(people), "relations": len(relations)},
             "people": people,
             "relations": relations,

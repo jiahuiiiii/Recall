@@ -2,10 +2,10 @@
 # Glob, not a literal: the backup/trash siblings are the same private data
 # and were committed once because the literal did not cover them.
 data/person_graph*.json
-data/calendar.json
+data/calendar*.json
 # The relationship edges. Same class as the person graph: the user's own
 # private data, and a merge conflict nobody can resolve.
-data/relations.json
+data/relations*.json
 data/audio/*
 !data/audio/.gitkeep
 .env
@@ -31,3 +31,7 @@ data/demo_graph.json
 
 # Runtime .ics output (the ics calendar backend writes here)
 data/ics/
+
+# Scratch space for live demo runs. Same class as the person graph: whatever
+# the demo records is real names about real people. Glob, not a literal.
+data/demo_space/

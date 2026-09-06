@@ -18,7 +18,6 @@ from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field, field_validator
 
-
 # --------------------------------------------------------------------------
 # Structured-output models. Every extraction step returns one of these via
 # with_structured_output(), never "reply in JSON" prompting -- the model wraps

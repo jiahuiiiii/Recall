@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 from fastapi.testclient import TestClient
@@ -94,7 +95,7 @@ def test_run_streams_one_event_per_node_then_a_done_payload(monkeypatch):
 class _AskingGraph:
     """A run where the band could not settle a mention, so `ask` fires."""
 
-    QUESTION = {
+    QUESTION: ClassVar[dict] = {
         "mention": "Kang",
         "question": "What do they study at NUS?",
         "eig": 0.8034,
@@ -600,7 +601,7 @@ class _ConfirmingGraph:
     wire is the payload's own `type`.
     """
 
-    CONFIRM = {
+    CONFIRM: ClassVar[dict] = {
         "type": "confirm_events",
         "backend": "mcp",
         "events": [

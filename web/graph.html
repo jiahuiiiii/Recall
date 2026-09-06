@@ -18,6 +18,17 @@ try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")|
 .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
 .toolbar .ctl{width:auto}
 .toolbar input.ctl{flex:1 1 220px}
+/* The switch, its label and the tag count were one nowrap flex row inside a
+   wrapping toolbar: the row itself never wrapped, so on a phone the label and
+   the count were squeezed into two narrow columns side by side and each broke
+   mid-sentence. The box must not shrink; the count takes its own line. */
+.ghostlab{display:flex;align-items:center;gap:6px;margin:0;flex-wrap:wrap;
+  flex:1 1 240px;min-width:0}
+.ghostlab input{flex:none}
+.ghostlab #ghostn{color:var(--muted)}
+@media (max-width:560px){
+  .ghostlab #ghostn{flex-basis:100%;margin-left:22px}
+}
 .linkact{background:none;border:none;padding:0;font:inherit;color:var(--muted);
   cursor:pointer;text-decoration:underline;text-underline-offset:3px;
   text-decoration-color:var(--line2)}
@@ -32,6 +43,13 @@ try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")|
 .canvaswrap{position:relative;border-radius:var(--r);background:var(--sunk);
   box-shadow:var(--sink);overflow:hidden;min-height:520px}
 #net{display:block;width:100%;height:560px;cursor:grab;touch-action:none}
+/* A fixed 560px canvas plus the toolbar and legend is taller than a phone
+   screen, so the graph opens with its own controls scrolled off. Height comes
+   off the viewport instead, floored so it never collapses to a slot. */
+@media (max-width:860px){
+  .canvaswrap{min-height:0}
+  #net{height:max(340px,58vh)}
+}
 #net.dragging{cursor:grabbing}
 /* Sits over the canvas rather than in the toolbar: it acts on the view, and a
    control that acts on the picture belongs on the picture. */
@@ -53,6 +71,12 @@ try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")|
    an invisible-looking overlay covering the graph. */
 .empty[hidden]{display:none}
 .empty b{color:var(--ink2);font-weight:600}
+/* The message is centred over the canvas, which on a phone is exactly where
+   the force layout clusters the nodes -- it landed across two people's names.
+   A panel behind it separates the two without hiding the graph. Still
+   `pointer-events:none` via `.empty`, so it takes no clicks. */
+.empty>div{background:var(--panel);border-radius:var(--r2);padding:13px 16px;
+  box-shadow:var(--raise-sm);max-width:min(300px,88%)}
 
 /* Legend doubles as a filter: clicking a kind hides it, which is the only way
    to read a dense graph without deleting anything. */
@@ -100,22 +124,25 @@ try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")|
 <div class="pagewrap">
   <div class="top">
     <h1>Connect<span>ions</span></h1>
-    <p>How the people you have met stand to each other. Drag to move, scroll to zoom,
-       click someone to read the edges and the note each one rests on.</p>
+    <p>How the people you have met stand to each other. Drag to move,
+       <span class="nocoarse">scroll</span><span class="coarseonly">pinch</span> to zoom,
+       <span class="nocoarse">click</span><span class="coarseonly">tap</span> someone to
+       read the edges and the note each one rests on.</p>
     <button id="theme" class="theme" type="button" aria-label="Switch theme">☀ Light mode</button>
 </div>
 
   <div class="block">
-    <p class="lab">The relationship graph
-      <span id="gcount" style="letter-spacing:0;text-transform:none"></span>
-      <a class="backlink" href="/people" style="margin-left:auto">Everyone ›</a>
-      <a class="backlink" href="/" style="margin-left:14px">‹ Back to the memo</a></p>
+    <p class="lab"><span class="labname">The relationship graph
+        <span id="gcount" style="letter-spacing:0;text-transform:none"></span></span>
+      <span class="labnav">
+        <a class="backlink" href="/people">Everyone ›</a>
+        <a class="backlink" href="/">‹ Back to the memo</a></span></p>
 
     <div class="toolbar">
       <input class="ctl" id="gq" type="search" placeholder="Find a person…"
              aria-label="Find a person in the graph">
-      <label class="hint" style="display:flex;align-items:center;gap:6px;margin:0">
-        <input type="checkbox" id="ghost"> also link people who share a tag
+      <label class="hint ghostlab">
+        <input type="checkbox" id="ghost"><span>also link people who share a tag</span>
         <span id="ghostn"></span>
       </label>
     </div>
@@ -746,11 +773,18 @@ function at(ev){
   };
 }
 
+/* A cursor lands where it is pointed; a fingertip covers about 9mm of glass.
+   The slop is in graph units, so it is divided by the zoom -- otherwise a
+   zoomed-out graph gives every node a hit area tens of nodes wide. */
+const COARSE = matchMedia("(pointer:coarse)").matches;
+const HIT_SLOP = COARSE ? 18 : 7;
+
 function nodeAt(pt){
   let best = null, bd = Infinity;
+  const slop = HIT_SLOP / Math.max(view.k, .35);
   for (const n of nodes){
     const d = Math.hypot(n.x - pt.x, n.y - pt.y);
-    if (d < n.r + 7 && d < bd) { best = n; bd = d; }
+    if (d < n.r + slop && d < bd) { best = n; bd = d; }
   }
   return best;
 }
@@ -761,9 +795,43 @@ function nodeAt(pt){
 // handler is broken.
 const DRAG_SLOP = 4;
 
+/* Every pointer currently down, by id. A phone has no wheel and `touch-action:
+   none` turns off the browser's own pinch, so without tracking a second finger
+   the canvas could be dragged but never zoomed -- the one gesture the graph
+   actually needs on a small screen. */
+const pointers = new Map();
+let pinch = null;
+// Set once the view is the user's rather than the layout's, so auto-fit
+// stops competing with them.
+let userMoved = false;
+
+// Client coords -> the same centre-origin space the wheel handler zooms in.
+function centreOf(a, b){
+  const rect = cv.getBoundingClientRect();
+  return {
+    x: (a.x + b.x) / 2 - rect.left - rect.width / 2,
+    y: (a.y + b.y) / 2 - rect.top - rect.height / 2,
+  };
+}
+
+function startPinch(){
+  const [a, b] = [...pointers.values()];
+  const m = centreOf(a, b);
+  pinch = {d: Math.hypot(b.x - a.x, b.y - a.y) || 1, mx: m.x, my: m.y};
+  // A pinch is never a click and never a node drag: whichever finger landed
+  // first may already have grabbed someone, and continuing to drag them while
+  // the other finger zooms moves a person you only meant to look at.
+  dragNode = null; panning = null; moved = true;
+  cv.classList.remove("dragging");
+}
+
 cv.addEventListener("pointerdown", ev => {
   glide = null;   // the hand wins; never animate against a drag
+  userMoved = true;
   cv.setPointerCapture(ev.pointerId);
+  pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+  if (pointers.size === 2) { startPinch(); return; }
+  if (pointers.size > 2) return;
   moved = false;
   downAt = {x: ev.clientX, y: ev.clientY};
   const n = nodeAt(at(ev));
@@ -772,6 +840,23 @@ cv.addEventListener("pointerdown", ev => {
 });
 
 cv.addEventListener("pointermove", ev => {
+  if (pointers.has(ev.pointerId))
+    pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+
+  // Two fingers: scale about the midpoint and pan by however far that midpoint
+  // travelled, so a pinch that also slides does both at once.
+  if (pinch && pointers.size >= 2){
+    const [a, b] = [...pointers.values()];
+    const m = centreOf(a, b);
+    const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.k * (d / pinch.d)));
+    view.x = m.x - (m.x - view.x) * (k / view.k) + (m.x - pinch.mx);
+    view.y = m.y - (m.y - view.y) * (k / view.k) + (m.y - pinch.my);
+    view.k = k;
+    pinch.d = d; pinch.mx = m.x; pinch.my = m.y;
+    return;
+  }
+
   const pt = at(ev);
   if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > DRAG_SLOP)
     moved = true;
@@ -782,7 +867,27 @@ cv.addEventListener("pointermove", ev => {
   if (id !== hovered) { hovered = id; cv.title = n ? n.name : ""; }
 });
 
+function endPointer(ev){
+  pointers.delete(ev.pointerId);
+  // Still two or more down: the pair the pinch is measured against may no
+  // longer be the same two pointers, so re-seed rather than scale against a
+  // distance belonging to a finger that has lifted.
+  if (pinch && pointers.size >= 2){ startPinch(); return true; }
+  if (pinch && pointers.size < 2){
+    pinch = null;
+    // One finger left after a pinch keeps panning, but its offset is stale --
+    // without re-seeding, the view jumps by however far the view moved during
+    // the zoom the moment the second finger lifts.
+    const rest = [...pointers.values()][0];
+    if (rest) panning = {x: rest.x - view.x, y: rest.y - view.y};
+    dragNode = null; downAt = null;
+    return true;
+  }
+  return false;
+}
+
 cv.addEventListener("pointerup", ev => {
+  if (endPointer(ev)) return;
   // A click that moved is a drag, and selecting on it would make every attempt
   // to reposition someone also open their panel.
   if (!moved){
@@ -794,9 +899,19 @@ cv.addEventListener("pointerup", ev => {
   cv.classList.remove("dragging");
 });
 
+/* Without this a gesture the system takes over -- a swipe from the edge, a
+   call arriving -- leaves `dragNode` or `panning` set, and the graph keeps
+   following a finger that is no longer on the glass. */
+cv.addEventListener("pointercancel", ev => {
+  endPointer(ev);
+  dragNode = null; panning = null; downAt = null;
+  cv.classList.remove("dragging");
+});
+
 cv.addEventListener("wheel", ev => {
   ev.preventDefault();
   glide = null;
+  userMoved = true;
   const rect = cv.getBoundingClientRect();
   const cx = ev.clientX - rect.left - rect.width / 2;
   const cy = ev.clientY - rect.top - rect.height / 2;
@@ -832,9 +947,26 @@ $("grefresh").onclick = async () => {
   btn.disabled = false;
 };
 
-$("recenter").onclick = recenter;
-window.addEventListener("resize", fit);
-load().catch(e => { $("gempty").hidden = false;
+$("recenter").onclick = () => { userMoved = false; recenter(); };
+
+/* The view was only ever fitted by the button. On a phone the canvas is a
+   third the width the force layout spreads into, so the graph opened with
+   people hanging off both edges and no hint that Recenter would fix it.
+   Auto-fit only while the view is untouched: on a phone `resize` also fires
+   every time the URL bar slides away, and yanking the graph back under someone
+   who has just panned somewhere is worse than the bad first frame. */
+let refit = null;
+window.addEventListener("resize", () => {
+  fit();
+  if (userMoved) return;
+  clearTimeout(refit);
+  refit = setTimeout(recenter, 150);
+});
+load().then(() => {
+  // The layout is a force simulation, so the bounds are meaningless on frame
+  // one. Fit once it has settled, and only if nobody has grabbed it since.
+  setTimeout(() => { if (!userMoved) recenter(); }, 650);
+}).catch(e => { $("gempty").hidden = false;
   $("gempty").textContent = "Could not load the graph: " + e.message; });
 loop();
 </script>

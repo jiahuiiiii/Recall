@@ -48,6 +48,8 @@ def test_facts_cover_structured_fields_and_notes():
     ("studies computer science", "Do they study computer science?"),
     ("works at GIC", "Do they work at GIC?"),
     ("is a quant lead", "Are they a quant lead?"),
+    ("wants the updated deck", "Do they want the updated deck?"),
+    ("covers enterprise software", "Do they cover enterprise software?"),
 ])
 def test_facts_become_natural_questions(fact, expected):
     assert phrase(fact) == expected
@@ -200,6 +202,51 @@ def test_both_shapes_are_offered_so_the_contrast_is_visible():
 def test_attribute_questions_are_natural_wh_questions(a, b, expected):
     q = _only(attribute_questions({"a": [a], "b": [b]}), "", multivalued=True)
     assert q.text == expected
+
+
+def test_the_committed_demo_seed_has_one_unique_natural_best_question():
+    """The judge demo must demonstrate an argmax, not an arbitrary top tie."""
+    import json
+    from pathlib import Path
+
+    from recall.answer import resolve_with_answer
+    from recall.eig import normalise
+    from recall.resolve import Zone, decide
+
+    records = json.loads(Path("data/demo_seed.json").read_text())["people"]
+    mention = {
+        "name": "the partner from Canopy",
+        "company": "Canopy Ventures",
+        "role": "partner",
+        "met_at": [],
+        "notes": ["asked how the raise is going", "wants the updated Recall deck"],
+        "aliases": [],
+    }
+    zone, candidates = decide(mention, records)
+    assert zone is Zone.AMBIGUOUS
+    assert {candidate.name for candidate in candidates} == {
+        "Priya Nair", "Rachel Tan", "Nadia Osman",
+    }
+
+    raw = {candidate.record_id: candidate.score for candidate in candidates} | {"": 0.0}
+    prior = normalise(raw)
+    names = {candidate.record_id: candidate.name for candidate in candidates} | {
+        "": "someone new"
+    }
+    hypotheses = [
+        Hypothesis(record_id, names[record_id], probability)
+        for record_id, probability in prior.items()
+    ]
+    by_id = {record["id"]: record for record in records}
+    ranked = rank_questions(hypotheses, derive(hypotheses, by_id))
+
+    assert ranked[0].question.text == "What do they cover in Singapore?"
+    assert ranked[0].eig > ranked[1].eig
+    resolution = resolve_with_answer(
+        hypotheses, ranked[0].question, "seed-stage companies"
+    )
+    assert resolution.name == "Rachel Tan"
+    assert resolution.confident
 
 
 def test_an_unphrasable_attribute_falls_back_to_listing_the_rivals():

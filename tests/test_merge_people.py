@@ -9,6 +9,7 @@ and "Tiu Chuei Enn" sat as two records for exactly this reason.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 import pytest
 
@@ -106,7 +107,6 @@ def test_editing_a_record_does_not_change_when_you_last_saw_them(store):
 def test_a_real_occasion_still_updates_last_seen(store):
     """The other half: meeting someone again must move the date, or the sidebar
     stops reflecting what actually happened."""
-    from datetime import date
     store.replace({**store.get("p_full"), "last_seen": "2026-08-24"})
     store.upsert({"id": "p_full", "notes": ["saw her at the pool"]})
-    assert store.get("p_full")["last_seen"] == date.today().isoformat()
+    assert store.get("p_full")["last_seen"] == datetime.now().astimezone().date().isoformat()

@@ -9,6 +9,7 @@ puts several thousand tokens of scraped HTML into every subsequent step.
 
 from __future__ import annotations
 
+import os
 import re
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -60,6 +61,20 @@ def enrich_node(state: RecallState) -> dict:
     new_people = state.get("new_people") or []
     if not new_people:
         return {}
+
+    # Synthetic demo identities can collide with real people in public search.
+    # The demo is about resolution and EIG, not enrichment, so it opts out
+    # explicitly rather than risking a stranger's biography or a slow tool loop.
+    if os.environ.get("RECALL_SKIP_ENRICHMENT", "").strip().lower() in {
+        "1", "true", "yes",
+    }:
+        return {
+            "enrichments": {
+                person["name"]: "NO RELIABLE PUBLIC INFORMATION FOUND."
+                for person in new_people
+            },
+            "messages": [AIMessage(content="Public enrichment skipped for this demo.")],
+        }
 
     from langgraph.prebuilt import create_react_agent
 

@@ -125,7 +125,32 @@ button{font-family:inherit}
 .lab{font-family:var(--mono);font-size:10.5px;font-weight:500;text-transform:uppercase;
      letter-spacing:.14em;color:var(--muted);margin:0 0 13px;display:flex;
      align-items:center;gap:9px}
-.lab::before{content:"";width:14px;height:2px;background:var(--gold);border-radius:2px}
+.lab::before{content:"";width:14px;height:2px;background:var(--gold);border-radius:2px;flex:none}
+/* `.lab` is a flex row and had no wrap. On a narrow screen that does not wrap
+   the row -- it squeezes every child into its own narrow column and lets each
+   one wrap INSIDE itself, so the title, the count and the two links interleave
+   into a block you cannot read. Wrapping the row is the fix; the two groups
+   below keep the pieces that belong together from being split apart by it. */
+/* `flex-start`, not the row's default `center`: once the title wraps to two
+   lines the dash centres against the whole block and floats between them. The
+   5px reproduces the centred position on the single-line rows, so nothing else
+   using `.lab` moves. */
+.lab{flex-wrap:wrap;align-items:flex-start}
+.lab::before{margin-top:5px}
+/* `flex:1 1 0` + `min-width:0`, not the max-content default: at max-content
+   the group is wider than the row's remaining space, so it wraps whole and
+   leaves the gold dash stranded alone on the line above it. */
+.labname{display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;
+  flex:1 1 0;min-width:0}
+/* Wraps BETWEEN the links, never inside one: `nowrap` on the group clipped
+   "< back to the memo" against the card edge at 320px. */
+.labnav{display:flex;align-items:center;gap:4px 14px;margin-left:auto;flex-wrap:wrap}
+.labnav a{white-space:nowrap}
+/* Once the links no longer fit beside the title they take a row of their own,
+   rather than the title's words wrapping around them. */
+@media (max-width:620px){
+  .labnav{margin-left:0;flex-basis:100%}
+}
 h2.h{font-family:var(--display);font-weight:500;font-size:19px;letter-spacing:-.015em;margin:0 0 3px}
 
 /* ---------- capture ---------- */
@@ -157,7 +182,12 @@ h2.h{font-family:var(--display);font-weight:500;font-size:19px;letter-spacing:-.
    of a button, and the reason the two never get confused at a glance. */
 textarea{width:100%;background:var(--sunk);color:var(--ink);border:1px solid transparent;
          border-radius:var(--r2);padding:15px 16px;font-family:var(--sans);font-size:15px;
-         line-height:1.65;resize:vertical;min-height:118px;margin-top:14px;box-shadow:var(--sink)}
+         line-height:1.65;resize:vertical;min-height:136px;margin-top:14px;box-shadow:var(--sink)}
+/* Sized to the PLACEHOLDER, not to taste. It is two paragraphs -- the
+   instruction and the worked example that teaches the format -- and at
+   118px the example was cut through the middle of its line at every width.
+   It gets taller as the box gets narrower because the same text wraps into
+   more lines: measured 129px at 1200, 203px at 390, 228px at 320. */
 textarea:focus{outline:none;border-color:var(--gold)}
 textarea::placeholder{color:var(--muted);opacity:.75}
 .gorow{display:flex;align-items:center;gap:13px;margin-top:13px}
@@ -372,8 +402,16 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
 /* Native select chrome was the foreign-looking part. Strip it and draw the same
    chevron the person cards use. */
 .selwrap{position:relative;display:block;min-width:0}
+/* `width:100%` is load-bearing. Without it a select is sized by its widest
+   OPTION, not by its wrapper: the tag filter's options made it 284px inside a
+   210px wrapper, so it spilled 19px past the card's padding on a 320px screen,
+   while the sort select went the other way (122px in a 170px wrapper). The
+   chevron below is positioned on the WRAPPER, so in both cases it detached
+   from the box -- the floating "›" next to a too-short field. Filling the
+   wrapper makes the ellipsis do the work instead. */
 .selwrap select{appearance:none;-webkit-appearance:none;padding-right:26px;
-  cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
+  cursor:pointer;text-overflow:ellipsis;white-space:nowrap;
+  width:100%;max-width:100%;min-width:0}
 .selwrap::after{content:"›";position:absolute;right:11px;top:50%;
   transform:translateY(-50%) rotate(90deg);color:var(--muted);
   font-size:14px;line-height:1;pointer-events:none}
@@ -449,7 +487,14 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
    node labels stop being readable below ~660px, and an unreadable diagram is
    worse than one you swipe. */
 @media (max-width:1000px){
-  .shell{grid-template-columns:1fr;gap:18px}
+  /* `minmax(0,1fr)`, never a bare `1fr`. A bare `1fr` is `minmax(auto,1fr)`,
+     and `auto` floors the track at its MIN-CONTENT width -- which is the
+     pipeline diagram's `min-width:660px`. So the column refused to shrink and
+     the whole page jumped from 390px to 704px the instant the agent ran,
+     which is why everything appeared to resize mid-run. The desktop rule on
+     `.shell` above already gets this right; this override undid it. */
+  .shell{grid-template-columns:minmax(0,1fr);gap:18px}
+  .shell>*{min-width:0}
   .side{position:static}          /* sticky is meaningless once stacked */
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px}
 }
@@ -463,7 +508,7 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
   .tag{font-size:13.5px}
   .block,.pipewrap{padding:16px 15px}
   .pdialog{padding:17px 16px 14px;border-radius:18px}
-  textarea{min-height:130px}       /* more room to type on a phone */
+  textarea{min-height:210px}       /* the placeholder wraps to 203px here */
   .card h3{font-size:17.5px}
   .pdialog h3{font-size:20px}
   .todos li{flex-wrap:wrap;gap:6px}
@@ -472,6 +517,17 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
 }
 /* On a phone a centred card wastes the top and bottom and puts the close button
    at the far reach of a thumb. It becomes a sheet from the bottom edge instead. */
+/* Four buttons in one flex row wrapped 3 + 1 on a phone, leaving "Clear"
+   alone on a line with the rest of it empty -- it reads as a layout that
+   broke rather than one that wrapped. Two-up pairs them evenly and gives
+   each a tap target half the card wide. */
+@media (max-width:600px){
+  .row .btn{flex:1 1 calc(50% - 5px)}
+}
+/* The recording timer is an empty span until Record is pressed, and an empty
+   flex child still costs a gap -- which knocks the pairing above off centre. */
+.time:empty{display:none}
+
 @media (max-width:560px){
   .pmodal{padding:0;align-items:flex-end}
   .pdialog{max-width:none;max-height:92vh;border-radius:20px 20px 0 0;
@@ -481,6 +537,7 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
 }
 @media (max-width:430px){
   body{padding:0 12px 48px}
+  textarea{min-height:236px}      /* and to 228px here */
   .brand{font-size:24px}
   .row{gap:8px}
   .btn{padding:10px 13px;font-size:13.5px}
@@ -501,6 +558,37 @@ html.modal-open{overflow:hidden;scrollbar-gutter:stable}
   .xbtn{min-width:40px;min-height:40px}
   .x{min-width:40px;min-height:40px}
   .pcard{padding:13px}
+}
+/* Instructions that name a gesture have to name the right one. "Scroll to
+   zoom" is not a thing a phone can do, and reads as a broken feature rather
+   than the wrong sentence. Swapped on pointer type, not width: a small window
+   on a laptop still has a wheel. */
+.coarseonly{display:none}
+@media (pointer:coarse){
+  .nocoarse{display:none}
+  .coarseonly{display:inline}
+}
+
+/* The question card is the one screen the demo is built around, so it gets its
+   own phone treatment rather than inheriting the generic one.
+   `.hyp` squeezes the name to its 90px floor and ellipsises it -- "Tiu Chuei
+   Enn" becomes "Tiu Ch…" next to the bar that is the actual point. Stacked,
+   the name gets the full width and the bar keeps its length.
+   `.rejrow` is the money shot (the EIG of the questions it did NOT ask) and
+   had no wrap: a long question and its bit count sat on one line and squeezed
+   each other. */
+@media (max-width:430px){
+  /* 23px of display type is three or four words per line on a 320px screen. */
+  .askq{font-size:20px}
+  /* `.bits` is nowrap so "0.412 bits" never splits. But the ask card's long
+     form -- "0.918 of 1.482 bits · 62% of the uncertainty" -- is 290px of mono
+     in a 266px column, and nowrap made it push the page wider instead of
+     wrapping. Short ones still fit on one line and do not break. */
+  .bits{white-space:normal}
+  .hyp{grid-template-columns:1fr auto;gap:3px 9px}
+  .hyp .nm{grid-column:1/3;white-space:normal;font-size:12.5px}
+  .rejrow{flex-wrap:wrap;gap:2px 10px}
+  .rejrow .bits{margin-left:auto}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 

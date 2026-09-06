@@ -1,7 +1,7 @@
 # Where else this could go
 
 Post-hackathon thinking. **Nothing here gets built before 7 Sep 2026** — the submission
-scope is fixed in [CLAUDE.md](CLAUDE.md) and adding to it now weakens the one claim we
+scope is fixed in [CLAUDE.md](../CLAUDE.md) and adding to it now weakens the one claim we
 can actually defend. This file exists so the question "does this have legs" has a written
 answer instead of a vibe.
 

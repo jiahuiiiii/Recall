@@ -98,7 +98,7 @@ def _list_model_ids(region: str) -> list[str]:
             pid = p.get("inferenceProfileId", "")
             if any(f in pid for f in _FAMILIES) and p.get("status", "ACTIVE") == "ACTIVE":
                 ids.append(pid)
-    except Exception:  # noqa: BLE001 - not every region exposes this API
+    except Exception:  # noqa: BLE001, S110 - not every region exposes this API
         pass
 
     try:
@@ -110,7 +110,7 @@ def _list_model_ids(region: str) -> list[str]:
                 continue  # speech models (nova-sonic) fail converse() for a different reason
             if "ON_DEMAND" in (m.get("inferenceTypesSupported") or []):
                 ids.append(mid)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110 - not every region exposes this API
         pass
 
     return sorted(set(ids))

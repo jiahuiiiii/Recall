@@ -90,8 +90,8 @@ def reliability(fact: str) -> float:
 # Verb openings that turn a recorded fact into a natural question.
 _VERB_START = re.compile(
     r"^(lives?|works?|studies|studied|is|was|has|had|likes?|plays?|speaks?|"
-    r"went|goes|joined|runs?|leads?|teaches|does)\b",
-    re.I,
+    r"went|goes|joined|runs?|leads?|teaches|does|wants?|covers?)\b",
+    re.IGNORECASE,
 )
 
 
@@ -157,7 +157,7 @@ _COPULAS = {"is": "are", "was": "were", "has": "have", "had": "had"}
 _BASE_VERB = {"lives": "live", "works": "work", "studies": "study", "studied": "study",
               "likes": "like", "plays": "play", "speaks": "speak", "goes": "go",
               "went": "go", "joined": "join", "runs": "run", "leads": "lead",
-              "teaches": "teach", "does": "do"}
+              "teaches": "teach", "does": "do", "wants": "want", "covers": "cover"}
 
 # The answer that argues for "someone new": the user names a value no candidate
 # on record holds. Without it the answer space is closed and the question can

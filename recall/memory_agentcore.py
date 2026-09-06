@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import date
+from datetime import datetime
 
 from recall.state import PersonRecord, as_list
 
@@ -59,7 +59,7 @@ class AgentCoreMemoryStore:
         return None
 
     def upsert(self, record: PersonRecord) -> PersonRecord:
-        today = date.today().isoformat()
+        today = datetime.now().astimezone().date().isoformat()
         rid = record.get("id") or f"p_{uuid.uuid4().hex[:8]}"
         existing = self.get(rid) or {}
 

@@ -12,7 +12,7 @@ gains nothing the camera can see except a URL bar.
 interactive paths actually *pause and ask the clarifying question*. The CLI
 auto-adjudicates, so it cannot show the one thing the demo exists to show.
 
-## Fast path: the three-beat web demo
+## Fast path: the two-beat web demo
 
 Run this from the repository root:
 
@@ -20,18 +20,20 @@ Run this from the repository root:
 uv run demo.py
 ```
 
-It starts the web app with a fresh throwaway graph and prints three files to paste in
+It starts the web app with a throwaway copy of the synthetic seed and prints two files to paste in
 order:
 
-1. `data/memos/day1.txt` — creates the first contact records.
-2. `data/memos/demo_day2.txt` — recognises Wei Lin and adds two Jungle partners.
-3. `data/memos/demo_ask.txt` — pauses on the ambiguous Jungle-partner reference.
+1. `data/memos/demo_recognise.txt` — recognises Wei Lin from an earlier memo.
+2. `data/memos/demo_ask.txt` — pauses on the ambiguous Canopy-partner reference.
 
-For the third memo, show the chosen question, its information-gain value, and the
+For the second memo, show the chosen question, its information-gain value, and the
 rejected alternatives before answering. The reference is ambiguous three ways on
-purpose — Priya from day 1, plus Rachel Sim and Nadia Osman. Two candidates would
+purpose — Priya Nair, Rachel Tan and Nadia Osman. Two candidates would
 make every discriminating question worth identical bits, so all three strategies
 would agree and the selection would have nothing to show.
+
+All identities and Canopy Ventures are synthetic. Public enrichment is disabled by
+the launcher so a fictional person cannot be confused with a real search result.
 
 The script never writes to the normal person graph; closing the web server ends this
 disposable demo session.
@@ -62,8 +64,8 @@ looks exactly like the agent hallucinating a fact you never said.
 uv sync --extra web --extra audio       # web UI + transcription
 ```
 
-`.env` needs `GROQ_API_KEY` (transcription) and `RECALL_MODEL_ID` — both already
-set. The Telegram path needs a bot token; step 2 covers it.
+`.env` needs `RECALL_MODEL_ID`. `GROQ_API_KEY` is required only for voice
+transcription; typed memos work without it. The Telegram path needs a bot token.
 
 ---
 
@@ -81,7 +83,7 @@ uv run web/server.py
 Open <http://localhost:8000>. In the text box (skip recording — typing is fine),
 paste:
 
-> Ran into the partner from Jungle again at the founders thing. She asked how the
+> Ran into the partner from Canopy again at the founder dinner. She asked how the
 > raise is going and wants the updated deck by end of month.
 
 Three things must land:
@@ -90,16 +92,9 @@ Three things must land:
    question with its bits, and the questions it *did not* ask with their measured
    value. This is the money shot.
 2. **The resolution** — after you answer, it drops into the person graph on the
-   right, with the confidence shown.
+   right as Rachel Tan, with the confidence shown. Choose `seed-stage companies`.
 3. **Add to calendar** — the Calendar card shows a link that downloads a real
    `.ics`. Open it; your calendar app should fill in the event.
-
-Then paste the Acacia memo to confirm the *attending* path:
-
-> Going to the Acacia Welcome Night at 18 Sept with Crispy and Kit Yee.
-
-You should get **one** event titled `Acacia Welcome Night` — not a "Follow up
-with…" per person. That is the `kind=attending` behaviour working.
 
 Sanity check in the browser: <http://localhost:8000/healthz> should report
 `"calendar_backend": "ics"`.
@@ -141,7 +136,7 @@ RECALL_CALENDAR_PATH=/tmp/cal.json RECALL_RELATIONS_PATH=/tmp/rel.json \
 uv run telegram_bot.py
 ```
 
-Send a **voice note** with the Jungle line. You should get, in order:
+Send a **voice note** with the Canopy line. You should get, in order:
 
 1. the transcript echoed back (so a misheard name is visible before any tokens
    are spent);
@@ -172,22 +167,21 @@ the only thing keeping the deployment single-tenant. Green means deployable.
 
 ## The recording, start to finish
 
-Build the take around the [demo arc in CLAUDE.md](CLAUDE.md). A clean run:
+Build the take around the [demo arc in CLAUDE.md](../CLAUDE.md). A clean run:
 
-1. Send a messy voice memo naming three people, one ambiguous ("the partner from
-   Jungle").
-2. Show the transcript and the extracted people.
+1. Paste the recognition memo and show Wei Lin update instead of duplicate.
+2. Send a messy voice memo naming one ambiguous person ("the partner from
+   Canopy").
 3. **The agent asks its one question — show the bits, and the questions it did
    not ask.** The money shot.
-4. Tap the answer; show the resolution land.
+4. Tap `seed-stage companies`; show the resolution land as Rachel Tan.
 5. (Optional) A second memo with a plain promise, to show the `.ics` follow-up.
 6. Close on the benchmark table.
 
 The seed (`data/demo_seed.json`) is what makes step 3 possible: on an empty graph
-nothing is ambiguous, so the question never fires. The seeded cast — Priya
-recorded as "Antler or Jungle, wasn't sure" against Rachel Sim who really is at
-Jungle — is what makes "the partner from Jungle" a question the graph honestly
-cannot answer.
+nothing is ambiguous, so the question never fires. The three Canopy partners share
+company, role, event and deck interest; only their focus differs. That makes
+`What do they cover in Singapore?` the unique highest-information question.
 
 ---
 

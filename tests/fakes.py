@@ -41,7 +41,7 @@ class FakeModel:
     def with_structured_output(self, schema: type, **_: Any) -> FakeStructured:
         return FakeStructured(schema, self._scripted)
 
-    def bind_tools(self, *_: Any, **__: Any) -> "FakeModel":
+    def bind_tools(self, *_: Any, **__: Any) -> FakeModel:
         return self
 
     def invoke(self, *_: Any, **__: Any) -> Any:

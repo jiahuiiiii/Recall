@@ -1,11 +1,5 @@
-Quick note from the AI Engineer meetup at Funan. Ran into Wei Lin again, the GIC quant
-infrastructure lead. She had looked at the Kestrel repo and wants two or three candidate
-names for the open role by Friday.
+Quick note from the Canopy founder dinner. I met three partners from the same firm.
 
-I also properly met Rachel Sim from Jungle Ventures. She is a partner focused on seed
-companies in Southeast Asia, and she wants the updated Recall deck once we have cleaned
-it up.
-
-And Nadia Osman, also a partner at Jungle, but she covers enterprise software rather than
-seed. She spent most of the conversation on how we would sell this into banks, and asked
-me to send the deck through her too.
+Priya Nair covers climate technology in Singapore. Rachel Tan covers seed-stage
+companies in Singapore. Nadia Osman covers enterprise software in Singapore.
+They all asked how the raise was going and want the updated Recall deck when it is ready.

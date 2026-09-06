@@ -145,6 +145,8 @@ def test_the_answer_resolves_the_mention_into_a_known_match(asking_graph):
     update = out[0]["ask"]
     assert update["resolution"]["record_id"] == CRI
     assert [m["record_id"] for m in update["known_matches"]] == [CRI]
+    assert update["known_matches"][0]["person"]["name"] == "Crispy"
+    assert "the malaysian girl" in update["known_matches"][0]["person"]["aliases"]
     assert update["new_people"] == []
 
 

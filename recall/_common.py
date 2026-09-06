@@ -21,14 +21,12 @@ from typing import Any
 
 # .env is loaded in recall/__init__.py, which runs before any submodule.
 
-# Sonnet 4.6 through the US cross-region profile is the code default because it
-# is what the hackathon (judges') account can call, and that account's policy
-# allows Bedrock only in the US regions. RECALL_MODEL_ID overrides it -- a
-# personal account usually runs Nova instead, since Anthropic models sit behind
-# a marketplace form there (see README). The published benchmark tables were
-# measured on `global.amazon.nova-2-lite-v1:0`. The variable keeps its
-# historical name; everything reads HAIKU.
-_DEFAULT_HAIKU = "us.anthropic.claude-sonnet-4-6"
+# Nova 2 Lite through the US cross-region profile is the code default because
+# it is callable on the hackathon account and is the same model family the
+# published benchmark and rehearsed demo use. Sonnet 4.6 is callable there too,
+# but its extraction choices changed the demo's candidate graph. The variable
+# keeps its historical name; everything reads HAIKU.
+_DEFAULT_HAIKU = "us.amazon.nova-2-lite-v1:0"
 _DEFAULT_SONNET = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 HAIKU = os.environ.get("RECALL_MODEL_ID", _DEFAULT_HAIKU)
@@ -152,9 +150,12 @@ class UsageLedger:
 
     def report(self) -> str:
         lines = [
-            f"model calls: {self.calls}   "
-            f"in: {self.input_tokens}  out: {self.output_tokens}  "
-            f"cache_read: {self.cache_read_tokens}  cache_write: {self.cache_write_tokens}"
+            (
+                f"model calls: {self.calls}   "
+                f"in: {self.input_tokens}  out: {self.output_tokens}  "
+                f"cache_read: {self.cache_read_tokens}  "
+                f"cache_write: {self.cache_write_tokens}"
+            )
         ]
         unpriced = self.unpriced_models
         if unpriced:
@@ -184,7 +185,7 @@ class UsageCallback:
     ledger on its own.
     """
 
-    def __new__(cls, label: str, model: str):  # noqa: D102
+    def __new__(cls, label: str, model: str):
         from langchain_core.callbacks import BaseCallbackHandler
 
         class _Handler(BaseCallbackHandler):

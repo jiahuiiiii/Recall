@@ -23,7 +23,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from recall._common import cached_system, chat_model
 from recall.memory import get_store
-from recall.state import as_list, ConsolidatedRecord, RecallState
+from recall.state import ConsolidatedRecord, RecallState, as_list
 
 # Below this there is nothing to consolidate, and the call would be pure cost.
 CONSOLIDATE_AFTER_NOTES = 3

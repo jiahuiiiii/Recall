@@ -11,15 +11,15 @@ from recall.nodes.transcribe import transcribe_node
 
 __all__ = [
     "ask_node",
-    "transcribe_node",
-    "extract_people_node",
-    "dedupe_node",
-    "route_after_dedupe",
-    "enrich_node",
-    "merge_node",
-    "commitments_node",
-    "drafter_node",
     "calendar_node",
+    "commitments_node",
+    "dedupe_node",
+    "drafter_node",
+    "enrich_node",
+    "extract_people_node",
+    "merge_node",
     "persist_node",
+    "route_after_dedupe",
     "summarize_node",
+    "transcribe_node",
 ]

@@ -21,10 +21,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from eval.harness import fresh_store_path, load_scenarios  # noqa: E402
-from eval.metrics import summarise  # noqa: E402
-from eval.strategies import MAX_QUESTIONS, build_hypotheses, play  # noqa: E402
-from recall.text import overlap_ratio, tokens  # noqa: E402
+from eval.harness import fresh_store_path, load_scenarios
+from eval.metrics import summarise
+from eval.strategies import MAX_QUESTIONS, build_hypotheses, play
+from recall.text import overlap_ratio, tokens
 
 STRATEGIES = ["eig", "uncertainty", "random"]
 

@@ -9,12 +9,13 @@ stage.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from recall._common import cached_system, chat_model
 from recall.state import CommitmentExtraction, DraftBundle, RecallState
+from recall.text import tokens
 
 COMMITMENT_SYSTEM = """You extract things worth putting on a calendar from a voice \
 memo recorded after a networking event.
@@ -88,7 +89,7 @@ def commitments_node(state: RecallState) -> dict:
             SystemMessage(content=cached_system(COMMITMENT_SYSTEM)),
             HumanMessage(
                 content=(
-                    f"TODAY'S DATE: {date.today().isoformat()}\n"
+                    f"TODAY'S DATE: {datetime.now().astimezone().date().isoformat()}\n"
                     f"PEOPLE IN THIS MEMO: {names}\n\n"
                     f"TRANSCRIPT:\n{transcript}"
                 )
@@ -96,10 +97,40 @@ def commitments_node(state: RecallState) -> dict:
         ]
     )
     commitments = _collapse_attending([c.model_dump() for c in result.commitments])
+    commitments = _canonicalize_answered_person(commitments, state.get("resolution"))
     return {
         "commitments": commitments,
         "messages": [AIMessage(content=f"Found {len(commitments)} commitments.")],
     }
+
+
+def _canonicalize_answered_person(
+    commitments: list[dict], resolution: dict | None
+) -> list[dict]:
+    """Use the resolved contact name for promises made to an ambiguous mention.
+
+    Commitment extraction reads the original transcript, so it naturally emits
+    "the Canopy partner" even after the question established that this was
+    Rachel Tan. Only rewrite an exact content-word match to that one answered
+    mention; broader fuzzy replacement could rename an unrelated commitment.
+    """
+    if not resolution or not resolution.get("record_id"):
+        return commitments
+    mention = tokens(str(resolution.get("mention") or ""))
+    canonical = str(resolution.get("name") or "").strip()
+    if not mention or not canonical:
+        return commitments
+
+    out = []
+    for commitment in commitments:
+        item = dict(commitment)
+        if (
+            item.get("kind", "followup") == "followup"
+            and tokens(str(item.get("person_name") or "")) == mention
+        ):
+            item["person_name"] = canonical
+        out.append(item)
+    return out
 
 
 def _collapse_attending(commitments: list[dict]) -> list[dict]:

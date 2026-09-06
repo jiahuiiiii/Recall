@@ -39,8 +39,8 @@ Hard rules, each with a section in CLAUDE.md that explains why:
   paths for any throwaway run. This has gone wrong twice and it looks like the model
   hallucinating facts the user never said.
 - **`uv`, never bare pip.** `uv sync`, `uv run <script>`.
-- **Run `uv run pytest tests/ -q` before anything that spends AWS money.** 312 tests,
-  offline, no credentials.
+- **Run `uv run pytest tests/ -q` before anything that spends AWS money.** The full suite
+  is offline and needs no credentials; CLAUDE.md carries the current count.
 - **Default to no on new features.** See *Non-goals* — no facial recognition, no
   auto-sending, no new calendar/email/LinkedIn work, and do not extend the frozen
   enrichment/drafts/calendar tail.

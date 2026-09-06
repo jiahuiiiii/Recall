@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -21,7 +22,12 @@ def main(argv: list[str]) -> int:
     args = [a for a in argv if not a.startswith("--")]
 
     if "--reset" in argv:
-        for path in (Path("data/person_graph.json"), Path("data/calendar.json")):
+        paths = (
+            Path(os.environ.get("RECALL_STORE_PATH", "data/person_graph.json")),
+            Path(os.environ.get("RECALL_CALENDAR_PATH", "data/calendar.json")),
+            Path(os.environ.get("RECALL_RELATIONS_PATH", "data/relations.json")),
+        )
+        for path in paths:
             if path.exists():
                 path.unlink()
                 print(f"removed {path}")

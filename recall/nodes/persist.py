@@ -10,7 +10,7 @@ from __future__ import annotations
 from langchain_core.messages import AIMessage
 
 from recall.memory import get_store
-from recall.state import as_list, RecallState
+from recall.state import RecallState, as_list
 
 
 def persist_node(state: RecallState) -> dict:

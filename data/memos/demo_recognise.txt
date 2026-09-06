@@ -1,0 +1,3 @@
+Quick note after the infrastructure roundtable. I ran into Wei Lin from GIC again.
+She remembered our conversation about backfills, and we compared notes on feature-store
+reliability. No follow-up this time; it was simply useful to catch up.

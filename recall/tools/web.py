@@ -157,7 +157,7 @@ def _duckduckgo(query: str) -> str:
     blocks = re.findall(
         r'<a rel="nofollow" class="result__a" href="(.*?)".*?>(.*?)</a>(.*?)(?=<a rel="nofollow"|</div>\s*</div>\s*</div>)',
         resp.text,
-        re.S,
+        re.DOTALL,
     )
     for href, title, tail in blocks:
         snippet = _strip_tags(tail)

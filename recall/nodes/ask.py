@@ -27,7 +27,7 @@ from recall.answer import resolve_with_answer
 from recall.eig import Hypothesis, entropy, normalise, rank_questions
 from recall.memory import get_store
 from recall.questions import derive, needs_model
-from recall.state import RecallState, is_interactive
+from recall.state import RecallState, as_list, is_interactive
 
 # Softmax temperature turning resolver scores into a prior. Around 1.0 a
 # one-point score gap becomes a clear favourite; much lower and near-ties look
@@ -247,9 +247,16 @@ def _place(state: RecallState, ambiguous: list[dict], asked: dict | None,
 def _match_from(entry: dict, resolution) -> dict:
     """A `KnownMatch` built from the human's answer rather than a model's guess."""
     fallback = entry.get("fallback") or {}
+    person = dict(entry.get("person", {}))
+    mention = str(person.get("name") or "").strip()
+    aliases = as_list(person.get("aliases"))
+    if mention and mention.casefold() != resolution.name.casefold() and mention not in aliases:
+        aliases.append(mention)
+    person["name"] = resolution.name
+    person["aliases"] = aliases
     return {
         **fallback,
-        "person": entry.get("person", {}),
+        "person": person,
         "record_id": resolution.record_id,
         "confidence": resolution.confidence,
         "reasoning": f'answered "{resolution.answer}" to the clarifying question',

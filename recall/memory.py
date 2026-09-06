@@ -13,13 +13,15 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import date
+from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Protocol
+from typing import Protocol
 
 from recall.contacts import as_contacts
 from recall.state import PersonRecord, as_list
-from recall.text import match_strength as _match_strength, tokens as _tokens
+from recall.text import match_strength as _match_strength
+from recall.text import tokens as _tokens
 
 # A query token must match something at least this well before a record is even
 # considered a candidate. One contained match (0.75) clears it; incidental
@@ -167,7 +169,7 @@ class LocalPersonStore:
         return self._records.get(record_id)
 
     def upsert(self, record: PersonRecord) -> PersonRecord:
-        today = date.today().isoformat()
+        today = datetime.now().astimezone().date().isoformat()
         rid = record.get("id") or f"p_{uuid.uuid4().hex[:8]}"
         existing = self._records.get(rid, {})
         merged: PersonRecord = {**existing, **{k: v for k, v in record.items() if v is not None}}
@@ -209,7 +211,7 @@ class LocalPersonStore:
         rid = record.get("id")
         if not rid or rid not in self._records:
             raise KeyError(f"cannot replace unknown record {rid!r}")
-        today = date.today().isoformat()
+        today = datetime.now().astimezone().date().isoformat()
         merged: PersonRecord = {**record, "id": rid}
         # `replace` is an edit, never an occasion, so the count neither rises nor
         # resets. A caller that round-trips the record keeps its own value; one
@@ -276,7 +278,8 @@ class LocalPersonStore:
                 merged[field] = pick(vals)
         merged["note_log"] = _log_notes(
             (tgt.get("note_log") or []) + (src.get("note_log") or []),
-            merged["notes"], merged.get("last_seen") or date.today().isoformat(),
+            merged["notes"],
+            merged.get("last_seen") or datetime.now().astimezone().date().isoformat(),
         )
         # Both records were the same human all along, so both records' occasions
         # were occasions with them. Defaults to 1 apiece for records written
@@ -307,7 +310,10 @@ class LocalPersonStore:
         try:
             path = self.path.with_name(self.path.stem + ".trash.json")
             old = json.loads(path.read_text()) if path.exists() else []
-            old.append({"discarded_at": date.today().isoformat(), "record": record})
+            old.append({
+                "discarded_at": datetime.now().astimezone().date().isoformat(),
+                "record": record,
+            })
             path.write_text(json.dumps(old, indent=2))
         except OSError:
             pass

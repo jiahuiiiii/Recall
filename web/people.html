@@ -14,9 +14,18 @@ try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")|
 .pagewrap{max-width:1180px;margin:0 auto;padding:0 0 60px}
 .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:0 0 16px}
 .toolbar .ctl{width:auto}
+/* ...but not a wrapped select: `.selwrap` is the sizing authority there (it
+   draws the box and positions the chevron), so the select has to fill it
+   exactly or the chevron detaches from the field. Needs to outrank the
+   `width:auto` above, hence the longer selector. */
+.toolbar .selwrap .ctl{width:100%}
 .toolbar input.ctl{flex:1 1 240px}
 .toolbar .selwrap{flex:0 1 210px}
 .allgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:10px}
+/* 268px does not fit a 320px phone once the body and .block padding are
+   taken out (266px left), and the track overflows rather than wrapping.
+   One column below that -- auto-fill cannot go narrower than its min. */
+@media (max-width:460px){.allgrid{grid-template-columns:1fr}}
 .tagrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--muted);background:var(--sunk);border:1px solid transparent;
@@ -43,10 +52,11 @@ try{document.documentElement.dataset.theme=localStorage.getItem("recall-theme")|
     <button id="theme" class="theme" type="button" aria-label="Switch theme">☀ Light mode</button>
 </div>
   <div class="block">
-    <p class="lab">The person graph
-      <span id="pcount" style="letter-spacing:0;text-transform:none"></span>
-      <a class="backlink" href="/graph" style="margin-left:auto">Connections ›</a>
-      <a class="backlink" href="/" style="margin-left:14px">‹ Back to the memo</a></p>
+    <p class="lab"><span class="labname">The person graph
+        <span id="pcount" style="letter-spacing:0;text-transform:none"></span></span>
+      <span class="labnav">
+        <a class="backlink" href="/graph">Connections ›</a>
+        <a class="backlink" href="/">‹ Back to the memo</a></span></p>
     <div class="toolbar">
       <input class="ctl" id="pq" type="search" placeholder="Filter by name, tag, note or place…"
              aria-label="Filter people">

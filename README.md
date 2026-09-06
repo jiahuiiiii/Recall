@@ -87,7 +87,7 @@ uv run web/server.py
 ```
 
 Open `http://localhost:8000`, record or type a memo, check the transcript, then run it.
-For the guided three-memo demo on a throwaway graph, run `uv run demo.py` instead.
+For the guided two-memo demo on a throwaway graph, run `uv run demo.py` instead.
 
 For a terminal demo:
 
@@ -106,7 +106,7 @@ use and prints the fix for that style if anything fails.
 | --- | --- | --- |
 | Sign in | `aws sso login --profile <name>` and set `AWS_PROFILE=<name>`, **or** paste the three temporary keys from the AWS access portal (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`). They expire after a few hours. | `aws configure` with an IAM access key; the user needs `AmazonBedrockFullAccess`. IAM keys do not expire automatically. |
 | `AWS_REGION` | `us-east-1` — the organisation policy denies every model in `ap-southeast-1` | whatever your account uses; `ap-southeast-1` works |
-| `RECALL_MODEL_ID` | `us.anthropic.claude-sonnet-4-6` (the `.env.example` default); `us.amazon.nova-2-lite-v1:0` also works | `global.amazon.nova-2-lite-v1:0` — Anthropic models are usually gated behind a marketplace form on personal accounts |
+| `RECALL_MODEL_ID` | `us.amazon.nova-2-lite-v1:0` (the `.env.example` default and rehearsed demo model); Sonnet 4.6 is callable but produces different extraction choices | `global.amazon.nova-2-lite-v1:0` — Anthropic models are usually gated behind a marketplace form on personal accounts |
 
 The published benchmark numbers were measured on Nova 2 Lite. The pipeline is
 model-agnostic, but reproducing the tables exactly means running on that model.
@@ -135,15 +135,16 @@ uv sync --extra audio --extra web
 uv run web/server.py
 ```
 
-For the recorded three-beat demo—create contacts, recognise Wei Lin, then pause on an
-EIG-selected Jungle-partner question—run:
+For the recorded two-beat demo—recognise Wei Lin from the synthetic seed, then pause on
+an EIG-selected Canopy-partner question—run:
 
 ```bash
 uv run demo.py
 ```
 
-It starts the web app with a fresh throwaway graph and prints the three memo files to
-paste in order. Nothing is written to your normal contact data.
+It starts the web app with a throwaway copy of the synthetic seed and prints the two memo
+files to paste in order. Public enrichment is disabled for this demo, and nothing is
+written to your normal contact data.
 
 ### Command line
 
@@ -188,12 +189,12 @@ store to untrusted Telegram chats.
 
 ## What a judge can verify
 
-1. **Memory across time.** Run the two supplied demo memos in order. The second memo
-   should recognise people recorded by the first, rather than creating new contacts.
+1. **Memory across time and real uncertainty.** Start the isolated guided demo. Its first
+   memo recognises Wei Lin from earlier memory; its second pauses between three synthetic
+   Canopy partners.
 
    ```bash
-   uv run run_demo.py --reset data/memos/day1.txt
-   uv run run_demo.py data/memos/day2.txt
+   uv run demo.py
    ```
 
 2. **Real uncertainty.** The graph holds the selected ambiguous reference for a human
@@ -261,7 +262,7 @@ treats corrupt output as an empty memo or invents a partial contact.
 Run the checks and benchmarks yourself:
 
 ```bash
-uv run pytest tests/ -q                 # 419 offline tests; no model calls
+uv run pytest tests/ -q                 # 428 offline tests; no model calls
 uv run eval/check_fixtures.py           # fixture validation; no model calls
 uv run eval/run_eval.py --repeats 3      # the 11-scenario table above; uses Bedrock
 uv run eval/run_questions.py --repeats 3  # the EIG comparison above; uses Bedrock
@@ -429,7 +430,7 @@ tests/                  offline, no credentials, no spend
 data/                   gitignored: your real person graph, memos, audio
 ```
 
-Root scripts are entry points and preflights: `demo.py` (guided three-memo demo),
+Root scripts are entry points and preflights: `demo.py` (guided two-memo demo),
 `run_demo.py` (one memo from the CLI), `seed_demo.py`, `telegram_bot.py`, and the
 numbered `00_check_*` / `0N_*` scripts for credential, calendar, and deployment checks.
 
